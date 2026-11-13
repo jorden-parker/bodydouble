@@ -113,6 +113,12 @@ describe("ConversationPanel", () => {
     expect(onOpen).toHaveBeenCalledWith({ path: "a.ts", line: 3 });
   });
 
+  it("shows each thread as a comment bubble with its line and time", () => {
+    renderPanel({ comments: [comment({ id: 1, author: "lena-m" })] });
+    expect(screen.getByText("lena-m")).toBeTruthy();
+    expect(screen.getByText("on line 3")).toBeTruthy();
+  });
+
   it("shows the text of each reply under its thread, oldest first", () => {
     renderPanel({
       comments: [

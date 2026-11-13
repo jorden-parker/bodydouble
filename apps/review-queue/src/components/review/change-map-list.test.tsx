@@ -157,6 +157,18 @@ describe("ChangeMapList", () => {
     expect(container.querySelectorAll('[data-map-line="trunk"]').length).toBeGreaterThan(0);
   });
 
+  it("heads the map with how many parts are seen", () => {
+    const sections = [
+      { ...THREAD, readCount: 3, total: 3 },
+      { ...THREAD, id: "other.ts#run", title: "run", readCount: 0, total: 2 },
+    ];
+    render(<ChangeMapList sections={sections} onOpen={vi.fn()} />);
+    expect(screen.getByText("1 of 2 parts seen")).toBeTruthy();
+    const bar = screen.getByRole("progressbar", { name: "Parts seen" });
+    expect(bar.getAttribute("aria-valuenow")).toBe("1");
+    expect(bar.getAttribute("aria-valuemax")).toBe("2");
+  });
+
   it("shows how much of each thread is read", () => {
     renderList([THREAD]);
     expect(screen.getByText("1 of 3 read")).toBeTruthy();

@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
-import { Caveat, Geist, Geist_Mono } from "next/font/google";
-import { SiteHeader } from "@/components/layout/site-header";
+import { Atkinson_Hyperlegible, Fredoka, JetBrains_Mono } from "next/font/google";
+import { AppBar } from "@/components/neon/app-bar";
 import "./globals.css";
 
-const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
-const caveat = Caveat({ subsets: ["latin"], variable: "--font-caveat" });
+const fredoka = Fredoka({ subsets: ["latin"], variable: "--font-display-face" });
+const atkinson = Atkinson_Hyperlegible({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-sans-face",
+});
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono-face" });
 
 export const metadata: Metadata = {
   title: "Tally",
@@ -14,9 +18,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable}`}>
-      <body className="min-h-screen">
-        <SiteHeader />
+    <html
+      lang="en"
+      className={`${fredoka.variable} ${atkinson.variable} ${jetbrainsMono.variable}`}
+    >
+      <body className="app">
+        <AppBar />
         {children}
       </body>
     </html>

@@ -1,0 +1,47 @@
+.dashboard-panels[data-mode="spread"] .panels__body {
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  grid-template-rows: max-content minmax(max-content, 1fr);
+}
+.dashboard-panels[data-mode="paged"] .panels__body {
+  grid-template-rows: minmax(max-content, 1fr);
+}
+.dashboard-panels[data-mode="spread"] .dashboard-overview {
+  grid-column: 1;
+  grid-row: 1;
+}
+.dashboard-panels[data-mode="spread"] .dashboard-chart {
+  grid-column: 1;
+  grid-row: 2;
+}
+.dashboard-panels[data-mode="spread"] .dashboard-tickets {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+.dashboard-panels[data-mode="spread"] .dashboard-notices {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+.dashboard-panels[data-mode="spread"]:has(.dashboard-notices) .panels__body {
+  grid-template-rows: max-content max-content minmax(max-content, 1fr);
+  row-gap: 12px;
+}
+.dashboard-panels[data-mode="spread"]:has(.dashboard-notices) .dashboard-overview {
+  grid-row: 2;
+}
+.dashboard-panels[data-mode="spread"]:has(.dashboard-notices) .dashboard-chart {
+  grid-row: 3;
+}
+.dashboard-panels[data-mode="spread"]:has(.dashboard-notices) .dashboard-tickets {
+  grid-row: 2 / span 2;
+}
+.dashboard-panels[data-mode="spread"] .dashboard-notices {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.dashboard-panels[data-mode="spread"] .dashboard-notices [role="alert"] {
+  width: auto;
+  max-width: none;
+}

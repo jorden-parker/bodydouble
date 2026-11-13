@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { FIXED_NOW, fakeApi, makeSettings, makeSummary } from "@/test/fake-api";
@@ -13,15 +13,33 @@ describe("Dashboard", () => {
 
     expect(await screen.findByRole("img", { name: "7 PRs reviewed" })).toBeDefined();
     expect(screen.getByRole("article", { name: "sc-31" })).toBeDefined();
-    expect(screen.getByRole("region", { name: "Open PRs without a ticket" })).toBeDefined();
+    expect(screen.getByRole("region", { name: "Your Tickets" })).toBeDefined();
+    expect(screen.getByRole("region", { name: "Open PRs Without a Ticket" })).toBeDefined();
     expect(screen.getByRole("region", { name: "Reviewing" })).toBeDefined();
-    expect(screen.getByRole("region", { name: "Completed this week" })).toBeDefined();
-    expect(screen.getByRole("region", { name: "Daily activity" })).toBeDefined();
+    expect(screen.getByRole("region", { name: "Completed This Week" })).toBeDefined();
+    expect(screen.getByRole("region", { name: "The Last Four Weeks, in Scribbles" })).toBeDefined();
     expect(screen.queryByText("PRs reviewed", { selector: "h3" })).toBeNull();
     expect(screen.getByRole("button", { name: "This week" }).getAttribute("aria-pressed")).toBe(
       "true",
     );
     expect(screen.getByText("Synced 5 minutes ago")).toBeDefined();
+  });
+
+  it("greets with the tally headline", async () => {
+    render(<Dashboard api={fakeApi()} now={now} />);
+
+    const heading = await screen.findByRole("heading", {
+      level: 1,
+      name: "Hey There. Here's Your Tally.",
+    });
+    expect(heading.querySelector("span")?.className).toContain("text-neon-tally");
+  });
+
+  it("ends the overview with an encouraging note beside a tally mark", async () => {
+    render(<Dashboard api={fakeApi()} now={now} />);
+
+    const note = await screen.findByText("Tiny scribbles still add up. Go easy on yourself today.");
+    expect(note.querySelector("svg.tally-mark")).not.toBeNull();
   });
 
   it("loads the chosen range", async () => {
@@ -91,6 +109,30 @@ describe("Dashboard", () => {
 
     const link = await screen.findByRole("link", { name: "Choose them in settings" });
     expect(link.getAttribute("href")).toBe("/settings");
+  });
+
+  it("keeps the setup note and problems in a first Notices panel", async () => {
+    const fetchSettings = async () => makeSettings({ allowList: [] });
+    const runSync = vi.fn(async () => ({
+      errors: { github: "gh exploded" },
+      uncountedReviewRepos: [],
+    }));
+    render(<Dashboard api={fakeApi({ fetchSettings, runSync })} now={now} />);
+    await screen.findByRole("img", { name: "7 PRs reviewed" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Sync now" }));
+
+    const notices = await screen.findByRole("region", { name: "Notices" });
+    expect(within(notices).getByText(/No GitHub orgs or repos are counted yet/)).toBeDefined();
+    expect(within(notices).getByRole("alert").textContent).toContain("GitHub: gh exploded");
+    expect(screen.getByRole("region", { name: "Overview" })).toBeDefined();
+  });
+
+  it("has no Notices panel when there is nothing to say", async () => {
+    render(<Dashboard api={fakeApi()} now={now} />);
+
+    await screen.findByRole("img", { name: "7 PRs reviewed" });
+    expect(screen.queryByRole("region", { name: "Notices" })).toBeNull();
   });
 
   it("shows a playful note while the summary loads", async () => {

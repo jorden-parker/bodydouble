@@ -61,6 +61,7 @@ export function ChangeMapList({ sections, onOpen, parts, listRef }: ChangeMapLis
     setCollapsed((current) => withMembership(current, id, !open));
   return (
     <div className="flex flex-col gap-4">
+      <PartsProgress sections={sections} />
       <MapToolbar filters={filters} onChange={setFilters} canHideIncidental={parts !== undefined} />
       <div
         ref={listRef}
@@ -77,6 +78,38 @@ export function ChangeMapList({ sections, onOpen, parts, listRef }: ChangeMapLis
             stop={{ onOpen, parts, highlightedId, onHighlight: setHighlightedId }}
           />
         ))}
+      </div>
+    </div>
+  );
+}
+
+function isSeen(section: MapSection): boolean {
+  return section.total > 0 && section.readCount === section.total;
+}
+
+function PartsProgress({ sections }: { sections: MapSection[] }) {
+  const seenCount = sections.filter(isSeen).length;
+  const percent = Math.round((seenCount / sections.length) * 100);
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-display text-lg font-semibold text-fg">Parts of This Change</h2>
+        <span className="text-sm font-bold text-fg-muted tabular-nums">
+          {seenCount} of {sections.length} parts seen
+        </span>
+      </div>
+      <div
+        role="progressbar"
+        aria-label="Parts seen"
+        aria-valuemin={0}
+        aria-valuemax={sections.length}
+        aria-valuenow={seenCount}
+        className="h-2 overflow-hidden rounded-pill bg-surface-3"
+      >
+        <div
+          className="h-full rounded-pill bg-neon-mint transition-[width] duration-calm motion-reduce:transition-none"
+          style={{ width: `${percent}%` }}
+        />
       </div>
     </div>
   );
@@ -173,8 +206,14 @@ function MapThread({
   const linked = new Set(
     section.rows.find((row) => row.node.id === stop.highlightedId)?.linkedIds ?? [],
   );
+  const hasCurrent = section.rows.some((row) => row.current);
   return (
-    <section className="flex flex-col gap-1">
+    <section
+      className={cn(
+        "flex flex-col gap-1 rounded-xl border p-3 transition-colors duration-calm motion-reduce:transition-none",
+        hasCurrent ? "border-neon-blue/55 bg-surface-2 shadow-glow-blue" : "border-line-soft",
+      )}
+    >
       <ThreadHeader section={section} open={open} onToggle={onToggle} />
       {open ? (
         <ThreadStops rows={rows} connected={section.connected} linked={linked} stop={stop} />
@@ -192,7 +231,7 @@ function ThreadHeader({
   open: boolean;
   onToggle: () => void;
 }) {
-  const finished = section.readCount === section.total;
+  const finished = isSeen(section);
   return (
     <div className="flex items-baseline justify-between gap-3">
       <h3 className="min-w-0 font-medium text-sm">
@@ -214,7 +253,15 @@ function ThreadHeader({
         </button>
       </h3>
       <span className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground tabular-nums">
-        {finished ? <Check aria-hidden className="size-3.5 text-primary" /> : null}
+        <span
+          aria-hidden
+          className={cn(
+            "grid size-6 place-items-center rounded-full border-2",
+            finished ? "border-ink-mint bg-tint-mint text-ink-mint" : "border-line",
+          )}
+        >
+          {finished ? <Check className="size-3.5" /> : null}
+        </span>
         {section.readCount} of {section.total} read
       </span>
     </div>
@@ -273,7 +320,11 @@ function MapStop({
   return (
     <PaneRow
       active={row.current}
-      className={cn("relative", isMuted(row, part, linked) && "text-muted-foreground")}
+      className={cn(
+        "relative",
+        isMuted(row, part, linked) && "text-muted-foreground",
+        row.current && "ring-2 ring-neon-blue/55 shadow-glow-blue",
+      )}
     >
       {trunk ? (
         <span
@@ -389,9 +440,9 @@ function StationMark({
 }
 
 function stationColour(row: MapRow): string {
-  if (row.current) return "border-marker bg-background ring-2 ring-marker/40";
-  if (row.done) return "border-primary bg-primary";
-  return "border-muted-foreground/60 bg-background";
+  if (row.current) return "border-neon-blue bg-surface ring-2 ring-neon-blue/40";
+  if (row.done) return "border-ink-mint bg-tint-mint";
+  return "border-fg-faint bg-surface";
 }
 
 function StopHeading({ row }: { row: MapRow }) {
@@ -400,7 +451,9 @@ function StopHeading({ row }: { row: MapRow }) {
       {row.kind === "test" ? (
         <span className="text-sm text-muted-foreground">tested by</span>
       ) : null}
-      <span className="wrap-anywhere font-mono text-sm">{row.node.name ?? "file changes"}</span>
+      <span className="min-w-0 truncate font-mono text-sm" title={row.node.name ?? "file changes"}>
+        {row.node.name ?? "file changes"}
+      </span>
       {row.showRole ? (
         <Badge variant="outline" className="h-auto whitespace-normal wrap-anywhere">
           {row.node.role}

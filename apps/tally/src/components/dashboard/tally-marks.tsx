@@ -1,3 +1,5 @@
+import { useId } from "react";
+import { cn } from "cn";
 import { tallyGroups } from "./format";
 
 const HEIGHT = 32;
@@ -20,7 +22,7 @@ const JITTER = [
   { lean: 1, top: -0.2, bottom: 0.5 },
 ];
 
-type TallyMarksProps = { count: number; label: string };
+type TallyMarksProps = { count: number; label: string; className?: string };
 
 type Point = { x: number; y: number };
 
@@ -77,10 +79,11 @@ function Group({ index }: { index: number }) {
   );
 }
 
-export function TallyMarks({ count, label }: TallyMarksProps) {
+export function TallyMarks({ count, label, className }: TallyMarksProps) {
   const { groups, remainder, overflow } = tallyGroups(count);
   const remainderLeft = groups * (GROUP_WIDTH + GROUP_GAP);
   const width = remainderLeft + (remainder > 0 ? remainder * MARK_SPACING + MARK_INSET : 0);
+  const gradientId = `tally-marks-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
 
   return (
     <span className="inline-flex items-end gap-3">
@@ -90,12 +93,25 @@ export function TallyMarks({ count, label }: TallyMarksProps) {
         width={Math.max(width, 1)}
         height={HEIGHT}
         viewBox={`0 0 ${Math.max(width, 1)} ${HEIGHT}`}
-        className="overflow-visible text-reviewed"
+        className={cn("tally-mark overflow-visible", className)}
         fill="none"
-        stroke="currentColor"
+        stroke={`url(#${gradientId})`}
         strokeWidth={STROKE_WIDTH}
         strokeLinecap="round"
       >
+        <defs>
+          <linearGradient
+            id={gradientId}
+            gradientUnits="userSpaceOnUse"
+            x1="0"
+            x2={Math.max(width, 1)}
+            y1="0"
+            y2="0"
+          >
+            <stop offset="0" style={{ stopColor: "var(--neon-pink)" }} />
+            <stop offset="1" style={{ stopColor: "var(--neon-amber)" }} />
+          </linearGradient>
+        </defs>
         {Array.from({ length: groups }, (_, index) => (
           <Group key={index} index={index} />
         ))}

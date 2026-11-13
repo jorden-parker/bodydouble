@@ -7,6 +7,18 @@ export const RANGE_LABELS: Record<Range, string> = {
   "30d": "Last 30 days",
 };
 
+export const RANGE_HEADINGS: Record<Range, string> = {
+  day: "Today",
+  week: "This Week",
+  "30d": "Last 30 Days",
+};
+
+export const RANGE_UNITS: Record<Range, string> = {
+  day: "today",
+  week: "this week",
+  "30d": "in the last 30 days",
+};
+
 const COMPARISON_LABELS: Record<Range, string> = {
   day: "yesterday",
   week: "this point last week",

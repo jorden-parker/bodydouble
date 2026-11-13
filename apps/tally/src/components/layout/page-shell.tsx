@@ -3,7 +3,7 @@ import { cn } from "cn";
 import { Alert } from "@/components/ui/alert";
 
 type PageShellProps = {
-  title: string;
+  title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
@@ -11,20 +11,17 @@ type PageShellProps = {
 
 export function PageShell({ title, description, actions, children }: PageShellProps) {
   return (
-    <main>
-      <section className="relative border-b bg-muted">
-        <div aria-hidden="true" className="dot-grid absolute inset-0" />
-        <div className="relative mx-auto flex max-w-6xl flex-wrap items-end justify-between gap-6 px-4 py-10 sm:px-6">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>
-            {description ? <div className="text-muted-foreground">{description}</div> : null}
-          </div>
-          {actions ? <div className="flex flex-wrap items-center gap-3">{actions}</div> : null}
+    <main className="app-main">
+      <header className="flex flex-none flex-wrap items-end justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+            {title}
+          </h1>
+          {description ? <div className="text-muted-foreground">{description}</div> : null}
         </div>
-      </section>
-      <div className="mx-auto flex max-w-6xl flex-col gap-14 px-4 pt-10 pb-28 sm:px-6">
-        {children}
-      </div>
+        {actions ? <div className="flex flex-wrap items-center gap-3">{actions}</div> : null}
+      </header>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
     </main>
   );
 }

@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { ReviewRequest } from "@/lib/github/gh";
 import type { ProgressSummary } from "@/lib/session/store";
-import { movedSinceVisit, orderQueue } from "./queue";
+import { initialsOf, movedSinceVisit, orderQueue } from "./queue";
+
+describe("initialsOf", () => {
+  it("takes the first letter of the first two words of a login", () => {
+    expect(initialsOf("maya-k")).toBe("MK");
+  });
+
+  it("takes the first two letters of a single-word login", () => {
+    expect(initialsOf("sam")).toBe("SA");
+  });
+});
 
 const SEEN_AT = "2026-10-26T09:00:00.000Z";
 const LATER = "2026-10-26T11:00:00.000Z";

@@ -14,15 +14,16 @@ describe("StatLedger", () => {
 
     expect(screen.getByRole("img", { name: "7 PRs reviewed" })).toBeDefined();
     expect(screen.getByText("3 more than this point last week")).toBeDefined();
+    expect(screen.getByRole("heading", { name: "PRs Reviewed" })).toBeDefined();
   });
 
   it("shows each period figure with its comparison", () => {
     render(<StatLedger summary={makeSummary({ range: "day" })} />);
 
-    expect(within(figure("PRs created")).getByText("3")).toBeDefined();
-    expect(within(figure("PRs created")).getByText("same as yesterday")).toBeDefined();
-    expect(within(figure("PRs merged")).getByText("2 more than yesterday")).toBeDefined();
-    expect(within(figure("Tickets completed")).getByText("1 fewer than yesterday")).toBeDefined();
+    expect(within(figure("PRs Created")).getByText("3")).toBeDefined();
+    expect(within(figure("PRs Created")).getByText("same as yesterday")).toBeDefined();
+    expect(within(figure("PRs Merged")).getByText("2 more than yesterday")).toBeDefined();
+    expect(within(figure("Tickets Completed")).getByText("1 fewer than yesterday")).toBeDefined();
   });
 
   it("no longer shows the point-in-time figures", () => {

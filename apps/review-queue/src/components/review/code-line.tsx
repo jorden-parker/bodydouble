@@ -44,8 +44,8 @@ type CodeLineProps = {
 };
 
 const ROW_STYLES = {
-  add: "bg-add",
-  del: "bg-del",
+  add: "bg-tint-mint",
+  del: "bg-tint-coral",
   context: "group-hover:bg-muted/60",
 };
 const LANDED_LINE =

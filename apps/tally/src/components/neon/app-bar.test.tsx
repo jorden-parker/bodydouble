@@ -5,14 +5,14 @@ const pathname = vi.hoisted(() => ({ current: "/" }));
 
 vi.mock("next/navigation", () => ({ usePathname: () => pathname.current }));
 
-import { SiteHeader } from "./site-header";
+import { AppBar } from "./app-bar";
 
-describe("SiteHeader", () => {
+describe("AppBar", () => {
   it("links to every page", () => {
-    render(<SiteHeader />);
+    render(<AppBar />);
 
     const hrefs = Object.fromEntries(
-      ["Dashboard", "Tickets", "Work log", "Settings"].map((name) => [
+      ["Dashboard", "Tickets", "Work Log", "Settings"].map((name) => [
         name,
         screen.getByRole("link", { name }).getAttribute("href"),
       ]),
@@ -20,25 +20,28 @@ describe("SiteHeader", () => {
     expect(hrefs).toEqual({
       Dashboard: "/",
       Tickets: "/tickets",
-      "Work log": "/work",
+      "Work Log": "/work",
       Settings: "/settings",
     });
   });
 
   it("marks the current page", () => {
     pathname.current = "/work";
-    render(<SiteHeader />);
+    render(<AppBar />);
 
-    expect(screen.getByRole("link", { name: "Work log" }).getAttribute("aria-current")).toBe(
+    expect(screen.getByRole("link", { name: "Work Log" }).getAttribute("aria-current")).toBe(
       "page",
     );
     expect(screen.getByRole("link", { name: "Dashboard" }).getAttribute("aria-current")).toBeNull();
   });
 
-  it("names the app with a link home", () => {
+  it("names the app with a link home and the gradient brand", () => {
     pathname.current = "/settings";
-    render(<SiteHeader />);
+    const { container } = render(<AppBar />);
 
-    expect(screen.getByRole("link", { name: "Tally home" }).getAttribute("href")).toBe("/");
+    const home = screen.getByRole("link", { name: "Tally home" });
+    expect(home.getAttribute("href")).toBe("/");
+    expect(home.querySelector(".text-neon-tally")?.textContent).toBe("Tally");
+    expect(container.querySelector("header")).not.toBeNull();
   });
 });

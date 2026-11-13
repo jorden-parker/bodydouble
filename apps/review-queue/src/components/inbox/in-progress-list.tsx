@@ -1,9 +1,11 @@
-import { Archive, ExternalLink } from "lucide-react";
+import { Archive, ArrowRight, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode, RefObject } from "react";
 import { HintButton } from "@/components/common/hint-button";
 import { InlineMarkdown } from "@/components/common/markdown-text";
+import { Stream } from "@/components/neon/stream";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { gitHubPullRequestUrl, parsePullRequestRef, prKey, prPath } from "@/lib/pr-ref";
 import type { InProgressSession } from "@/lib/session/store";
 
@@ -24,35 +26,33 @@ export function InProgressRow({
   const ref = parsePullRequestRef(session.key);
   const body = (
     <>
-      <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="font-bold">
+      <span className="flex min-w-0 flex-1 flex-col gap-s-1">
+        <span className="font-display font-semibold">
           <InlineMarkdown text={session.title ?? session.key} />
         </span>
-        <span className="flex flex-wrap gap-x-3 text-sm text-muted-foreground">
+        <span className="flex flex-wrap gap-x-s-3 text-sm text-fg-muted">
           <span>{session.key}</span>
           <span>updated {relativeTime(session.updatedAt)}</span>
           {session.pauseNote && <span>&ldquo;{session.pauseNote}&rdquo;</span>}
         </span>
       </span>
-      <Badge className="bg-accent text-accent-foreground">
-        Resume, {session.doneCount} steps done
-      </Badge>
+      <Badge variant="blue">Resume, {session.doneCount} steps done</Badge>
     </>
   );
   return (
-    <li className="flex items-center">
+    <li className="flex items-center rounded-md border border-line-soft bg-surface-2">
       {ref ? (
         <Link
           href={prPath(ref)}
-          className="flex min-w-0 flex-1 items-center gap-4 px-5 py-4 transition-colors duration-calm hover:bg-accent/60 focus-visible:bg-accent/60"
+          className="flex min-w-0 flex-1 items-center gap-s-4 rounded-md px-s-4 py-s-3 transition-colors duration-calm hover:bg-surface-3 focus-visible:bg-surface-3"
         >
           {body}
         </Link>
       ) : (
-        <div className="flex min-w-0 flex-1 items-center gap-4 px-5 py-4">{body}</div>
+        <div className="flex min-w-0 flex-1 items-center gap-s-4 px-s-4 py-s-3">{body}</div>
       )}
       {ref && (
-        <div className="pr-4">
+        <div className="pr-s-3">
           <HintButton
             variant="ghost"
             size="icon-sm"
@@ -66,8 +66,81 @@ export function InProgressRow({
           </HintButton>
         </div>
       )}
-      {control && <div className="pr-4">{control}</div>}
+      {control && <div className="pr-s-3">{control}</div>}
     </li>
+  );
+}
+
+const REVIEW_PHASES = [
+  { label: "Orient" },
+  { label: "Walk the Changes" },
+  { label: "Conversation" },
+  { label: "Submit" },
+];
+
+const PHASE_ORIENT = 0;
+const PHASE_WALK = 1;
+
+function currentPhaseIndex(doneCount: number): number {
+  return doneCount > 0 ? PHASE_WALK : PHASE_ORIENT;
+}
+
+function InProgressFeature({
+  session,
+  control,
+  isResumePrimary,
+}: {
+  session: InProgressSession;
+  control: ReactNode;
+  isResumePrimary: boolean;
+}) {
+  const ref = parsePullRequestRef(session.key);
+  return (
+    <article className="grid gap-s-4 rounded-md border border-neon-blue/45 bg-surface-2 p-s-5 shadow-glow-blue">
+      <div className="flex flex-wrap items-start justify-between gap-s-3">
+        <div className="grid min-w-0 gap-s-1">
+          <h3 className="font-display text-xl leading-snug font-semibold">
+            <InlineMarkdown text={session.title ?? session.key} />
+          </h3>
+          <p className="flex flex-wrap gap-x-s-3 text-sm text-fg-muted">
+            <span className="font-mono text-fg">{session.key}</span>
+            <span>updated {relativeTime(session.updatedAt)}</span>
+            {session.pauseNote && <span>&ldquo;{session.pauseNote}&rdquo;</span>}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-s-1">
+          {ref && (
+            <HintButton
+              variant="ghost"
+              size="icon-sm"
+              hint="Open on GitHub"
+              aria-label={`Open ${prKey(ref)} on GitHub`}
+              asChild
+            >
+              <a href={gitHubPullRequestUrl(ref)} target="_blank" rel="noopener noreferrer">
+                <ExternalLink />
+              </a>
+            </HintButton>
+          )}
+          {control}
+        </div>
+      </div>
+      <Stream
+        steps={REVIEW_PHASES}
+        currentIndex={currentPhaseIndex(session.doneCount)}
+        label="Review progress"
+      />
+      <div className="flex flex-wrap items-center justify-between gap-s-3">
+        <Badge variant="blue">{session.doneCount} steps done</Badge>
+        {ref && (
+          <Button variant={isResumePrimary ? "neon" : "soft"} asChild>
+            <Link href={prPath(ref)}>
+              Resume review <ArrowRight />
+            </Link>
+          </Button>
+        )}
+      </div>
+    </article>
   );
 }
 
@@ -76,39 +149,50 @@ export function InProgressList({
   busy,
   onArchive,
   headingRef,
+  isResumePrimary = true,
 }: {
   sessions: InProgressSession[];
   busy: boolean;
   onArchive: (session: InProgressSession) => void;
   headingRef: RefObject<HTMLHeadingElement | null>;
+  isResumePrimary?: boolean;
 }) {
   if (sessions.length === 0) return null;
+  const [featured, ...others] = sessions;
+  const archiveButton = (session: InProgressSession) => (
+    <HintButton
+      variant="ghost"
+      size="icon-sm"
+      hint="Move to Archived"
+      aria-label={`Archive ${session.key}`}
+      disabled={busy}
+      onClick={() => onArchive(session)}
+    >
+      <Archive />
+    </HintButton>
+  );
   return (
-    <section className="flex flex-col gap-3">
-      <h2 ref={headingRef} tabIndex={-1} className="text-lg font-bold">
-        Also in progress{" "}
-        <span className="tabular-nums text-muted-foreground">({sessions.length})</span>
+    <section className="grid gap-s-4">
+      <h2 ref={headingRef} tabIndex={-1} className="font-display text-2xl font-semibold">
+        In Progress <span className="tabular-nums text-fg-muted">({sessions.length})</span>
       </h2>
-      <ul className="divide-y overflow-hidden rounded-xl bg-card border">
-        {sessions.map((session) => (
-          <InProgressRow
-            key={session.key}
-            session={session}
-            control={
-              <HintButton
-                variant="ghost"
-                size="icon-sm"
-                hint="Move to Archived"
-                aria-label={`Archive ${session.key}`}
-                disabled={busy}
-                onClick={() => onArchive(session)}
-              >
-                <Archive />
-              </HintButton>
-            }
-          />
-        ))}
-      </ul>
+      <InProgressFeature
+        session={featured}
+        control={archiveButton(featured)}
+        isResumePrimary={isResumePrimary}
+      />
+      {others.length > 0 && (
+        <div className="grid gap-s-3">
+          <h3 className="font-display text-lg font-semibold">
+            Also in Progress <span className="tabular-nums text-fg-muted">({others.length})</span>
+          </h3>
+          <ul className="grid max-h-80 gap-s-2 overflow-y-auto">
+            {others.map((session) => (
+              <InProgressRow key={session.key} session={session} control={archiveButton(session)} />
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

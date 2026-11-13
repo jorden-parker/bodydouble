@@ -4,6 +4,10 @@ import type { AssignedStory } from "@/lib/store/assigned-stories";
 import type { Settings } from "@/lib/store/settings";
 import type { SyncResult } from "@/lib/sync";
 
+export function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export type SettingsChanges = Partial<Pick<Settings, "allowList" | "weekStart" | "timeZone">>;
 
 export type TallyApi = {

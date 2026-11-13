@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Sparkles, Square, X } from "lucide-react";
+import { Bot, Search, Sparkles, Square, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Callout } from "@/components/common/callout";
 import { type CitationRenderer, InlineMarkdown, Markdown } from "@/components/common/markdown-text";
@@ -92,7 +92,8 @@ function ModelTurn({ turn, streaming, isLast, citationsOf, onShowCitation }: Tur
     onShowCitation(citation);
   };
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 rounded-xl border border-neon-violet/45 bg-tint-violet p-4">
+      <Bot aria-hidden className="size-5 text-ink-violet" />
       <LookupList lookups={turn.lookups} />
       <Markdown
         text={turn.text}

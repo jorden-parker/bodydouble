@@ -8,6 +8,12 @@ export type QueueEntry = {
   movedSinceVisit: boolean;
 };
 
+export function initialsOf(login: string): string {
+  const words = login.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  if (words.length >= 2) return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  return (words[0] ?? "").slice(0, 2).toUpperCase();
+}
+
 export function movedSinceVisit(request: ReviewRequest, progress: ProgressSummary | null): boolean {
   return progress !== null && Date.parse(request.updatedAt) > Date.parse(progress.updatedAt);
 }

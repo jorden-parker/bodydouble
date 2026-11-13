@@ -54,7 +54,7 @@ describe("HomeSessions", () => {
     expect(document.activeElement?.tagName).toBe("SUMMARY");
   });
 
-  it("moves a row back to Also in progress when Restore succeeds, and focuses the heading", async () => {
+  it("moves a row back into In Progress when Restore succeeds, and focuses the heading", async () => {
     renderHome([], [ADD_RETRY]);
     await userEvent.click(screen.getByText("Archived"));
     await userEvent.click(screen.getByRole("button", { name: "Restore acme/app#7" }));
@@ -62,7 +62,7 @@ describe("HomeSessions", () => {
       { owner: "acme", repo: "app", number: 7 },
       { type: "unarchive" },
     );
-    expect(await screen.findByRole("heading", { name: /Also in progress/ })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: /In Progress/ })).toBeTruthy();
     expect(document.activeElement?.tagName).toBe("H2");
   });
 

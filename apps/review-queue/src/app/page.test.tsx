@@ -1,20 +1,50 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import InboxPage from "./page";
 
-vi.mock("@/components/inbox/inbox-list", () => ({ InboxList: () => null }));
+vi.mock("@/components/inbox/inbox-resume", () => ({ InboxResume: () => <p>Resume panel</p> }));
+vi.mock("@/components/inbox/inbox-list", () => ({ InboxList: () => <p>Queue panel</p> }));
 vi.mock("@/components/inbox/open-pull-request-form", () => ({
-  OpenPullRequestForm: () => null,
+  OpenPullRequestForm: () => <p>Open by URL form</p>,
 }));
 
+class FakeResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
 describe("InboxPage", () => {
-  it("highlights the word queue in the whimsy gradient", () => {
-    render(<InboxPage />);
-    expect(screen.getByText("queue").classList.contains("text-whimsy")).toBe(true);
+  beforeEach(() => {
+    vi.stubGlobal("ResizeObserver", FakeResizeObserver);
   });
 
-  it("wiggles the otter on hover", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("lays the inbox out as a resume panel beside the waiting queue", () => {
     render(<InboxPage />);
-    expect(screen.getByText("🦦").classList.contains("hover:animate-wiggle")).toBe(true);
+    const resume = screen.getByRole("region", { name: "Pick Up Where You Left Off" });
+    expect(resume.contains(screen.getByText("Resume panel"))).toBe(true);
+    expect(resume.contains(screen.getByText("Queue panel"))).toBe(false);
+  });
+
+  it("gives the resume panel one constrained row so its region can scroll inside it", () => {
+    render(<InboxPage />);
+    const resume = screen.getByRole("region", { name: "Pick Up Where You Left Off" });
+    expect(resume.classList.contains("grid-rows-1")).toBe(true);
+  });
+
+  it("gives the resume panel the 5 to 6 share of the width from the mockup", () => {
+    render(<InboxPage />);
+    expect(screen.getByRole("main").classList.contains("grid-cols-[5fr_6fr]")).toBe(true);
+  });
+
+  it("keeps the Open Any PR by URL form in the waiting panel", () => {
+    render(<InboxPage />);
+    const waiting = screen.getByRole("region", { name: "Waiting for You" });
+    expect(waiting.contains(screen.getByText("Queue panel"))).toBe(true);
+    expect(waiting.contains(screen.getByText("Open by URL form"))).toBe(true);
   });
 });

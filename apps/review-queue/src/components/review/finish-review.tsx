@@ -8,6 +8,7 @@ import { Callout } from "@/components/common/callout";
 import { Markdown } from "@/components/common/markdown-text";
 import { EmptyState } from "@/components/common/empty-state";
 import { PathLabel } from "@/components/common/path-label";
+import { Otter } from "@/components/neon/otter";
 import { isBlocking } from "@/lib/review/conventional-comment";
 import { notesOffTheDiff, offTheDiffMessage } from "@/lib/review/note-targets";
 import { isPostable, postedBody } from "@/lib/review/submission";
@@ -33,17 +34,20 @@ type FinishReviewProps = {
   onCancel: () => void;
 };
 
-const EVENTS: { value: ReviewEvent; label: string }[] = [
-  { value: "COMMENT", label: "Comment" },
-  { value: "APPROVE", label: "Approve" },
-  { value: "REQUEST_CHANGES", label: "Request changes" },
+const VERDICTS: { value: ReviewEvent; label: string; hint: string; tint: string }[] = [
+  { value: "APPROVE", label: "Approve", hint: "Good to merge", tint: "bg-tint-mint" },
+  { value: "COMMENT", label: "Comment", hint: "Feedback, no verdict", tint: "bg-tint-blue" },
+  {
+    value: "REQUEST_CHANGES",
+    label: "Request changes",
+    hint: "Blocks the merge until fixed",
+    tint: "bg-tint-coral",
+  },
 ];
 
-const POST_LABELS: Record<ReviewEvent, string> = {
-  COMMENT: "Post comment to GitHub",
-  APPROVE: "Approve on GitHub",
-  REQUEST_CHANGES: "Request changes on GitHub",
-};
+function verdictLabel(event: ReviewEvent): string {
+  return VERDICTS.find((verdict) => verdict.value === event)?.label ?? event;
+}
 
 function defaultEvent(notes: Note[], unfinished: string | null): ReviewEvent {
   if (notes.some(isBlocking)) return "REQUEST_CHANGES";
@@ -84,15 +88,14 @@ function DraftSummaryButton({
   return (
     <div className="flex flex-col items-start gap-2">
       <Button
-        variant="outline"
-        size="sm"
+        variant="soft"
         onClick={draftFromNotes}
         disabled={drafting || summary.trim() !== "" || noteIds.length === 0}
       >
         <Sparkles />
         {drafting ? "Drafting…" : "Draft from my notes"}
       </Button>
-      {draftError && <p className="text-sm text-muted-foreground">{draftError}</p>}
+      {draftError && <p className="text-sm text-fg-muted">{draftError}</p>}
     </div>
   );
 }
@@ -106,13 +109,13 @@ type NoteChecklistProps = {
 
 function NoteChecklist({ notes, selected, flagged, onToggle }: NoteChecklistProps) {
   return (
-    <div className="flex flex-col gap-2">
-      <h3 className="text-sm font-bold">Notes to post ({selected.length})</h3>
+    <div className="flex flex-col gap-3">
+      <h3 className="text-sm font-bold text-fg">Notes to Post ({selected.length})</h3>
       {notes.length === 0 && <EmptyState emoji="📝">No notes.</EmptyState>}
       {notes.map((note) => (
         <label
           key={note.id}
-          className="flex cursor-pointer items-start gap-3 rounded-lg p-2 text-sm transition-colors duration-calm hover:bg-muted"
+          className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border border-line-soft bg-surface-2 p-3 text-sm text-fg transition-colors duration-calm hover:bg-surface-3"
         >
           <Checkbox
             checked={selected.includes(note.id)}
@@ -129,7 +132,7 @@ function NoteChecklist({ notes, selected, flagged, onToggle }: NoteChecklistProp
               <PathLabel path={note.path} line={note.line} startLine={note.startLine} />
             )}
             {flagged.has(note.id) && (
-              <span className="text-sm text-destructive">Line no longer in the diff</span>
+              <span className="text-sm text-neon-coral">Line no longer in the diff</span>
             )}
           </span>
         </label>
@@ -140,6 +143,39 @@ function NoteChecklist({ notes, selected, flagged, onToggle }: NoteChecklistProp
 
 function initialSelection(postable: Note[], flagged: ReadonlySet<number>): number[] {
   return postable.filter((note) => !flagged.has(note.id)).map((note) => note.id);
+}
+
+type VerdictCardsProps = {
+  event: ReviewEvent;
+  onChoose: (event: ReviewEvent) => void;
+};
+
+function VerdictCards({ event, onChoose }: VerdictCardsProps) {
+  return (
+    <div role="radiogroup" aria-label="Verdict" className="grid gap-3 sm:grid-cols-3">
+      {VERDICTS.map((verdict) => {
+        const isChosen = event === verdict.value;
+        return (
+          <button
+            key={verdict.value}
+            type="button"
+            role="radio"
+            aria-label={verdict.label}
+            aria-checked={isChosen}
+            onClick={() => onChoose(verdict.value)}
+            className={cn(
+              "flex min-h-24 flex-col items-start gap-1 rounded-xl border-2 p-4 text-left text-fg transition-[border-color,box-shadow] duration-calm focus-visible:ring-3 focus-visible:ring-neon-blue focus-visible:outline-none",
+              verdict.tint,
+              isChosen ? "border-fg shadow-lift" : "border-transparent",
+            )}
+          >
+            <span className="font-display text-lg font-semibold">{verdict.label}</span>
+            <span className="text-sm text-fg-muted">{verdict.hint}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 export function FinishReview({
@@ -181,56 +217,67 @@ export function FinishReview({
   }
 
   return (
-    <AppDialog title="Finish review" onClose={onCancel} wide>
+    <AppDialog title="Submit Review" onClose={onCancel} wide>
       {unfinished ? (
         <Callout>{unfinished}</Callout>
       ) : (
-        <p className="rounded-lg bg-add px-3 py-2 text-sm text-add-foreground">
+        <p className="rounded-lg bg-tint-mint px-3 py-2 text-sm text-fg">
           Every step and hotspot is ticked off.
         </p>
       )}
       {offDiff.length > 0 && <Callout>{offTheDiffMessage(offDiff)}</Callout>}
+      <section aria-labelledby="verdict-heading" className="flex flex-col gap-3">
+        <h3 id="verdict-heading" className="text-sm font-bold text-fg">
+          Your Verdict
+        </h3>
+        <VerdictCards event={event} onChoose={setEvent} />
+      </section>
       <NoteChecklist notes={postable} selected={selected} flagged={offDiffIds} onToggle={toggle} />
       {parkedCount > 0 && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-fg-muted">
           {plural(parkedCount, "parked note")} won’t be posted.
         </p>
       )}
-      {onDraftSummary && (
-        <DraftSummaryButton
-          draftSummary={onDraftSummary}
-          event={event}
-          noteIds={selected}
-          summary={summary}
-          onDrafted={setSummary}
+      <section aria-labelledby="summary-heading" className="flex flex-col gap-3">
+        <h3 id="summary-heading" className="text-sm font-bold text-fg">
+          Summary
+        </h3>
+        {onDraftSummary && (
+          <DraftSummaryButton
+            draftSummary={onDraftSummary}
+            event={event}
+            noteIds={selected}
+            summary={summary}
+            onDrafted={setSummary}
+          />
+        )}
+        <MarkdownField
+          value={summary}
+          onChange={(changeEvent) => setSummary(changeEvent.target.value)}
+          rows={3}
+          placeholder="Overall summary (optional)"
         />
-      )}
-      <MarkdownField
-        value={summary}
-        onChange={(changeEvent) => setSummary(changeEvent.target.value)}
-        rows={3}
-        placeholder="Overall summary (optional)"
-      />
-      <div className="flex flex-wrap items-center gap-2">
-        {EVENTS.map((option) => (
-          <Button
-            key={option.value}
-            variant={event === option.value ? "secondary" : "outline"}
-            onClick={() => setEvent(option.value)}
-            className={cn(event === option.value && "bg-accent text-accent-foreground")}
-          >
-            {option.label}
-          </Button>
-        ))}
-      </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <p className="text-sm text-muted-foreground">Posting against {headSha.slice(0, 7)}</p>
-      <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={onCancel}>
+      </section>
+      <section
+        aria-labelledby="posted-heading"
+        className="flex flex-col gap-2 rounded-xl border border-line-soft bg-surface-2 p-4 text-sm text-fg-muted"
+      >
+        <h3 id="posted-heading" className="text-sm font-bold text-fg">
+          What Gets Posted
+        </h3>
+        <p>
+          {plural(selected.length, "note")} with the verdict {verdictLabel(event)}.
+        </p>
+        <p>Against {headSha.slice(0, 7)}</p>
+      </section>
+      {error && <p className="text-sm text-neon-coral">{error}</p>}
+      <div className="flex flex-wrap justify-end gap-3">
+        <Button variant="ghost" onClick={onCancel} className="min-h-11">
           Not yet
         </Button>
-        <Button onClick={send} disabled={sending}>
-          {sending ? "Posting…" : POST_LABELS[event]}
+        <Button variant="neon" onClick={send} disabled={sending} className="min-h-11 px-6">
+          <Otter size="small" />
+          {sending ? "Posting…" : "Post review"}
         </Button>
       </div>
     </AppDialog>

@@ -1,0 +1,102 @@
+html {
+  height: 100%;
+}
+
+.app-main {
+  --gap: clamp(var(--s-4), 2.6vh, var(--s-6));
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 1680px;
+  margin: 0 auto;
+  overflow: hidden;
+  padding: clamp(var(--s-4), 3.2vh, var(--s-7)) clamp(var(--s-4), 3vw, var(--s-7));
+}
+
+.tally-mark {
+  flex: none;
+  filter: drop-shadow(
+    0 0 calc(8px * var(--glow-strength)) color-mix(in oklch, var(--neon-pink) 70%, transparent)
+  );
+}
+
+.stream__rider .tally-mark {
+  width: 44px;
+  height: 44px;
+  margin-inline: auto;
+  display: block;
+  align-self: start;
+  animation: bob 3.2s ease-in-out infinite;
+}
+
+.stream--small .stream__rider .tally-mark {
+  width: 28px;
+  height: 28px;
+}
+
+.panels {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--gap);
+  min-height: 0;
+  min-width: 0;
+}
+.panels__body {
+  flex: 1;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--gap);
+  min-height: 0;
+  min-width: 0;
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.panels[data-mode="paged"] .panels__body {
+  grid-auto-flow: row;
+  grid-auto-columns: auto;
+  grid-template-columns: minmax(0, 1fr);
+}
+.panels[data-mode="paged"] .panel {
+  display: none;
+}
+.panels[data-mode="paged"] .panel.is-current {
+  display: flex;
+  animation: rise 320ms var(--ease-out) both;
+}
+.panels__pager {
+  flex: none;
+  display: none;
+  align-items: center;
+  gap: var(--s-3);
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--line-soft);
+}
+.panels[data-mode="paged"] .panels__pager {
+  display: flex;
+}
+.panels__pager .stream {
+  flex: 1;
+  min-width: 0;
+}
+.panels__pager-label {
+  max-width: 30%;
+  overflow: hidden;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

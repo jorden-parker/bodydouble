@@ -17,4 +17,23 @@ describe("Button", () => {
     expect(classes.contains("active:not-aria-[haspopup]:scale-[0.98]")).toBe(true);
     expect(classes.contains("ease-spring")).toBe(false);
   });
+
+  it("keeps the default size at a 44px touch target", () => {
+    render(<Button>Save</Button>);
+    expect(screen.getByRole("button", { name: "Save" }).classList.contains("h-11")).toBe(true);
+  });
+
+  it("offers a neon variant with the gradient fill and pink glow", () => {
+    render(<Button variant="neon">Start</Button>);
+    const classes = screen.getByRole("button", { name: "Start" }).classList;
+    expect(classes.contains("bg-neon")).toBe(true);
+    expect(classes.contains("shadow-glow-pink")).toBe(true);
+  });
+
+  it("offers a soft variant on the raised surface", () => {
+    render(<Button variant="soft">Skip</Button>);
+    expect(screen.getByRole("button", { name: "Skip" }).classList.contains("bg-surface-2")).toBe(
+      true,
+    );
+  });
 });

@@ -1,96 +1,70 @@
 "use client";
 
-import { useState } from "react";
-import {
-  EmptyNote,
-  LoadingNote,
-  PageShell,
-  ProblemAlert,
-  SectionHeading,
-} from "@/components/layout/page-shell";
+import { useState, type ReactNode } from "react";
+import { EmptyNote, LoadingNote, ProblemAlert } from "@/components/layout/page-shell";
+import { Panel, Panels } from "@/components/neon/panels";
 import { Badge } from "@/components/ui/badge";
-import {
-  NativeSelect,
-  NativeSelectOptGroup,
-  NativeSelectOption,
-} from "@/components/ui/native-select";
+import { Button } from "@/components/ui/button";
 import { dayKey } from "@/lib/metrics/buckets";
 import {
   ALL_STATUSES,
   filterByStatus,
-  groupByStatus,
   filterForState,
-  listStatusOptions,
   filterForType,
+  groupByStatus,
+  listStatusOptions,
   type StatusGrouping,
   type StoryGroup,
 } from "@/lib/metrics/status-groups";
-import type { AssignedStory } from "@/lib/store/assigned-stories";
+import type { AssignedStory, WorkflowStateType } from "@/lib/store/assigned-stories";
+import { InlineMarkdown } from "@/components/inline-markdown";
 import { api as realApi, type TallyApi } from "../api";
 import { formatLongDay } from "../dashboard/format";
 import { useAssignedTickets } from "./use-assigned-tickets";
-import { InlineMarkdown } from "@/components/inline-markdown";
 
-const SEPARATOR = " · ";
 const LOCAL_TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
-const FIELD_LABEL_CLASS = "flex items-center gap-2 text-sm text-muted-foreground";
 
-const GROUPING_LABELS: Record<StatusGrouping, string> = {
-  state: "Workflow state",
-  type: "State type",
-  none: "Nothing",
+const GROUPINGS: { value: StatusGrouping; label: string }[] = [
+  { value: "state", label: "Workflow state" },
+  { value: "type", label: "State type" },
+  { value: "none", label: "Nothing" },
+];
+
+const STATE_TYPE_BADGE: Record<WorkflowStateType, "blue" | "amber" | "mint" | "neutral"> = {
+  unstarted: "blue",
+  started: "amber",
+  done: "mint",
+  backlog: "neutral",
 };
 
-function describeStory(story: AssignedStory): string {
-  return [
-    story.storyType,
-    story.estimate === null ? null : `${story.estimate} pt`,
-    story.completedAt === null
-      ? null
-      : `Completed ${formatLongDay(dayKey(story.completedAt, LOCAL_TIME_ZONE))}`,
-  ]
-    .filter((part) => part !== null)
-    .join(SEPARATOR);
-}
-
-function StoryRow({ story }: { story: AssignedStory }) {
+function FilterPill({
+  pressed,
+  onPress,
+  children,
+}: {
+  pressed: boolean;
+  onPress: () => void;
+  children: ReactNode;
+}) {
   return (
-    <li className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <a
-          href={story.url}
-          target="_blank"
-          rel="noreferrer"
-          className="font-medium underline-offset-4 hover:underline"
-        >
-          <InlineMarkdown text={story.title} />
-        </a>
-        <span className="text-sm text-muted-foreground">
-          <span className="font-mono text-xs">sc-{story.id}</span>
-          {describeStory(story) === "" ? null : `${SEPARATOR}${describeStory(story)}`}
-        </span>
-      </div>
-      <Badge variant="outline" className="shrink-0">
-        {story.state}
-      </Badge>
-    </li>
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onPress}
+      className="inline-flex min-h-11 items-center gap-2 rounded-pill border border-line bg-surface px-4 text-sm font-bold whitespace-nowrap text-muted-foreground outline-none hover:text-foreground focus-visible:ring-4 focus-visible:ring-tint-blue aria-pressed:border-transparent aria-pressed:bg-tint-blue aria-pressed:text-ink-blue"
+    >
+      {children}
+    </button>
   );
 }
 
-function GroupSection({ group }: { group: StoryGroup }) {
+function Count({ value }: { value: number }) {
   return (
-    <section aria-label={group.label} className="flex flex-col gap-4">
-      <SectionHeading title={group.label} count={group.stories.length} />
-      <ul className="divide-y rounded-xl border bg-card">
-        {group.stories.map((story) => (
-          <StoryRow key={story.id} story={story} />
-        ))}
-      </ul>
-    </section>
+    <span className="rounded-pill bg-surface-3 px-2 font-mono text-xs tabular-nums">{value}</span>
   );
 }
 
-function StatusSelect({
+function StatusPills({
   stories,
   value,
   onChange,
@@ -99,85 +73,139 @@ function StatusSelect({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const pill = (filter: string, label: string) => (
+    <FilterPill key={filter} pressed={value === filter} onPress={() => onChange(filter)}>
+      {label}
+      <Count value={filterByStatus(stories, filter).length} />
+    </FilterPill>
+  );
   return (
-    <label className={FIELD_LABEL_CLASS}>
-      Status
-      <NativeSelect value={value} onChange={(event) => onChange(event.target.value)}>
-        <NativeSelectOption value={ALL_STATUSES}>All statuses</NativeSelectOption>
-        {listStatusOptions(stories).map((option) => (
-          <NativeSelectOptGroup key={option.label} label={option.label}>
-            {option.type === null ? null : (
-              <NativeSelectOption value={filterForType(option.type)}>
-                Any {option.label.toLowerCase()}
-              </NativeSelectOption>
-            )}
-            {option.states.map((state) => (
-              <NativeSelectOption key={state} value={filterForState(state)}>
-                {state}
-              </NativeSelectOption>
-            ))}
-          </NativeSelectOptGroup>
-        ))}
-      </NativeSelect>
-    </label>
+    <div role="group" aria-label="Filter by workflow state" className="flex flex-wrap gap-3">
+      {pill(ALL_STATUSES, "All statuses")}
+      {listStatusOptions(stories).map((option) => (
+        <div
+          key={option.label}
+          role="group"
+          aria-label={option.label}
+          className="flex flex-wrap gap-2"
+        >
+          {option.type === null
+            ? null
+            : pill(filterForType(option.type), `Any ${option.label.toLowerCase()}`)}
+          {option.states.map((state) => pill(filterForState(state), state))}
+        </div>
+      ))}
+    </div>
   );
 }
 
-function GroupingSelect({
-  value,
-  onChange,
-}: {
-  value: StatusGrouping;
-  onChange: (value: StatusGrouping) => void;
-}) {
+function StoryCard({ story }: { story: AssignedStory }) {
+  const badgeVariant = story.stateType === null ? "neutral" : STATE_TYPE_BADGE[story.stateType];
   return (
-    <label className={FIELD_LABEL_CLASS}>
-      Group by
-      <NativeSelect
-        value={value}
-        onChange={(event) => onChange(event.target.value as StatusGrouping)}
-      >
-        {Object.entries(GROUPING_LABELS).map(([grouping, label]) => (
-          <NativeSelectOption key={grouping} value={grouping}>
-            {label}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
-    </label>
+    <li className="flex flex-col gap-3 rounded-md border border-line bg-surface p-4 shadow-lift">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-sm text-muted-foreground">sc-{story.id}</span>
+        <Badge variant={badgeVariant}>{story.state}</Badge>
+        {story.storyType === null ? null : <Badge variant="neutral">{story.storyType}</Badge>}
+        {story.estimate === null ? null : <Badge variant="neutral">{story.estimate} pt</Badge>}
+      </div>
+      <h3 className="font-display text-lg leading-snug font-semibold">
+        <a
+          href={story.url}
+          target="_blank"
+          rel="noreferrer"
+          className="underline-offset-4 hover:underline"
+        >
+          <InlineMarkdown text={story.title} />
+        </a>
+      </h3>
+      {story.completedAt === null ? null : (
+        <p className="text-sm text-muted-foreground">
+          Completed {formatLongDay(dayKey(story.completedAt, LOCAL_TIME_ZONE))}
+        </p>
+      )}
+    </li>
   );
 }
 
-function TicketList({ stories }: { stories: AssignedStory[] }) {
+function LaneContent({ group }: { group: StoryGroup }) {
+  return (
+    <>
+      <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
+        {group.label} <span className="sr-only">(</span>
+        <span className="rounded-pill bg-tint-blue px-2 font-mono text-sm text-ink-blue tabular-nums">
+          {group.stories.length}
+        </span>
+        <span className="sr-only">)</span>
+      </h2>
+      <ul className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
+        {group.stories.map((story) => (
+          <StoryCard key={story.id} story={story} />
+        ))}
+      </ul>
+    </>
+  );
+}
+
+function TicketLanes({ stories }: { stories: AssignedStory[] }) {
   const [status, setStatus] = useState(ALL_STATUSES);
   const [grouping, setGrouping] = useState<StatusGrouping>("state");
   const groups = groupByStatus(filterByStatus(stories, status), grouping);
   return (
     <>
-      <div className="-mt-4 flex flex-wrap gap-4 border-b pb-6">
-        <StatusSelect stories={stories} value={status} onChange={setStatus} />
-        <GroupingSelect value={grouping} onChange={setGrouping} />
+      <div className="flex flex-wrap items-center gap-3">
+        <div role="group" aria-label="Group by" className="flex gap-2">
+          {GROUPINGS.map((option) => (
+            <FilterPill
+              key={option.value}
+              pressed={grouping === option.value}
+              onPress={() => setGrouping(option.value)}
+            >
+              {option.label}
+            </FilterPill>
+          ))}
+        </div>
       </div>
+      <StatusPills stories={stories} value={status} onChange={setStatus} />
       {groups.length === 0 ? (
         <EmptyNote>No tickets here. Try another status, or sync.</EmptyNote>
       ) : (
-        groups.map((group) => <GroupSection key={group.key} group={group} />)
+        <Panels className="min-h-0">
+          {groups.map((group) => (
+            <Panel key={group.key} title={group.label} className="min-h-0">
+              <LaneContent group={group} />
+            </Panel>
+          ))}
+        </Panels>
       )}
     </>
   );
 }
 
 export function AssignedTickets({ api = realApi }: { api?: TallyApi }) {
-  const { stories, problem } = useAssignedTickets(api);
+  const { stories, problems, syncing, sync } = useAssignedTickets(api);
+  const total = stories?.length ?? 0;
   return (
-    <PageShell title="Tickets" description="Every Shortcut story you own, by status.">
-      <ProblemAlert messages={problem === null ? [] : [problem]} />
+    <main className="app-main">
+      <header className="flex flex-wrap items-center gap-4">
+        <h1 className="flex items-center gap-3 font-display text-4xl font-semibold tracking-tight">
+          Tickets
+          <span className="rounded-pill bg-tint-blue px-3 font-mono text-base text-ink-blue tabular-nums">
+            {total}
+          </span>
+        </h1>
+        <Button variant="neon" onClick={sync} disabled={syncing} className="ml-auto">
+          {syncing ? "Syncing tickets…" : "Sync tickets"}
+        </Button>
+      </header>
+      <ProblemAlert messages={problems} />
       {stories === null ? (
-        problem === null ? (
+        problems.length === 0 ? (
           <LoadingNote />
         ) : null
       ) : (
-        <TicketList stories={stories} />
+        <TicketLanes stories={stories} />
       )}
-    </PageShell>
+    </main>
   );
 }

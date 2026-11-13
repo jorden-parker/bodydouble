@@ -27,6 +27,9 @@ import {
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Callout } from "@/components/common/callout";
+import { Otter } from "@/components/neon/otter";
+import { LinkedIssueChip } from "./linked-issue-chip";
+import { Stream } from "@/components/neon/stream";
 import { EmptyState } from "@/components/common/empty-state";
 import { splitPath } from "@/components/common/path-label";
 import { HintButton } from "@/components/common/hint-button";
@@ -43,7 +46,6 @@ import {
   targetPath,
 } from "@/lib/assist-protocol";
 import { prKey } from "@/lib/pr-ref";
-import { cn } from "cn";
 import type { ChangePartsResult } from "@/lib/review/change-parts-service";
 import type { PreparedFile, ReviewPayload } from "@/lib/review/prepare";
 import type { Session } from "@/lib/session/store";
@@ -112,79 +114,136 @@ const PANES: { id: PaneId; label: string; icon: LucideIcon }[] = [
   { id: "files", label: "Files", icon: FolderTree },
 ];
 
-function TopBar({ review, workspace }: { review: ReviewPayload; workspace: Workspace }) {
+const REVIEW_PATH = [
+  { label: "Orient" },
+  { label: "Walk the Changes" },
+  { label: "Conversation" },
+  { label: "Submit" },
+];
+
+const PATH_ORIENT = 0;
+const PATH_WALK = 1;
+const PATH_CONVERSATION = 2;
+const PATH_SUBMIT = 3;
+
+function reviewStage(workspace: Workspace, orientation: OrientationState): number {
+  if (workspace.dialog === "finish") return PATH_SUBMIT;
+  if (orientation.status === "loading") return PATH_ORIENT;
+  const isConversationOpen = [...workspace.panes.left, ...workspace.panes.right].includes("github");
+  return isConversationOpen ? PATH_CONVERSATION : PATH_WALK;
+}
+
+function BreakPill({ workspace }: { workspace: Workspace }) {
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-2 bg-background/80 pr-2 pl-1.5 backdrop-blur sm:gap-4 sm:pr-6 sm:pl-4.5">
-      <HintButton
-        variant="ghost"
-        size="icon"
-        hint="Back to inbox"
-        aria-label="Back to inbox"
-        asChild
-      >
-        <Link href="/">
-          <ArrowLeft />
-        </Link>
-      </HintButton>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-base/tight font-bold">
-          <InlineMarkdown text={review.pr.title} />
-        </span>
-        <span className="flex min-w-0 gap-2 truncate text-sm text-muted-foreground">
-          <span>{prKey(review.pr.ref)}</span>
-          <span>by {review.pr.author}</span>
-          <span className="font-mono max-sm:hidden">{review.headSha.slice(0, 7)}</span>
-        </span>
-      </div>
-      <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
-        <FocusTimer onFinished={() => workspace.setBreakDue(true)} />
+    <div
+      role="status"
+      className="animate-step-enter flex flex-wrap items-center justify-between gap-2 self-start rounded-pill border border-neon-amber/50 bg-tint-amber py-1 pr-2 pl-3 text-sm font-bold text-fg shadow-glow-amber"
+    >
+      <span className="flex items-center gap-2">
+        <Otter size="small" />
+        25 min in. Otter says stretch.
+      </span>
+      <span className="flex gap-1">
+        <Button size="sm" variant="soft" onClick={() => workspace.setDialog("pause")}>
+          Pause with a note
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => workspace.setBreakDue(false)}>
+          Keep going
+        </Button>
+      </span>
+    </div>
+  );
+}
+
+function TopBar({
+  review,
+  workspace,
+  orientation,
+}: {
+  review: ReviewPayload;
+  workspace: Workspace;
+  orientation: OrientationState;
+}) {
+  return (
+    <header className="sticky top-0 z-10 grid gap-4 bg-canvas/90 px-4 pt-4 pb-3 backdrop-blur sm:px-6">
+      <div className="flex items-start gap-3">
         <HintButton
           variant="ghost"
           size="icon"
-          hint="Open on GitHub"
-          aria-label={`Open ${prKey(review.pr.ref)} on GitHub`}
+          hint="Back to inbox"
+          aria-label="Back to inbox"
           asChild
         >
-          <a href={review.pr.url} target="_blank" rel="noopener noreferrer">
-            <ExternalLink />
-          </a>
+          <Link href="/">
+            <ArrowLeft />
+          </Link>
         </HintButton>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="More actions">
-              <Ellipsis />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="flex w-52 flex-col gap-0.5 p-1">
-            <Button
-              variant="ghost"
-              className="justify-start"
-              onClick={() => workspace.setDialog("start-over")}
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <h1 className="font-display text-2xl leading-tight font-semibold wrap-anywhere sm:text-3xl">
+            <InlineMarkdown text={review.pr.title} />
+          </h1>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-fg-muted">
+            <span>{prKey(review.pr.ref)}</span>
+            <span>by {review.pr.author}</span>
+            <span className="font-mono max-sm:hidden">{review.headSha.slice(0, 7)}</span>
+            <a
+              href={review.pr.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Open ${prKey(review.pr.ref)} on GitHub`}
+              className="inline-flex min-h-11 items-center gap-2 rounded-pill font-bold text-ink-blue no-underline hover:underline"
             >
-              <RotateCcw /> Start over
-            </Button>
-            <Button
-              variant="ghost"
-              className="justify-start"
-              onClick={() => workspace.setDialog("help")}
-            >
-              <CircleHelp /> Keyboard shortcuts <Kbd className="ml-auto">?</Kbd>
-            </Button>
-          </PopoverContent>
-        </Popover>
-        <HintButton
-          variant="ghost"
-          hint="Pause with a note"
-          shortcut="."
-          className="text-muted-foreground"
-          onClick={() => workspace.setDialog("pause")}
-        >
-          <Coffee /> <span className="max-sm:sr-only">Pause</span>
-        </HintButton>
-        <Button onClick={() => workspace.setDialog("finish")}>
-          <Send /> <span className="max-sm:sr-only">Finish</span>
-        </Button>
+              Open on GitHub
+              <ExternalLink aria-hidden className="size-4" />
+            </a>
+            <LinkedIssueChip issues={workspace.linkedIssues.issues} />
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+          <FocusTimer onFinished={() => workspace.setBreakDue(true)} />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="More actions">
+                <Ellipsis />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="flex w-52 flex-col gap-0.5 p-1">
+              <Button
+                variant="ghost"
+                className="justify-start"
+                onClick={() => workspace.setDialog("start-over")}
+              >
+                <RotateCcw /> Start over
+              </Button>
+              <Button
+                variant="ghost"
+                className="justify-start"
+                onClick={() => workspace.setDialog("help")}
+              >
+                <CircleHelp /> Keyboard shortcuts <Kbd className="ml-auto">?</Kbd>
+              </Button>
+            </PopoverContent>
+          </Popover>
+          <HintButton
+            variant="ghost"
+            hint="Pause with a note"
+            shortcut="."
+            className="text-fg-muted"
+            onClick={() => workspace.setDialog("pause")}
+          >
+            <Coffee /> <span className="max-sm:sr-only">Pause</span>
+          </HintButton>
+          <Button variant="soft" onClick={() => workspace.setDialog("finish")}>
+            <Send /> <span className="max-sm:sr-only">Finish</span>
+          </Button>
+        </div>
       </div>
+      {workspace.breakDue && <BreakPill workspace={workspace} />}
+      <Stream
+        steps={REVIEW_PATH}
+        currentIndex={reviewStage(workspace, orientation)}
+        label="Review path"
+      />
     </header>
   );
 }
@@ -460,99 +519,67 @@ const PANE_CONTENT: Record<PaneId, (props: PaneProps) => PaneContent> = {
   files: (props) => ({ body: <FilesPane {...props} /> }),
 };
 
-function StepTrack({ steps, currentIndex, doneSteps }: StepTrackProps) {
-  return (
-    <ol aria-hidden className="flex gap-1">
-      {steps.map((step, index) => (
-        <li
-          key={step.id}
-          className={cn(
-            "h-1 flex-1 rounded-full bg-muted transition-colors duration-calm",
-            doneSteps.includes(step.id) && "bg-primary",
-            index === currentIndex && "bg-marker",
-          )}
-        />
-      ))}
-    </ol>
-  );
-}
-
-type StepTrackProps = { steps: Step[]; currentIndex: number; doneSteps: string[] };
-
 function stepBarTitle(workspace: Workspace, step: Step): string {
   if (workspace.openFile) return splitPath(workspace.openFile.path).name;
   if (workspace.showChanges) return "What changed";
   return workspace.showAll ? "Whole PR" : step.title;
 }
 
-function StepBar({
-  review,
-  session,
-  workspace,
-}: {
-  review: ReviewPayload;
-  session: Session;
-  workspace: Workspace;
-}) {
+function StepBar({ review, workspace }: { review: ReviewPayload; workspace: Workspace }) {
   const step = workspace.currentStep;
   if (!step) return null;
   const isLast = workspace.currentIndex >= review.steps.length - 1;
   return (
-    <div className="flex flex-col gap-5">
-      <StepTrack
-        steps={review.steps}
-        currentIndex={workspace.showAll ? -1 : workspace.currentIndex}
-        doneSteps={session.doneSteps}
-      />
-      <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-        <h2 className="flex min-w-48 flex-1 flex-col gap-1">
-          <span className="text-sm text-muted-foreground tabular-nums">
-            {workspace.currentIndex + 1} of {review.steps.length}
-          </span>
-          <span className="truncate text-2xl font-semibold">{stepBarTitle(workspace, step)}</span>
-        </h2>
-        <div className="flex flex-wrap items-center gap-2">
-          {workspace.showChanges ? (
-            <Button
-              variant="ghost"
-              onClick={() => workspace.setShowChanges(false)}
-              className="text-muted-foreground"
-            >
-              <ArrowLeft />
-              <span>Back to the path</span>
-            </Button>
-          ) : (
+    <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+      <h2 className="flex min-w-48 flex-1 flex-col gap-1 font-display">
+        <span className="text-sm font-bold text-fg-muted tabular-nums">
+          {workspace.currentIndex + 1} of {review.steps.length}
+        </span>
+        <span className="truncate text-2xl font-semibold text-fg">
+          {stepBarTitle(workspace, step)}
+        </span>
+      </h2>
+      <div className="flex flex-wrap items-center gap-2">
+        {workspace.showChanges ? (
+          <Button variant="ghost" onClick={() => workspace.setShowChanges(false)}>
+            <ArrowLeft />
+            <span>Back to the path</span>
+          </Button>
+        ) : (
+          <HintButton
+            variant="ghost"
+            hint={workspace.showAll ? "Back to one step at a time" : "Show whole PR"}
+            shortcut="a"
+            onClick={() => workspace.setShowAll(!workspace.showAll)}
+          >
+            <Layers />
+            <span className="max-sm:sr-only">
+              {workspace.showAll ? "Back to one step at a time" : "Show whole PR"}
+            </span>
+          </HintButton>
+        )}
+        {!workspace.showAll && !workspace.showChanges && (
+          <>
             <HintButton
-              variant="ghost"
-              hint={workspace.showAll ? "Back to one step at a time" : "Show whole PR"}
-              shortcut="a"
-              onClick={() => workspace.setShowAll(!workspace.showAll)}
-              className="text-muted-foreground"
+              variant="soft"
+              hint="Previous step"
+              shortcut="p"
+              onClick={() => workspace.moveStep(-1)}
+              disabled={workspace.currentIndex <= 0}
             >
-              <Layers />
-              <span className="max-sm:sr-only">
-                {workspace.showAll ? "Back to one step at a time" : "Show whole PR"}
-              </span>
+              <ArrowLeft /> <span className="max-sm:sr-only">Previous</span>
             </HintButton>
-          )}
-          {!workspace.showAll && !workspace.showChanges && (
-            <>
-              <HintButton
-                variant="ghost"
-                hint="Previous step"
-                shortcut="p"
-                onClick={() => workspace.moveStep(-1)}
-                disabled={workspace.currentIndex <= 0}
-                className="text-muted-foreground"
-              >
-                <ArrowLeft /> <span className="max-sm:sr-only">Previous</span>
-              </HintButton>
-              <HintButton hint="Mark done and go on" shortcut="x" onClick={workspace.doneAndNext}>
-                {isLast ? "Done with this step" : "Done, next step"} <ArrowRight />
-              </HintButton>
-            </>
-          )}
-        </div>
+            <HintButton
+              variant="neon"
+              hint="Mark done and go on"
+              shortcut="x"
+              onClick={workspace.doneAndNext}
+              className="min-h-13 px-6"
+            >
+              {isLast ? "Done with this step" : "Next part"} <ArrowRight />
+            </HintButton>
+          </>
+        )}
       </div>
     </div>
   );
@@ -582,29 +609,6 @@ const CLOSED_NOTICES = {
 function ClosedNotice({ state }: { state: ReviewPayload["pr"]["state"] }) {
   if (state === "open") return null;
   return <Callout>{CLOSED_NOTICES[state]}</Callout>;
-}
-
-function BreakBanner({ workspace }: { workspace: Workspace }) {
-  if (!workspace.breakDue) return null;
-  return (
-    <Callout
-      role="status"
-      className="animate-step-enter flex flex-wrap items-center justify-between gap-3"
-    >
-      <span className="flex items-center gap-2">
-        <Coffee className="size-4 shrink-0" />
-        25 minutes of focus. Nice. Take five? Leave yourself a note first.
-      </span>
-      <span className="flex gap-2">
-        <Button size="sm" variant="secondary" onClick={() => workspace.setDialog("pause")}>
-          Pause with a note
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => workspace.setBreakDue(false)}>
-          Keep going
-        </Button>
-      </span>
-    </Callout>
-  );
 }
 
 function Dialogs({
@@ -910,7 +914,7 @@ export function ReviewWorkspace({
 
   return (
     <div className="grid h-screen grid-cols-shell grid-rows-shell">
-      <TopBar review={review} workspace={workspace} />
+      <TopBar review={review} workspace={workspace} orientation={orientation} />
       <div className="grid min-h-0 grid-cols-workspace">
         <WorkspacePanel
           side="left"
@@ -924,7 +928,7 @@ export function ReviewWorkspace({
         <div className="relative flex min-h-0 min-w-0 flex-col">
           <div className="shrink-0 bg-background px-3 pt-4 pb-6 sm:px-10">
             <div className="mx-auto flex max-w-5xl flex-col gap-3">
-              <StepBar review={review} session={session} workspace={workspace} />
+              <StepBar review={review} workspace={workspace} />
               <ClosedNotice state={review.pr.state} />
               {controls.actionError && (
                 <Callout tone="error" role="alert">
@@ -937,7 +941,6 @@ export function ReviewWorkspace({
                   onDismiss={() => workspace.setNewHead(null)}
                 />
               )}
-              <BreakBanner workspace={workspace} />
             </div>
           </div>
           <main id="main" className="min-h-0 flex-1 overflow-y-auto px-3 pb-24 sm:px-10">

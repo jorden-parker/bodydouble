@@ -1,23 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Range, Summary } from "@/lib/metrics/summary";
 import type { Settings } from "@/lib/store/settings";
 import type { SyncResult } from "@/lib/sync";
-import type { TallyApi } from "../api";
+import { messageOf, type TallyApi } from "../api";
+import { describeSyncErrors, useSync } from "../sync/use-sync";
 import { isStale } from "./format";
 
 const AUTO_SYNC_MAX_AGE_MS = 10 * 60 * 1000;
-
-const SOURCE_LABELS = { github: "GitHub", shortcut: "Shortcut" };
-
-export function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function describeSyncErrors(errors: SyncResult["errors"]): string[] {
-  return Object.entries(errors).map(
-    ([source, message]) => `${SOURCE_LABELS[source as keyof typeof SOURCE_LABELS]}: ${message}`,
-  );
-}
 
 function describeUncountedReviews(repos: string[]): string[] {
   return repos.length === 0
@@ -25,14 +14,19 @@ function describeUncountedReviews(repos: string[]): string[] {
     : [`Reviews in ${repos.join(", ")} aren't counted. Add them in Settings to count them.`];
 }
 
+function describeDashboardSync(result: SyncResult): string[] {
+  return [...describeSyncErrors(result), ...describeUncountedReviews(result.uncountedReviewRepos)];
+}
+
 export function useDashboard(api: TallyApi, now: () => Date) {
   const [range, setRange] = useState<Range>("week");
   const [summary, setSummary] = useState<Summary | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [problems, setProblems] = useState<string[]>([]);
-  const [reloads, setReloads] = useState(0);
   const autoSyncAttempted = useRef(false);
+  const { syncing, problems, setProblems, completedSyncs, sync } = useSync(
+    api,
+    describeDashboardSync,
+  );
 
   useEffect(() => {
     let current = true;
@@ -43,30 +37,14 @@ export function useDashboard(api: TallyApi, now: () => Date) {
     return () => {
       current = false;
     };
-  }, [api, range, reloads]);
+  }, [api, range, completedSyncs, setProblems]);
 
   useEffect(() => {
     api
       .fetchSettings()
       .then(setSettings)
       .catch((error) => setProblems([messageOf(error)]));
-  }, [api]);
-
-  const sync = useCallback(async () => {
-    setSyncing(true);
-    try {
-      const result = await api.runSync();
-      setProblems([
-        ...describeSyncErrors(result.errors),
-        ...describeUncountedReviews(result.uncountedReviewRepos),
-      ]);
-      setReloads((count) => count + 1);
-    } catch (error) {
-      setProblems([messageOf(error)]);
-    } finally {
-      setSyncing(false);
-    }
-  }, [api]);
+  }, [api, setProblems]);
 
   useEffect(() => {
     if (autoSyncAttempted.current || !summary || !settings) return;

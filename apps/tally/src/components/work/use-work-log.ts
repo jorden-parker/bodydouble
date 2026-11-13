@@ -2,15 +2,14 @@ import { useEffect, useState } from "react";
 import { dayKey, shiftDay } from "@/lib/metrics/buckets";
 import type { DayRange } from "@/lib/metrics/summary";
 import type { WorkReport } from "@/lib/metrics/work";
-import type { TallyApi } from "../api";
-import { messageOf } from "../dashboard/use-dashboard";
+import { messageOf, type TallyApi } from "../api";
 
 const DAYS_BEFORE_TODAY = 29;
 
 function lastThirtyDays(now: Date): DayRange {
   const { timeZone } = Intl.DateTimeFormat().resolvedOptions();
-  const to = dayKey(now.toISOString(), timeZone);
-  return { from: shiftDay(to, -DAYS_BEFORE_TODAY), to };
+  const today = dayKey(now.toISOString(), timeZone);
+  return { from: shiftDay(today, -DAYS_BEFORE_TODAY), to: today };
 }
 
 export function useWorkLog(api: TallyApi, now: () => Date) {

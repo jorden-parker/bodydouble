@@ -271,54 +271,72 @@ function ThreadRow({
   const { root, replies } = thread;
   const { path, line, side } = root;
   return (
-    <article className="flex flex-col gap-1.5 rounded-md border p-3">
-      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <span className="font-mono">{path}</span>
-        <span className="font-medium text-foreground">{root.author}</span>
-        <span>{relativeTime(root.createdAt)}</span>
-        {thread.outdated && <Badge variant="outline">Outdated</Badge>}
-      </div>
-      <Markdown text={root.body} className="wrap-anywhere" />
-      {replies.map((answer) => (
-        <ReplyItem
-          key={answer.id}
-          reply={answer}
-          arrived={reply.arrivedId === answer.id}
-          onArrived={reply.clearArrived}
-        />
-      ))}
-      <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
-        <span>{replies.length > 0 && replyCount(replies.length)}</span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label={replyLabel(path, line)}
-            onClick={() => reply.start(root.id)}
-          >
-            Reply
-          </Button>
-          {line !== null && side === "RIGHT" && (
-            <Button
-              variant="outline"
-              size="sm"
-              aria-label={`Open ${path} line ${line}`}
-              onClick={() => onOpen({ path, line })}
-            >
-              Open
-            </Button>
-          )}
+    <article className="flex gap-3 rounded-xl border border-line bg-surface-2 p-4">
+      <span
+        aria-hidden
+        className="grid size-9 shrink-0 place-items-center rounded-full bg-tint-violet text-sm font-bold text-ink-violet"
+      >
+        {initialsOf(root.author)}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-fg-muted">
+          <strong className="font-bold text-fg">{root.author}</strong>
+          {line !== null && <span>on line {line}</span>}
+          <span className="font-mono">{path}</span>
+          <span>· {relativeTime(root.createdAt)}</span>
+          {thread.outdated && <Badge variant="outline">Outdated</Badge>}
         </div>
+        <Markdown text={root.body} className="wrap-anywhere" />
+        {replies.map((answer) => (
+          <ReplyItem
+            key={answer.id}
+            reply={answer}
+            arrived={reply.arrivedId === answer.id}
+            onArrived={reply.clearArrived}
+          />
+        ))}
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-fg-muted">
+          <span>{replies.length > 0 && replyCount(replies.length)}</span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="soft"
+              size="sm"
+              aria-label={replyLabel(path, line)}
+              onClick={() => reply.start(root.id)}
+            >
+              Reply
+            </Button>
+            {line !== null && side === "RIGHT" && (
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label={`Open ${path} line ${line}`}
+                onClick={() => onOpen({ path, line })}
+              >
+                Open
+              </Button>
+            )}
+          </div>
+        </div>
+        {reply.activeRootId === root.id && (
+          <ThreadReplyComposer
+            target={{ path, line, author: root.author }}
+            onSend={(body) => reply.send(root.id, body)}
+            onCancel={reply.cancel}
+          />
+        )}
       </div>
-      {reply.activeRootId === root.id && (
-        <ThreadReplyComposer
-          target={{ path, line, author: root.author }}
-          onSend={(body) => reply.send(root.id, body)}
-          onCancel={reply.cancel}
-        />
-      )}
     </article>
   );
+}
+
+function initialsOf(name: string): string {
+  return name
+    .split(/[\s-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join("");
 }
 
 function ReplyItem({

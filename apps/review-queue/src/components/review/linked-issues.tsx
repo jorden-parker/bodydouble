@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { LinkedIssue } from "@/lib/github/gh";
 
-function issueLabel(issue: LinkedIssue): string {
+export function issueLabel(issue: LinkedIssue): string {
   return `${issue.owner}/${issue.repo}#${issue.number}`;
 }
 

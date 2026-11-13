@@ -293,7 +293,7 @@ export function ReviewPanel({
           ref={contentRef}
           data-testid="pane-column"
           style={{ width }}
-          className={`relative flex min-h-0 max-w-panel-overlay flex-col bg-card max-lg:absolute max-lg:inset-y-0 max-lg:z-30 max-lg:shadow-lg ${style.columnEdge} ${dragging ? "" : "transition-[width] duration-calm ease-calm"}`}
+          className={`relative flex min-h-0 max-w-panel-overlay flex-col bg-surface max-lg:absolute max-lg:inset-y-0 max-lg:z-30 max-lg:shadow-lg ${style.columnEdge} ${dragging ? "" : "transition-[width] duration-calm ease-calm"}`}
         >
           <PanelResizeHandle sizing={sizing} handleSide={style.handleSide} />
           {panes.map((id, index) => {

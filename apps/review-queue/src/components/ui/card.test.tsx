@@ -10,10 +10,10 @@ describe("Card", () => {
     expect(classes.contains("ring-1")).toBe(false);
   });
 
-  it("has no drop shadow", () => {
+  it("casts the calm neon lift shadow", () => {
     const { container } = render(<Card>Body</Card>);
-    expect((container.firstElementChild as HTMLElement).classList.contains("shadow-none")).toBe(
-      true,
-    );
+    const classes = (container.firstElementChild as HTMLElement).classList;
+    expect(classes.contains("shadow-lift")).toBe(true);
+    expect(classes.contains("shadow-none")).toBe(false);
   });
 });

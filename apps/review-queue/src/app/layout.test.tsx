@@ -2,11 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import RootLayout from "./layout";
 
 vi.mock("next/font/google", () => ({
-  Geist: vi.fn((options: { variable: string }) => ({ variable: options.variable })),
-  Geist_Mono: vi.fn((options: { variable: string }) => ({ variable: options.variable })),
-  Atkinson_Hyperlegible_Next: vi.fn(() => ({ variable: "atkinson-sans-variable" })),
-  Atkinson_Hyperlegible_Mono: vi.fn(() => ({ variable: "atkinson-mono-variable" })),
+  Fredoka: vi.fn((options: { variable: string }) => ({ variable: options.variable })),
+  Atkinson_Hyperlegible: vi.fn((options: { variable: string }) => ({ variable: options.variable })),
+  JetBrains_Mono: vi.fn((options: { variable: string }) => ({ variable: options.variable })),
 }));
+
+vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
 
 function htmlClassNames(): string[] {
   const htmlElement = RootLayout({ children: null });
@@ -14,15 +15,19 @@ function htmlClassNames(): string[] {
 }
 
 describe("RootLayout fonts", () => {
-  it("puts the Geist sans variable on the html element", () => {
-    expect(htmlClassNames()).toContain("--font-geist-sans");
+  it("puts the Fredoka display variable on the html element", () => {
+    expect(htmlClassNames()).toContain("--font-fredoka");
   });
 
-  it("puts the Geist Mono variable on the html element", () => {
-    expect(htmlClassNames()).toContain("--font-geist-mono");
+  it("puts the Atkinson Hyperlegible body variable on the html element", () => {
+    expect(htmlClassNames()).toContain("--font-atkinson");
   });
 
-  it("no longer puts Atkinson on the html element", () => {
-    expect(htmlClassNames().some((name) => name.startsWith("atkinson"))).toBe(false);
+  it("puts the JetBrains Mono code variable on the html element", () => {
+    expect(htmlClassNames()).toContain("--font-jetbrains-mono");
+  });
+
+  it("no longer loads Geist", () => {
+    expect(htmlClassNames().some((name) => name.startsWith("--font-geist"))).toBe(false);
   });
 });

@@ -7,7 +7,7 @@ import { REVIEW_STATUS_LABELS } from "@/lib/review-status";
 import type { OpenItem } from "@/lib/store/open-items";
 import type { ReviewStatus } from "@/lib/store/pull-request-reviews";
 import type { Ticket, TicketPullRequest } from "@/lib/store/tickets";
-import { formatLongDay, rangePhrase } from "./format";
+import { formatLongDay, RANGE_HEADINGS, rangePhrase } from "./format";
 import { InlineMarkdown } from "@/components/inline-markdown";
 
 type StatusLabels = Record<ReviewStatus, string>;
@@ -128,7 +128,7 @@ function TicketCard({ ticket, labels }: { ticket: Ticket; labels: StatusLabels }
           ) : null}
         </CardContent>
         <CardFooter className="flex-col items-start gap-3 bg-muted">
-          <Badge variant="outline">{ticket.state}</Badge>
+          <Badge variant="neutral">{ticket.state}</Badge>
           <PullRequestStatus pullRequests={ticket.pullRequests} labels={labels} />
         </CardFooter>
       </Card>
@@ -148,12 +148,12 @@ function CardSection({
   labels?: StatusLabels;
 }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-4">
-      <SectionHeading title={title} />
+    <section aria-label={title} className="flex min-w-0 flex-col gap-4">
+      <SectionHeading title={title} level={3} />
       {tickets.length === 0 ? (
         <EmptyNote>{emptyText}</EmptyNote>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-col gap-4">
           {tickets.map((ticket) => (
             <TicketCard key={ticket.id} ticket={ticket} labels={labels} />
           ))}
@@ -169,7 +169,7 @@ function UnlinkedPullRequest({ item }: { item: OpenItem }) {
       <a href={item.url} target="_blank" rel="noreferrer" className={TITLE_LINK_CLASS}>
         <InlineMarkdown text={item.title} />
       </a>
-      {item.isDraft ? <Badge variant="secondary">Draft</Badge> : null}
+      {item.isDraft ? <Badge variant="amber">Draft</Badge> : null}
       {item.reviewStatus === null ? null : (
         <span className="text-sm text-muted-foreground">
           {REVIEW_STATUS_LABELS[item.reviewStatus]}
@@ -192,8 +192,8 @@ function unlinkedPullRequests(open: Summary["open"]): OpenItem[] {
 function UnlinkedPullRequests({ items }: { items: OpenItem[] }) {
   if (items.length === 0) return null;
   return (
-    <section aria-label="Open PRs without a ticket" className="flex flex-col gap-4">
-      <SectionHeading title="Open PRs without a ticket" level={3} />
+    <section aria-label="Open PRs Without a Ticket" className="flex min-w-0 flex-col gap-4">
+      <SectionHeading title="Open PRs Without a Ticket" level={3} />
       <ul className="divide-y rounded-xl border bg-card">
         {items.map((item) => (
           <UnlinkedPullRequest key={item.externalId} item={item} />
@@ -214,24 +214,28 @@ export function TicketCards({
 }) {
   const phrase = rangePhrase(range);
   return (
-    <div className="flex flex-col gap-14">
-      <CardSection
-        title="Your tickets"
-        emptyText="Your desk is clear. Suspiciously clear."
-        tickets={open.tickets}
-      />
-      <UnlinkedPullRequests items={unlinkedPullRequests(open)} />
-      <CardSection
-        title="Reviewing"
-        emptyText="Nobody needs your eyes right now."
-        tickets={open.reviewing}
-        labels={REVIEWER_LABELS}
-      />
-      <CardSection
-        title={`Completed ${phrase}`}
-        emptyText={`Nothing ticked off ${phrase}. Yet.`}
-        tickets={completedTickets}
-      />
+    <div className="@container flex min-h-0 flex-1 flex-col">
+      <div className="grid min-h-0 flex-1 grid-cols-1 items-start content-start gap-8 overflow-y-auto pr-1 @md:grid-cols-2">
+        <CardSection
+          title="In Your Hands"
+          emptyText="Your desk is clear. Suspiciously clear."
+          tickets={open.tickets}
+        />
+        <div className="flex min-w-0 flex-col gap-8">
+          <CardSection
+            title="Reviewing"
+            emptyText="Nobody needs your eyes right now."
+            tickets={open.reviewing}
+            labels={REVIEWER_LABELS}
+          />
+          <UnlinkedPullRequests items={unlinkedPullRequests(open)} />
+          <CardSection
+            title={`Completed ${RANGE_HEADINGS[range]}`}
+            emptyText={`Nothing ticked off ${phrase}. Yet.`}
+            tickets={completedTickets}
+          />
+        </div>
+      </div>
     </div>
   );
 }

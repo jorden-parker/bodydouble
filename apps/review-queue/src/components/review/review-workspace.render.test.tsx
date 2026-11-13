@@ -137,6 +137,19 @@ describe("review workspace renders", () => {
     expect(document.getElementById("main")?.tagName).toBe("MAIN");
   });
 
+  it("shows the pull request title as the page heading", async () => {
+    const payload = reviewPayload();
+    await renderWorkspace(payload);
+    expect(screen.getByRole("heading", { level: 1, name: payload.pr.title })).toBeTruthy();
+  });
+
+  it("shows the review path as a labelled stream in the header", async () => {
+    await renderWorkspace();
+    const path = screen.getByRole("progressbar", { name: "Review path" });
+    expect(path.closest("header")).not.toBeNull();
+    expect(path.getAttribute("aria-valuetext")).toBe("Walk the Changes");
+  });
+
   it("links the top bar to the pull request on GitHub", async () => {
     await renderWorkspace();
     const link = screen.getByRole("link", { name: "Open acme/app#7 on GitHub" });

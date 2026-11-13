@@ -19,6 +19,25 @@ describe("PageShell", () => {
     expect(screen.getByRole("button", { name: "Go" })).toBeDefined();
     expect(screen.getByText("body")).toBeDefined();
   });
+
+  it("accepts a title with its own styled parts", () => {
+    render(
+      <PageShell
+        title={
+          <>
+            Hey There. <span data-testid="accent">Here&apos;s Your Tally.</span>
+          </>
+        }
+      >
+        <p>body</p>
+      </PageShell>,
+    );
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Hey There. Here's Your Tally." }),
+    ).toBeDefined();
+    expect(screen.getByTestId("accent").textContent).toBe("Here's Your Tally.");
+  });
 });
 
 describe("SectionHeading", () => {

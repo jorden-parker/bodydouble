@@ -13,6 +13,17 @@ describe("PageShell", () => {
     expect(main.contains(screen.getByText("Body content"))).toBe(true);
   });
 
+  it("fills the app frame and scrolls only inside itself until its screen moves to panels", () => {
+    render(
+      <PageShell>
+        <p>Body content</p>
+      </PageShell>,
+    );
+    const classes = screen.getByRole("main").classList;
+    expect(classes.contains("flex-1")).toBe(true);
+    expect(classes.contains("overflow-y-auto")).toBe(true);
+  });
+
   it("gives the main landmark the id the skip link targets", () => {
     render(
       <PageShell>
@@ -40,8 +51,8 @@ describe("PageHeader", () => {
   });
 
   it("renders a back link with its label and href when asked", () => {
-    render(<PageHeader title="Settings" backHref="/" backLabel="Review queue" />);
-    expect(screen.getByRole("link", { name: "Review queue" }).getAttribute("href")).toBe("/");
+    render(<PageHeader title="Settings" backHref="/" backLabel="Review Queue" />);
+    expect(screen.getByRole("link", { name: "Review Queue" }).getAttribute("href")).toBe("/");
   });
 
   it("draws no decorative backdrop behind the header", () => {

@@ -17,6 +17,19 @@ async function openPullRequest(text: string) {
 describe("OpenPullRequestForm", () => {
   afterEach(() => router.push.mockClear());
 
+  it("titles the form Open Any PR by URL", () => {
+    render(<OpenPullRequestForm />);
+    expect(screen.getByRole("heading", { name: "Open Any PR by URL" })).toBeTruthy();
+  });
+
+  it("gives the link field and its Open button a 44px touch target", () => {
+    render(<OpenPullRequestForm />);
+    expect(screen.getByLabelText("PR link or owner/repo#number").classList.contains("h-11")).toBe(
+      true,
+    );
+    expect(screen.getByRole("button", { name: "Open" }).classList.contains("h-11")).toBe(true);
+  });
+
   it("opens the review page for a pasted PR link", async () => {
     await openPullRequest("https://github.com/acme/app/pull/7");
     expect(router.push).toHaveBeenCalledWith("/pr/acme/app/7");

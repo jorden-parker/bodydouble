@@ -9,7 +9,7 @@ export function PageShell({ children }: PageShellProps) {
   return (
     <main
       id="main"
-      className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-4 py-12 sm:px-6 sm:py-16"
+      className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col gap-10 overflow-y-auto px-4 py-12 sm:px-6 sm:py-16"
     >
       {children}
     </main>

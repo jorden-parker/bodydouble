@@ -51,7 +51,7 @@ describe("ArchivedList", () => {
     await userEvent.click(screen.getByText("Archived"));
     expect(
       screen.getByText(
-        /stay out of .Also in progress. until you restore them or push a new commit to the PR/,
+        /stay out of .Also in Progress. until you restore them or push a new commit to the PR/,
       ),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Restore acme/app#7" })).toBeTruthy();
@@ -64,7 +64,7 @@ describe("ArchivedList", () => {
     expect(onRestore).toHaveBeenCalledWith(SESSION);
   });
 
-  it("draws the list on a hairline border rather than a ring", () => {
+  it("draws each archived row on a hairline border rather than a ring", async () => {
     const { container } = render(
       <ArchivedList
         sessions={[SESSION]}
@@ -74,8 +74,9 @@ describe("ArchivedList", () => {
       />,
       { wrapper: TooltipProvider },
     );
-    const list = container.querySelector("ul");
-    expect(list?.classList.contains("border")).toBe(true);
-    expect(list?.classList.contains("ring-1")).toBe(false);
+    await userEvent.click(screen.getByText("Archived"));
+    const row = container.querySelector("li");
+    expect(row?.classList.contains("border")).toBe(true);
+    expect(row?.classList.contains("ring-1")).toBe(false);
   });
 });

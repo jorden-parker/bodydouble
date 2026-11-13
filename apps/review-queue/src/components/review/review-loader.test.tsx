@@ -308,7 +308,7 @@ describe("ReviewLoader", () => {
 
   it("marks a step done and moves to the next one", async () => {
     const { api, user } = await renderReview();
-    await user.click(screen.getByRole("button", { name: /Done, next step/ }));
+    await user.click(screen.getByRole("button", { name: /Next part/ }));
     expect(await screen.findByText("Step 2 of 3")).toBeTruthy();
     expect(screen.getByText("core, 2 lines")).toBeTruthy();
     expect(api.actions()).toEqual(
@@ -460,7 +460,7 @@ describe("ReviewLoader", () => {
     const { user } = await renderReview();
     await splitAboutPane(user);
     expect(screen.getByText(/Retries failed loads/)).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: /Done, next step/ }));
+    await user.click(screen.getByRole("button", { name: /Next part/ }));
     await screen.findByText("Step 2 of 3");
     expect(screen.getByText("core, 2 lines")).toBeTruthy();
     expect(screen.getByText("≈")).toBeTruthy();
@@ -748,12 +748,12 @@ describe("ReviewLoader", () => {
     );
     const { api, user } = await renderReview(payload);
     await user.click(screen.getByRole("button", { name: /Finish/ }));
-    const dialog = screen.getByRole("dialog", { name: "Finish review" });
+    const dialog = screen.getByRole("dialog", { name: "Submit Review" });
     expect(within(dialog).getByText(/3 steps and 1 hotspot are not/)).toBeTruthy();
-    await user.click(within(dialog).getByRole("button", { name: "Approve" }));
+    await user.click(within(dialog).getByRole("radio", { name: "Approve" }));
     await user.type(within(dialog).getByPlaceholderText(/Overall summary/), "Nice work");
-    await user.click(within(dialog).getByRole("button", { name: /Approve on GitHub/ }));
-    await waitFor(() => expect(screen.queryByText("Finish review")).toBeNull());
+    await user.click(within(dialog).getByRole("button", { name: "Post review" }));
+    await waitFor(() => expect(screen.queryByText("Submit Review")).toBeNull());
     expect(screen.getByRole("status").textContent).toMatch(/Review posted/);
     expect(screen.getByRole("link", { name: "Open it" }).getAttribute("href")).toBe(
       SUBMITTED_REVIEW_URL,
@@ -786,7 +786,7 @@ describe("ReviewLoader", () => {
     );
     const { user } = await renderReview(payload, { status: "error", message: "x" });
     await user.click(screen.getByRole("button", { name: /Finish/ }));
-    const dialog = screen.getByRole("dialog", { name: "Finish review" });
+    const dialog = screen.getByRole("dialog", { name: "Submit Review" });
     await user.click(within(dialog).getByRole("button", { name: /Draft from my notes/ }));
     await waitFor(() =>
       expect(within(dialog).getByPlaceholderText(/Overall summary/)).toHaveProperty(
@@ -799,7 +799,7 @@ describe("ReviewLoader", () => {
   it("has no draft button when the model is off", async () => {
     const { user } = await renderReview();
     await user.click(screen.getByRole("button", { name: /Finish/ }));
-    const dialog = screen.getByRole("dialog", { name: "Finish review" });
+    const dialog = screen.getByRole("dialog", { name: "Submit Review" });
     expect(within(dialog).queryByRole("button", { name: /Draft from my notes/ })).toBeNull();
   });
 

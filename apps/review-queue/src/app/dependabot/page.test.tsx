@@ -7,11 +7,11 @@ vi.mock("@/components/inbox/dependabot-list", () => ({ DependabotList: () => nul
 describe("DependabotPage", () => {
   it("titles the page Dependabot", () => {
     render(<DependabotPage />);
-    expect(screen.getByRole("heading", { name: "Dependabot" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Dependabot", level: 1 })).toBeTruthy();
   });
 
-  it("links back to the review queue", () => {
+  it("keeps the pull requests in one labelled panel", () => {
     render(<DependabotPage />);
-    expect(screen.getByRole("link", { name: /Review queue/ }).getAttribute("href")).toBe("/");
+    expect(screen.getByRole("region", { name: "Open Pull Requests" })).toBeTruthy();
   });
 });

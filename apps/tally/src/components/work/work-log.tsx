@@ -1,16 +1,12 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import {
-  EmptyNote,
-  LoadingNote,
-  PageShell,
-  ProblemAlert,
-  SectionHeading,
-} from "@/components/layout/page-shell";
+import { EmptyNote, LoadingNote, ProblemAlert } from "@/components/layout/page-shell";
+import { Panel, Panels } from "@/components/neon/panels";
+import { Stream } from "@/components/neon/stream";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { dayKey } from "@/lib/metrics/buckets";
 import {
   groupByDay,
   type DraftRow,
@@ -29,13 +25,26 @@ import { plural } from "@/lib/text";
 import { api as realApi, type TallyApi } from "../api";
 import { formatDayMonth, formatLongDay } from "../dashboard/format";
 import { useWorkLog } from "./use-work-log";
+import "./work-log.css";
 import { InlineMarkdown } from "@/components/inline-markdown";
 
 const currentTime = () => new Date();
 
-const BUTTON_CLASS = buttonVariants({ variant: "outline", size: "lg", className: "px-3" });
+const BUTTON_CLASS = buttonVariants({ variant: "soft", size: "lg", className: "px-3" });
 const SEPARATOR = " · ";
-const ROW_LIST_CLASS = "divide-y rounded-xl border bg-card";
+const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MAX_TALLY_MARKS = 5;
+
+const PULL_REQUEST_STYLE = {
+  label: "Merged",
+  text: "text-ink-amber",
+  dot: "bg-neon-amber shadow-glow-amber",
+};
+const TICKET_STYLE = {
+  label: "Done",
+  text: "text-ink-mint",
+  dot: "bg-neon-mint",
+};
 
 type WorkLogProps = { api?: TallyApi; now?: () => Date };
 
@@ -65,7 +74,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
       <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="font-hand text-4xl leading-none font-bold">{value}</dd>
+      <dd className="font-display text-2xl leading-none font-semibold tabular-nums">{value}</dd>
     </div>
   );
 }
@@ -75,28 +84,27 @@ function haveOrHas(count: number): string {
 }
 
 function TotalsBlock({
-  title,
+  label,
   notes,
   children,
 }: {
-  title: string;
+  label: string;
   notes: string[];
   children: ReactNode;
 }) {
   return (
-    <Card role="group" aria-label={title}>
-      <CardHeader>
-        <SectionHeading title={title} level={3} />
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <dl className="grid grid-cols-3 gap-6">{children}</dl>
-        {notes.map((note) => (
-          <p key={note} className="text-sm text-muted-foreground">
-            {note}
-          </p>
-        ))}
-      </CardContent>
-    </Card>
+    <div
+      role="group"
+      aria-label={label}
+      className="flex flex-col gap-3 rounded-md border border-line-soft bg-surface-2 p-4"
+    >
+      <dl className="grid grid-cols-3 gap-4">{children}</dl>
+      {notes.map((note) => (
+        <p key={note} className="text-sm text-muted-foreground">
+          {note}
+        </p>
+      ))}
+    </div>
   );
 }
 
@@ -106,10 +114,10 @@ function PullRequestTotals({ totals }: { totals: WorkTotals }) {
       ? []
       : [`${plural(totals.prsWithoutSize, "PR")} ${haveOrHas(totals.prsWithoutSize)} no size data`];
   return (
-    <TotalsBlock title="Pull requests" notes={notes}>
-      <Stat label="Merged" value={String(totals.prsMerged)} />
+    <TotalsBlock label="Pull requests" notes={notes}>
+      <Stat label="PRs merged" value={String(totals.prsMerged)} />
       <Stat label="Lines changed" value={`+${totals.additions} −${totals.deletions}`} />
-      <Stat label="Median cycle time" value={formatCycleTime(totals.medianPrCycleMs)} />
+      <Stat label="Median cycle" value={formatCycleTime(totals.medianPrCycleMs)} />
     </TotalsBlock>
   );
 }
@@ -125,17 +133,17 @@ function TicketTotals({ totals }: { totals: WorkTotals }) {
         ]),
   ];
   return (
-    <TotalsBlock title="Tickets" notes={notes}>
-      <Stat label="Completed" value={String(totals.ticketsCompleted)} />
+    <TotalsBlock label="Tickets" notes={notes}>
+      <Stat label="Tickets done" value={String(totals.ticketsCompleted)} />
       <Stat label="Points" value={String(totals.points)} />
-      <Stat label="Median cycle time" value={formatCycleTime(totals.medianTicketCycleMs)} />
+      <Stat label="Median cycle" value={formatCycleTime(totals.medianTicketCycleMs)} />
     </TotalsBlock>
   );
 }
 
 function Totals({ totals }: { totals: WorkTotals }) {
   return (
-    <section aria-label="Totals" className="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <section aria-label="Totals" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <PullRequestTotals totals={totals} />
       <TicketTotals totals={totals} />
     </section>
@@ -148,16 +156,24 @@ function RowLink({ row }: { row: WorkRow | DraftRow }) {
       href={row.url}
       target="_blank"
       rel="noreferrer"
-      className="font-medium underline-offset-4 hover:underline"
+      className="font-display text-base leading-snug font-semibold underline-offset-4 hover:underline"
     >
       <InlineMarkdown text={row.title} />
     </a>
   );
 }
 
-function WorkRowItem({ row }: { row: WorkRow }) {
+function TimelineItem({ row }: { row: WorkRow }) {
+  const style = row.kind === "pr_merged" ? PULL_REQUEST_STYLE : TICKET_STYLE;
   return (
-    <li className="flex flex-col gap-1 px-4 py-3">
+    <li className="relative flex flex-col gap-1 py-3">
+      <span
+        aria-hidden="true"
+        className={`absolute -left-[33px] top-5 size-4 rounded-full border-4 border-background ${style.dot}`}
+      />
+      <span className={`font-mono text-xs tracking-wider uppercase ${style.text}`}>
+        {style.label}
+      </span>
       <RowLink row={row} />
       <ul className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
         {detailParts(row).map((part) => (
@@ -168,53 +184,56 @@ function WorkRowItem({ row }: { row: WorkRow }) {
   );
 }
 
-function draftLine(row: DraftRow): string {
-  const status = row.reviewStatus === null ? [] : [REVIEW_STATUS_LABELS[row.reviewStatus]];
-  return [`Opened ${formatLongDay(row.day)}`, row.repo, ...status]
-    .filter((part) => part !== null)
-    .join(SEPARATOR);
+function TallyMarks({ count }: { count: number }) {
+  const drawn = Math.min(count, MAX_TALLY_MARKS);
+  return (
+    <p className="flex items-center gap-2 font-mono text-sm text-muted-foreground">
+      <span role="img" aria-label={plural(count, "thing")} className="flex items-end gap-1">
+        {Array.from({ length: drawn }, (_, index) => (
+          <span
+            key={index}
+            className={`h-4 w-[3px] rounded-sm ${index < 4 ? "bg-neon-blue" : "bg-neon-amber"}`}
+          />
+        ))}
+      </span>
+      {count}
+    </p>
+  );
 }
 
 function DraftRowItem({ row }: { row: DraftRow }) {
+  const status = row.reviewStatus === null ? [] : [REVIEW_STATUS_LABELS[row.reviewStatus]];
+  const line = [`Opened ${formatLongDay(row.day)}`, row.repo, ...status].join(SEPARATOR);
   return (
-    <li className="flex flex-col gap-1 px-4 py-3">
+    <li className="flex flex-col gap-1 py-3">
       <RowLink row={row} />
-      <span className="text-sm text-muted-foreground">{draftLine(row)}</span>
+      <span className="text-sm text-muted-foreground">{line}</span>
     </li>
   );
 }
 
-function RowSection({
-  title,
-  count,
-  emptyText,
-  children,
-}: {
-  title: string;
-  count: number;
-  emptyText: string;
-  children: ReactNode;
-}) {
+function Timeline({ rows }: { rows: WorkRow[] }) {
+  if (rows.length === 0) return <EmptyNote>A quiet stretch. Nothing here.</EmptyNote>;
   return (
-    <section aria-label={title} className="flex flex-col gap-4">
-      <SectionHeading title={title} count={count} />
-      {count === 0 ? <EmptyNote>{emptyText}</EmptyNote> : children}
-    </section>
-  );
-}
-
-function DayGroups({ rows }: { rows: WorkRow[] }) {
-  return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pr-2">
       {groupByDay(rows).map(({ day, rows: dayRows }) => (
-        <div key={day} className="flex flex-col gap-2">
-          <h3 className="text-sm font-medium text-muted-foreground">{formatLongDay(day)}</h3>
-          <ul className={ROW_LIST_CLASS}>
+        <section
+          key={day}
+          aria-labelledby={`day-${day}`}
+          className="flex flex-col gap-1 border-l-2 border-line-soft pl-7"
+        >
+          <header className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 id={`day-${day}`} className="font-display text-lg font-semibold">
+              {formatLongDay(day)}
+            </h3>
+            <TallyMarks count={dayRows.length} />
+          </header>
+          <ul className="flex flex-col divide-y divide-line-soft">
             {dayRows.map((row) => (
-              <WorkRowItem key={row.externalId} row={row} />
+              <TimelineItem key={`${row.kind}-${row.externalId}`} row={row} />
             ))}
           </ul>
-        </div>
+        </section>
       ))}
     </div>
   );
@@ -223,7 +242,7 @@ function DayGroups({ rows }: { rows: WorkRow[] }) {
 function ExportActions({ report }: { report: WorkReport }) {
   const markdown = workMarkdown(report);
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <CopyButton key={markdown} text={markdown} />
       <a
         href={`data:text/markdown;charset=utf-8,${encodeURIComponent(markdown)}`}
@@ -244,73 +263,114 @@ function CopyButton({ text }: { text: string }) {
       () => setLabel("Copy failed"),
     );
   return (
-    <Button variant="outline" size="lg" onClick={copy} className="px-3">
+    <Button variant="neon" size="lg" onClick={copy}>
       {label}
     </Button>
   );
 }
 
-function Report({ report }: { report: WorkReport }) {
+function WeekProgress({ dayIndex }: { dayIndex: number }) {
   return (
-    <>
-      <div className="-mt-4 flex flex-wrap items-center justify-between gap-4 border-b pb-6">
+    <Stream
+      steps={WEEK_DAYS.map((label) => ({ label }))}
+      current={dayIndex}
+      variant="small"
+      label="Week progress"
+    />
+  );
+}
+
+function Summary({ report, dayIndex }: { report: WorkReport; dayIndex: number }) {
+  const shipped = report.totals.prsMerged + report.totals.ticketsCompleted;
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2">
+        <h2 className="font-display text-3xl font-semibold tracking-tight">
+          <span className="text-neon-tally">{shipped} Things Shipped.</span>
+        </h2>
         <p className="text-muted-foreground">
           {leadSentence(report.totals)}, {formatDayMonth(report.from)} to{" "}
           {formatDayMonth(report.to)}
         </p>
-        <ExportActions report={report} />
       </div>
+      <WeekProgress dayIndex={dayIndex} />
       <Totals totals={report.totals} />
-      <RowSection
-        title="PRs merged"
-        count={report.prs.length}
-        emptyText="A quiet stretch. Nothing here."
-      >
-        <DayGroups rows={report.prs} />
-      </RowSection>
-      <RowSection
-        title="Tickets completed"
-        count={report.tickets.length}
-        emptyText="A quiet stretch. Nothing here."
-      >
-        <DayGroups rows={report.tickets} />
-      </RowSection>
-      <RowSection
-        title="Drafts in progress"
-        count={report.drafts.length}
-        emptyText="No drafts on the go."
-      >
-        <ul className={ROW_LIST_CLASS}>
-          {report.drafts.map((row) => (
+      <ExportActions report={report} />
+    </div>
+  );
+}
+
+function Drafts({ drafts }: { drafts: DraftRow[] }) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
+        Drafts in Progress <span className="sr-only">(</span>
+        <span className="rounded-pill bg-surface-3 px-2 font-mono text-sm tabular-nums">
+          {drafts.length}
+        </span>
+        <span className="sr-only">)</span>
+      </h2>
+      {drafts.length === 0 ? (
+        <EmptyNote>No drafts on the go.</EmptyNote>
+      ) : (
+        <ul className="flex min-h-0 flex-1 flex-col divide-y divide-line-soft overflow-y-auto pr-2">
+          {drafts.map((row) => (
             <DraftRowItem key={row.externalId} row={row} />
           ))}
         </ul>
-      </RowSection>
-    </>
+      )}
+    </div>
+  );
+}
+
+function Report({ report, dayIndex }: { report: WorkReport; dayIndex: number }) {
+  const timelineRows = [...report.prs, ...report.tickets].sort((first, second) =>
+    second.occurredAt.localeCompare(first.occurredAt),
+  );
+  return (
+    <Panels className="work-panels min-h-0">
+      <Panel title="Summary" className="work-summary min-h-0">
+        <Summary report={report} dayIndex={dayIndex} />
+      </Panel>
+      <Panel title="Drafts in Progress" className="work-drafts min-h-0">
+        <Drafts drafts={report.drafts} />
+      </Panel>
+      <Panel title="Timeline" className="work-timeline min-h-0">
+        <div className="flex min-h-0 flex-1 flex-col gap-4">
+          <h2 className="font-display text-xl font-semibold">Timeline</h2>
+          <Timeline rows={timelineRows} />
+        </div>
+      </Panel>
+    </Panels>
   );
 }
 
 export function WorkLog({ api = realApi, now = currentTime }: WorkLogProps) {
   const { period, setPeriod, report, problem } = useWorkLog(api, now);
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const weekday = new Date(`${dayKey(now().toISOString(), timeZone)}T00:00:00Z`).getUTCDay();
+  const dayIndex = (weekday + 6) % 7;
 
   return (
-    <PageShell
-      title="Work log"
-      description="What you shipped over any stretch of days."
-      actions={
-        <>
+    <main className="app-main">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <h1 className="font-display text-4xl font-semibold tracking-tight">Work Log</h1>
+        <div className="flex flex-wrap items-center gap-3">
           <DateField
             label="From"
             value={period.from}
             onChange={(from) => setPeriod({ ...period, from })}
           />
-          <DateField label="To" value={period.to} onChange={(to) => setPeriod({ ...period, to })} />
-        </>
-      }
-    >
+          <DateField
+            label="To"
+            value={period.to}
+            onChange={(endDay) => setPeriod({ ...period, to: endDay })}
+          />
+        </div>
+      </header>
       <ProblemAlert messages={problem === null ? [] : [problem]} />
-      {report ? <Report report={report} /> : null}
+      {report ? <Report report={report} dayIndex={dayIndex} /> : null}
       {report === null && problem === null ? <LoadingNote /> : null}
-    </PageShell>
+    </main>
   );
 }

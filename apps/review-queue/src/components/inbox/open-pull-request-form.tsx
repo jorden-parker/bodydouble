@@ -20,13 +20,15 @@ export function OpenPullRequestForm() {
   }
 
   return (
-    <form onSubmit={open} className="flex flex-col gap-3">
-      <h2 className="text-lg font-bold">Open any PR</h2>
-      <div className="flex flex-col gap-2">
-        <label htmlFor="pr" className="text-sm text-muted-foreground">
+    <form onSubmit={open} className="grid gap-s-3" aria-labelledby="open-pr-heading">
+      <h2 id="open-pr-heading" className="font-display text-2xl font-semibold">
+        Open Any PR by URL
+      </h2>
+      <div className="grid gap-s-2">
+        <label htmlFor="pr" className="text-sm text-fg-muted">
           PR link or owner/repo#number
         </label>
-        <div className="flex gap-2">
+        <div className="flex gap-s-2">
           <Input
             id="pr"
             value={text}
@@ -34,9 +36,9 @@ export function OpenPullRequestForm() {
             placeholder="https://github.com/owner/repo/pull/123 or owner/repo#123"
             aria-invalid={invalid}
             aria-describedby="pr-error"
-            className="flex-1 font-mono"
+            className="h-11 flex-1 font-mono text-sm"
           />
-          <Button type="submit">
+          <Button type="submit" variant="soft" className="h-11">
             Open <ArrowRight />
           </Button>
         </div>

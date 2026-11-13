@@ -95,13 +95,13 @@ describe("FinishReview", () => {
 
   it("preselects Approve when everything is ticked and nothing blocks", () => {
     renderDialog({ notes: [] });
-    expect(screen.getByRole("button", { name: "Approve on GitHub" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Approve", checked: true })).toBeTruthy();
     expect(screen.getByText("Every step and hotspot is ticked off.")).toBeTruthy();
   });
 
   it("defaults to Comment while steps remain", () => {
     renderDialog({ stepsLeft: 2 });
-    expect(screen.getByRole("button", { name: "Post comment to GitHub" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Comment", checked: true })).toBeTruthy();
     expect(screen.getByText(/Heads up: 2 steps are not ticked off yet./)).toBeTruthy();
   });
 
@@ -109,7 +109,7 @@ describe("FinishReview", () => {
     renderDialog({
       notes: [note({ id: 2, kind: "issue", decorations: ["blocking"], body: "this leaks" })],
     });
-    expect(screen.getByRole("button", { name: "Request changes on GitHub" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Request changes", checked: true })).toBeTruthy();
   });
 
   it("submits only the selected postable ids", async () => {
@@ -120,8 +120,16 @@ describe("FinishReview", () => {
         note({ id: 3, kind: "parked", body: "lunch" }),
       ],
     });
-    await user.click(screen.getByRole("button", { name: "Approve on GitHub" }));
+    await user.click(screen.getByRole("button", { name: "Post review" }));
     expect(onSubmit).toHaveBeenCalledWith("APPROVE", "", [2]);
+  });
+
+  it("posts the verdict chosen on its card", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderDialog({ notes: [] });
+    await user.click(screen.getByRole("radio", { name: "Comment" }));
+    await user.click(screen.getByRole("button", { name: "Post review" }));
+    expect(onSubmit).toHaveBeenCalledWith("COMMENT", "", []);
   });
 
   it("unchecks a note whose line left the diff and says why", async () => {
@@ -130,8 +138,8 @@ describe("FinishReview", () => {
     const fine = note({ id: 8, path: "a.ts", line: 2, body: "still here" });
     const { onSubmit } = renderDialog({ notes: [stale, fine], stepsLeft: 1 });
     expect(screen.getByText(/a line the diff no longer has/)).toBeTruthy();
-    expect(screen.getByRole("heading", { name: /Notes to post \(1\)/ })).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: /Post comment to GitHub/ }));
+    expect(screen.getByRole("heading", { name: /Notes to Post \(1\)/ })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Post review" }));
     expect(onSubmit).toHaveBeenCalledWith("COMMENT", "", [8]);
   });
 
@@ -143,7 +151,7 @@ describe("FinishReview", () => {
     onSubmit.mockRejectedValueOnce(
       new Error("These notes point at a line the diff no longer has: a.ts:99. Deselect them."),
     );
-    await user.click(screen.getByRole("button", { name: "Approve on GitHub" }));
+    await user.click(screen.getByRole("button", { name: "Post review" }));
     expect(await screen.findByText(/a\.ts:99/)).toBeTruthy();
   });
 });

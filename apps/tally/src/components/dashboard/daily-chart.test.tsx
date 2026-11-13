@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { makeSummary } from "@/test/fake-api";
 import { DailyChart } from "./daily-chart";
+import { formatDay } from "./format";
 
 const POINTS = makeSummary().daily;
 
@@ -52,6 +53,23 @@ describe("DailyChart", () => {
 
     const { left, right } = screen.getByRole("tooltip").style;
     expect({ left, right }).toEqual(edges);
+  });
+
+  it("stretches the bars to fill its space while its labels stay as text", () => {
+    render(<DailyChart points={POINTS} />);
+
+    const plot = screen.getByRole("group", { name: /reviewed and created per day/i });
+    expect(plot.getAttribute("preserveAspectRatio")).toBe("none");
+    expect(plot.querySelectorAll("text")).toHaveLength(0);
+    expect(plot.closest(".grid")?.textContent).toContain(formatDay(POINTS[0].day));
+  });
+
+  it("places the day labels in the plot's column so they spread under the bars", () => {
+    render(<DailyChart points={POINTS} />);
+
+    const plot = screen.getByRole("group", { name: /reviewed and created per day/i });
+    const labelRow = plot.parentElement?.nextElementSibling;
+    expect(labelRow?.className).toContain("col-start-2");
   });
 
   it("handles a quiet month without dividing by zero", () => {

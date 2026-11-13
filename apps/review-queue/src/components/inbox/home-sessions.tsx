@@ -24,9 +24,11 @@ function withSessionAdded(
 export function HomeSessions({
   inProgress,
   archived,
+  isResumePrimary = true,
 }: {
   inProgress: InProgressSession[];
   archived: InProgressSession[];
+  isResumePrimary?: boolean;
 }) {
   const [active, setActive] = useState(inProgress);
   const [stored, setStored] = useState(archived);
@@ -64,7 +66,7 @@ export function HomeSessions({
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="grid min-h-0 flex-1 content-start gap-s-6 overflow-y-auto p-s-1">
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}
@@ -75,6 +77,7 @@ export function HomeSessions({
         busy={busy}
         onArchive={(session) => runChange(session, "archive")}
         headingRef={activeHeading}
+        isResumePrimary={isResumePrimary}
       />
       <ArchivedList
         sessions={stored}

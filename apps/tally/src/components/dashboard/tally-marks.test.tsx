@@ -49,6 +49,15 @@ describe("TallyMarks", () => {
     expect(new Set(delays).size).toBe(3);
   });
 
+  it("draws the marks in a glowing pink to amber gradient", () => {
+    render(<TallyMarks count={3} label="3 PRs reviewed" />);
+
+    const image = screen.getByRole("img", { name: "3 PRs reviewed" });
+    expect(image.classList.contains("tally-mark")).toBe(true);
+    expect(image.getAttribute("stroke")).toMatch(/^url\(#/);
+    expect(image.querySelector("linearGradient stop")).not.toBeNull();
+  });
+
   it("says how many marks it left out past the cap", () => {
     render(<TallyMarks count={53} label="53 PRs reviewed" />);
 

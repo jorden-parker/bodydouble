@@ -14,6 +14,14 @@ const SESSION: InProgressSession = {
   updatedAt: "2026-10-28T09:00:00.000Z",
 };
 
+const FIX_CACHE: InProgressSession = {
+  key: "acme/app#8",
+  title: "Fix cache",
+  doneCount: 1,
+  pauseNote: null,
+  updatedAt: "2026-10-27T09:00:00.000Z",
+};
+
 function renderList(sessions: InProgressSession[], onArchive = vi.fn()) {
   render(
     <InProgressList
@@ -51,10 +59,55 @@ describe("InProgressList", () => {
     expect(onArchive).toHaveBeenCalledWith(SESSION);
   });
 
-  it("links the row's title to its pull request", () => {
+  it("links the resume button to its pull request", () => {
     renderList([SESSION]);
-    expect(screen.getByRole("link", { name: /Add retry/ }).getAttribute("href")).toBe(
+    expect(screen.getByRole("link", { name: /Resume review/ }).getAttribute("href")).toBe(
       "/pr/acme/app/7",
+    );
+  });
+
+  it("shows the first session on the four review phases, at Walk the Changes once a step is done", () => {
+    renderList([SESSION]);
+    const stream = screen.getByRole("progressbar", { name: "Review progress" });
+    expect(stream.getAttribute("aria-valuemax")).toBe("4");
+    expect(stream.getAttribute("aria-valuenow")).toBe("2");
+    expect(stream.getAttribute("aria-valuetext")).toBe("Walk the Changes");
+    expect(screen.getByText("Conversation")).toBeTruthy();
+  });
+
+  it("places a session with no step done at Orient", () => {
+    renderList([{ ...SESSION, doneCount: 0, pauseNote: "later" }]);
+    const stream = screen.getByRole("progressbar", { name: "Review progress" });
+    expect(stream.getAttribute("aria-valuenow")).toBe("1");
+    expect(stream.getAttribute("aria-valuetext")).toBe("Orient");
+  });
+
+  it("keeps the steps done chip beside the phases", () => {
+    renderList([SESSION]);
+    expect(screen.getByText("2 steps done")).toBeTruthy();
+  });
+
+  it("lists the other sessions as rows under Also in Progress", () => {
+    renderList([SESSION, FIX_CACHE]);
+    expect(screen.getByRole("heading", { name: /Also in Progress \(1\)/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Fix cache/ }).getAttribute("href")).toBe(
+      "/pr/acme/app/8",
+    );
+  });
+
+  it("makes the resume button soft when another action is the primary one", () => {
+    render(
+      <InProgressList
+        sessions={[SESSION]}
+        busy={false}
+        onArchive={vi.fn()}
+        headingRef={createRef<HTMLHeadingElement>()}
+        isResumePrimary={false}
+      />,
+      { wrapper: TooltipProvider },
+    );
+    expect(screen.getByRole("link", { name: /Resume review/ }).getAttribute("data-variant")).toBe(
+      "soft",
     );
   });
 
@@ -67,7 +120,7 @@ describe("InProgressList", () => {
     expect(link.closest('a[href^="/pr/"]')).toBeNull();
   });
 
-  it("draws the list on a hairline border rather than a ring", () => {
+  it("draws the resume card on a hairline border rather than a ring", () => {
     const { container } = render(
       <InProgressList
         sessions={[SESSION]}
@@ -77,8 +130,8 @@ describe("InProgressList", () => {
       />,
       { wrapper: TooltipProvider },
     );
-    const list = container.querySelector("ul");
-    expect(list?.classList.contains("border")).toBe(true);
-    expect(list?.classList.contains("ring-1")).toBe(false);
+    const card = container.querySelector("article");
+    expect(card?.classList.contains("border")).toBe(true);
+    expect(card?.classList.contains("ring-1")).toBe(false);
   });
 });

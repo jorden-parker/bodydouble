@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 import { fakeApi, makeAssignedStory } from "@/test/fake-api";
 import { AssignedTickets } from "./assigned-tickets";
 
@@ -21,8 +22,8 @@ const STORIES = [
   }),
 ];
 
-function renderTickets() {
-  return render(<AssignedTickets api={fakeApi({ fetchAssignedStories: async () => STORIES })} />);
+function renderTickets(api = fakeApi({ fetchAssignedStories: async () => STORIES })) {
+  return render(<AssignedTickets api={api} />);
 }
 
 function readHeadings(): string[] {
@@ -39,70 +40,131 @@ describe("AssignedTickets", () => {
     expect(screen.getByText(/Completed Thu 29 Oct/)).toBeDefined();
   });
 
+  it("shows the sc id, story type and estimate on each card", async () => {
+    renderTickets();
+
+    const lane = await screen.findByRole("region", { name: "In Progress" });
+    expect(within(lane).getByText("sc-31")).toBeDefined();
+    expect(within(lane).getByText("feature")).toBeDefined();
+    expect(within(lane).getByText("3 pt")).toBeDefined();
+  });
+
   it("groups by state type or not at all", async () => {
     renderTickets();
     await screen.findByRole("region", { name: "In Progress" });
 
-    fireEvent.change(screen.getByLabelText("Group by"), { target: { value: "type" } });
+    await userEvent.click(screen.getByRole("button", { name: "State type" }));
     expect(readHeadings()).toEqual(["Started (2)", "Done (1)"]);
 
-    fireEvent.change(screen.getByLabelText("Group by"), { target: { value: "none" } });
+    await userEvent.click(screen.getByRole("button", { name: "Nothing" }));
     expect(readHeadings()).toEqual(["All tickets (3)"]);
   });
 
-  it("filters by state type or by one workflow state", async () => {
+  it("filters by state type or by one workflow state from the pills", async () => {
     renderTickets();
     await screen.findByRole("region", { name: "In Progress" });
 
-    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "type:started" } });
+    await userEvent.click(screen.getByRole("button", { name: /^Any started/ }));
     expect(readHeadings()).toEqual(["In Progress (1)", "Ready for Review (1)"]);
 
-    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "state:Done" } });
+    await userEvent.click(screen.getByRole("button", { name: /^Done/ }));
     expect(readHeadings()).toEqual(["Done (1)"]);
     expect(screen.queryByRole("link", { name: "Plan the rollout" })).toBeNull();
+  });
+
+  it("marks the pill for the chosen status as pressed", async () => {
+    renderTickets();
+    await screen.findByRole("region", { name: "In Progress" });
+
+    expect(screen.getByRole("button", { name: /^All statuses/ }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+    await userEvent.click(screen.getByRole("button", { name: /^Ready for Review/ }));
+    expect(
+      screen.getByRole("button", { name: /^Ready for Review/ }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(screen.getByRole("button", { name: /^All statuses/ }).getAttribute("aria-pressed")).toBe(
+      "false",
+    );
   });
 
   it("offers each state present, under its state type", async () => {
     renderTickets();
     await screen.findByRole("region", { name: "In Progress" });
 
-    const started = within(screen.getByLabelText("Status")).getByRole("group", { name: "Started" });
+    const started = screen.getByRole("group", { name: "Started" });
     expect(
       within(started)
-        .getAllByRole("option")
-        .map((option) => option.textContent),
+        .getAllByRole("button")
+        .map((pill) => pill.textContent?.replace(/\d+$/, "")),
     ).toEqual(["Any started", "In Progress", "Ready for Review"]);
   });
 
   it("says so when nothing matches or nothing is assigned", async () => {
-    render(<AssignedTickets api={fakeApi({ fetchAssignedStories: async () => [] })} />);
+    renderTickets(fakeApi({ fetchAssignedStories: async () => [] }));
 
     expect(await screen.findByText(/No tickets here/)).toBeDefined();
   });
 
   it("shows a load failure", async () => {
-    render(
-      <AssignedTickets
-        api={fakeApi({
-          fetchAssignedStories: async () => {
-            throw new Error("boom");
-          },
-        })}
-      />,
+    renderTickets(
+      fakeApi({
+        fetchAssignedStories: async () => {
+          throw new Error("boom");
+        },
+      }),
     );
 
     expect((await screen.findByRole("alert")).textContent).toContain("boom");
   });
 
   it("renders Markdown in story titles", async () => {
-    render(
-      <AssignedTickets
-        api={fakeApi({
-          fetchAssignedStories: async () => [makeAssignedStory({ title: "Fix `parse` crash" })],
-        })}
-      />,
+    renderTickets(
+      fakeApi({
+        fetchAssignedStories: async () => [makeAssignedStory({ title: "Fix `parse` crash" })],
+      }),
     );
 
     expect((await screen.findByText("parse")).tagName).toBe("CODE");
+  });
+
+  it("syncs from Shortcut and reloads the tickets", async () => {
+    const runSync = vi.fn(async () => ({ errors: {}, uncountedReviewRepos: [] }));
+    const fetchAssignedStories = vi.fn(async () => STORIES);
+    renderTickets(fakeApi({ fetchAssignedStories, runSync }));
+    await screen.findByRole("region", { name: "In Progress" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync tickets" }));
+
+    await waitFor(() => expect(fetchAssignedStories).toHaveBeenCalledTimes(2));
+    expect(runSync).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows why a sync failed", async () => {
+    renderTickets(
+      fakeApi({
+        runSync: async () => {
+          throw new Error("Shortcut is unreachable");
+        },
+      }),
+    );
+    await screen.findByRole("region", { name: "In Progress" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync tickets" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Shortcut is unreachable");
+  });
+
+  it("shows the source errors a sync reports", async () => {
+    renderTickets(
+      fakeApi({
+        runSync: async () => ({ errors: { shortcut: "token expired" }, uncountedReviewRepos: [] }),
+      }),
+    );
+    await screen.findByRole("region", { name: "In Progress" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync tickets" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Shortcut: token expired");
   });
 });

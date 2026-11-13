@@ -1,39 +1,26 @@
-import { Settings } from "lucide-react";
-import Link from "next/link";
 import { Suspense } from "react";
-import { PageHeader, PageShell } from "@/components/common/page-shell";
+import { Panel, Panels } from "@/components/neon/panels";
 import { InboxList } from "@/components/inbox/inbox-list";
+import { InboxResume } from "@/components/inbox/inbox-resume";
 import { InboxSkeleton } from "@/components/inbox/inbox-skeleton";
 import { OpenPullRequestForm } from "@/components/inbox/open-pull-request-form";
-import { Button } from "@/components/ui/button";
+
+const PANEL_CLASS = "rounded-lg border border-line-soft bg-surface p-s-5 shadow-lift";
 
 export default function InboxPage() {
   return (
-    <PageShell>
-      <PageHeader
-        title={
-          <>
-            <span aria-hidden className="animate-float hover:animate-wiggle">
-              🦦
-            </span>
-            <span>
-              Review <span className="text-whimsy">queue</span>
-            </span>
-          </>
-        }
-        lede="One PR at a time. Pick one, follow the path, take breaks."
-        action={
-          <Button variant="ghost" asChild className="text-muted-foreground">
-            <Link href="/settings">
-              <Settings /> Settings
-            </Link>
-          </Button>
-        }
-      />
-      <Suspense fallback={<InboxSkeleton />}>
-        <InboxList />
-      </Suspense>
-      <OpenPullRequestForm />
-    </PageShell>
+    <Panels label="Inbox sections" className="grid-cols-[5fr_6fr]">
+      <Panel title="Pick Up Where You Left Off" className={`${PANEL_CLASS} grid-rows-1`}>
+        <Suspense fallback={<InboxSkeleton />}>
+          <InboxResume />
+        </Suspense>
+      </Panel>
+      <Panel title="Waiting for You" className={PANEL_CLASS}>
+        <Suspense fallback={<InboxSkeleton />}>
+          <InboxList />
+        </Suspense>
+        <OpenPullRequestForm />
+      </Panel>
+    </Panels>
   );
 }
