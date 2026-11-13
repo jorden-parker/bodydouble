@@ -1,0 +1,7 @@
+#!/bin/sh
+set -e
+repository_root=$(git rev-parse --show-toplevel)
+message_file=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
+first_app=$(git diff --cached --name-only | sed -n 's|^apps/\([^/]*\)/.*|\1|p' | sort -u | head -1)
+app=${first_app:-review-queue}
+(cd "$repository_root/apps/$app" && sh .husky/commit-msg "$message_file")

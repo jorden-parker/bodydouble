@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+repository_root=$(git rev-parse --show-toplevel)
+staged_apps=$(git diff --cached --name-only --diff-filter=ACMRD | sed -n 's|^apps/\([^/]*\)/.*|\1|p' | sort -u)
+for app in $staged_apps; do
+  hook="$repository_root/apps/$app/.husky/pre-commit"
+  [ -f "$hook" ] || continue
+  echo "pre-commit: checking apps/$app"
+  (cd "$repository_root/apps/$app" && sh "$hook")
+done
