@@ -66,12 +66,12 @@ describe("InProgressList", () => {
     );
   });
 
-  it("shows the first session on the four review phases, at Walk the Changes once a step is done", () => {
+  it("shows the first session on the four review phases, at Walk the changes once a step is done", () => {
     renderList([SESSION]);
     const stream = screen.getByRole("progressbar", { name: "Review progress" });
     expect(stream.getAttribute("aria-valuemax")).toBe("4");
     expect(stream.getAttribute("aria-valuenow")).toBe("2");
-    expect(stream.getAttribute("aria-valuetext")).toBe("Walk the Changes");
+    expect(stream.getAttribute("aria-valuetext")).toBe("Walk the changes");
     expect(screen.getByText("Conversation")).toBeTruthy();
   });
 

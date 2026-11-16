@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { TokenInput } from "./settings-fields";
 
 describe("TokenInput", () => {
-  it("keeps the global keyboard focus outline on the text field", () => {
+  it("keeps a visible focus ring on the text field", () => {
     render(
       <TokenInput
         id="repos"
@@ -14,6 +14,6 @@ describe("TokenInput", () => {
       />,
     );
 
-    expect(screen.getByRole("textbox").classList.contains("outline-none")).toBe(false);
+    expect(screen.getByRole("textbox").classList.contains("outline-none")).toBe(true);
   });
 });

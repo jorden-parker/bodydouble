@@ -4,17 +4,16 @@ import { cn } from "cn";
 import { Slot } from "radix-ui";
 
 const badgeVariants = cva(
-  "group/badge inline-flex h-7 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-3 py-0.5 text-sm font-bold whitespace-nowrap tabular-nums transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!",
+  "group/badge inline-flex min-h-6 w-fit max-w-full shrink-0 items-center justify-center gap-1 rounded-sm border border-transparent px-2 py-0.5 text-label font-medium tabular-nums wrap-anywhere whitespace-normal transition-colors focus-visible:ring-2 focus-visible:ring-ring [&>svg]:pointer-events-none [&>svg]:size-3.5",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
-        secondary: "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
-        destructive:
-          "bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20",
-        outline: "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
-        ghost: "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
-        link: "text-primary underline-offset-4 hover:underline",
+        default: "bg-primary text-primary-foreground",
+        secondary: "bg-surface-2 text-fg",
+        destructive: "bg-destructive/10 text-destructive",
+        outline: "border-line text-fg-muted",
+        ghost: "text-fg-muted hover:bg-surface-2",
+        link: "text-fg underline-offset-4 hover:underline",
         blue: "bg-tint-blue text-ink-blue",
         pink: "bg-tint-pink text-ink-pink",
         amber: "bg-tint-amber text-ink-amber",

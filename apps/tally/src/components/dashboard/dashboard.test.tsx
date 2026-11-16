@@ -11,13 +11,14 @@ describe("Dashboard", () => {
   it("shows this week's figures, ticket cards and chart once loaded", async () => {
     render(<Dashboard api={fakeApi()} now={now} />);
 
-    expect(await screen.findByRole("img", { name: "7 PRs reviewed" })).toBeDefined();
+    const hero = await screen.findByRole("region", { name: "This period" });
+    expect(hero.textContent).toContain("7");
     expect(screen.getByRole("article", { name: "sc-31" })).toBeDefined();
-    expect(screen.getByRole("region", { name: "Your Tickets" })).toBeDefined();
-    expect(screen.getByRole("region", { name: "Open PRs Without a Ticket" })).toBeDefined();
+    expect(screen.getByRole("region", { name: "Your tickets" })).toBeDefined();
+    expect(screen.getByRole("region", { name: "Open PRs without a ticket" })).toBeDefined();
     expect(screen.getByRole("region", { name: "Reviewing" })).toBeDefined();
-    expect(screen.getByRole("region", { name: "Completed This Week" })).toBeDefined();
-    expect(screen.getByRole("region", { name: "The Last Four Weeks, in Scribbles" })).toBeDefined();
+    expect(screen.getByRole("region", { name: "Completed this week" })).toBeDefined();
+    expect(screen.getByRole("region", { name: "Last four weeks" })).toBeDefined();
     expect(screen.queryByText("PRs reviewed", { selector: "h3" })).toBeNull();
     expect(screen.getByRole("button", { name: "This week" }).getAttribute("aria-pressed")).toBe(
       "true",
@@ -28,11 +29,7 @@ describe("Dashboard", () => {
   it("greets with the tally headline", async () => {
     render(<Dashboard api={fakeApi()} now={now} />);
 
-    const heading = await screen.findByRole("heading", {
-      level: 1,
-      name: "Hey There. Here's Your Tally.",
-    });
-    expect(heading.querySelector("span")?.className).toContain("text-neon-tally");
+    expect(await screen.findByRole("heading", { level: 1, name: "Your tally" })).toBeDefined();
   });
 
   it("ends the overview with an encouraging note beside a tally mark", async () => {
@@ -45,7 +42,7 @@ describe("Dashboard", () => {
   it("loads the chosen range", async () => {
     const fetchSummary = vi.fn(async (range) => makeSummary({ range }));
     render(<Dashboard api={fakeApi({ fetchSummary })} now={now} />);
-    await screen.findByRole("img", { name: "7 PRs reviewed" });
+    await screen.findByRole("region", { name: "This period" });
 
     await userEvent.click(screen.getByRole("button", { name: "Today" }));
 
@@ -66,7 +63,7 @@ describe("Dashboard", () => {
   it("does not sync on load when the data is fresh", async () => {
     const runSync = vi.fn(async () => ({ errors: {}, uncountedReviewRepos: [] }));
     render(<Dashboard api={fakeApi({ runSync })} now={now} />);
-    await screen.findByRole("img", { name: "7 PRs reviewed" });
+    await screen.findByRole("region", { name: "This period" });
 
     expect(runSync).not.toHaveBeenCalled();
   });
@@ -77,7 +74,7 @@ describe("Dashboard", () => {
       uncountedReviewRepos: [],
     }));
     render(<Dashboard api={fakeApi({ runSync })} now={now} />);
-    await screen.findByRole("img", { name: "7 PRs reviewed" });
+    await screen.findByRole("region", { name: "This period" });
 
     await userEvent.click(screen.getByRole("button", { name: "Sync now" }));
 
@@ -88,7 +85,7 @@ describe("Dashboard", () => {
   it("names repos whose reviews are not counted", async () => {
     const runSync = vi.fn(async () => ({ errors: {}, uncountedReviewRepos: ["stranger/lib"] }));
     render(<Dashboard api={fakeApi({ runSync })} now={now} />);
-    await screen.findByRole("img", { name: "7 PRs reviewed" });
+    await screen.findByRole("region", { name: "This period" });
 
     await userEvent.click(screen.getByRole("button", { name: "Sync now" }));
 
@@ -118,20 +115,20 @@ describe("Dashboard", () => {
       uncountedReviewRepos: [],
     }));
     render(<Dashboard api={fakeApi({ fetchSettings, runSync })} now={now} />);
-    await screen.findByRole("img", { name: "7 PRs reviewed" });
+    await screen.findByRole("region", { name: "This period" });
 
     await userEvent.click(screen.getByRole("button", { name: "Sync now" }));
 
     const notices = await screen.findByRole("region", { name: "Notices" });
     expect(within(notices).getByText(/No GitHub orgs or repos are counted yet/)).toBeDefined();
     expect(within(notices).getByRole("alert").textContent).toContain("GitHub: gh exploded");
-    expect(screen.getByRole("region", { name: "Overview" })).toBeDefined();
+    expect(screen.getByRole("region", { name: "This period" })).toBeDefined();
   });
 
   it("has no Notices panel when there is nothing to say", async () => {
     render(<Dashboard api={fakeApi()} now={now} />);
 
-    await screen.findByRole("img", { name: "7 PRs reviewed" });
+    await screen.findByRole("region", { name: "This period" });
     expect(screen.queryByRole("region", { name: "Notices" })).toBeNull();
   });
 
@@ -139,7 +136,7 @@ describe("Dashboard", () => {
     render(<Dashboard api={fakeApi()} now={now} />);
 
     expect(screen.getByText("Sharpening pencils…")).toBeDefined();
-    await screen.findByRole("img", { name: "7 PRs reviewed" });
+    await screen.findByRole("region", { name: "This period" });
   });
 
   it("says it is counting while a sync runs", async () => {
@@ -151,7 +148,7 @@ describe("Dashboard", () => {
         }),
     );
     render(<Dashboard api={fakeApi({ runSync })} now={now} />);
-    await screen.findByRole("img", { name: "7 PRs reviewed" });
+    await screen.findByRole("region", { name: "This period" });
 
     await userEvent.click(screen.getByRole("button", { name: "Sync now" }));
 

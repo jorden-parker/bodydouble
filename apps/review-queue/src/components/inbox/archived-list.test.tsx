@@ -64,7 +64,7 @@ describe("ArchivedList", () => {
     expect(onRestore).toHaveBeenCalledWith(SESSION);
   });
 
-  it("draws each archived row on a hairline border rather than a ring", async () => {
+  it("draws the archived rows as one bordered list with dividers, not rings", async () => {
     const { container } = render(
       <ArchivedList
         sessions={[SESSION]}
@@ -75,8 +75,9 @@ describe("ArchivedList", () => {
       { wrapper: TooltipProvider },
     );
     await userEvent.click(screen.getByText("Archived"));
-    const row = container.querySelector("li");
-    expect(row?.classList.contains("border")).toBe(true);
-    expect(row?.classList.contains("ring-1")).toBe(false);
+    const list = container.querySelector("ul");
+    expect(list?.classList.contains("border-line-soft")).toBe(true);
+    expect(list?.classList.contains("divide-y")).toBe(true);
+    expect(container.querySelector(".ring-1")).toBeNull();
   });
 });

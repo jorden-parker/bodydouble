@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { EmptyNote, LoadingNote, ProblemAlert } from "@/components/layout/page-shell";
-import { Panel, Panels } from "@/components/neon/panels";
+import { Panel } from "@/components/neon/panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { dayKey } from "@/lib/metrics/buckets";
@@ -51,7 +51,7 @@ function FilterPill({
       type="button"
       aria-pressed={pressed}
       onClick={onPress}
-      className="inline-flex min-h-11 items-center gap-2 rounded-pill border border-line bg-surface px-4 text-sm font-bold whitespace-nowrap text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:border-transparent aria-pressed:bg-tint-blue aria-pressed:text-ink-blue"
+      className="inline-flex h-8 items-center gap-2 rounded-md border border-line bg-surface px-3 text-[0.8125rem] font-medium whitespace-nowrap text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:border-foreground aria-pressed:text-foreground"
     >
       {children}
     </button>
@@ -60,7 +60,7 @@ function FilterPill({
 
 function Count({ value }: { value: number }) {
   return (
-    <span className="rounded-pill bg-surface-3 px-2 font-mono text-xs tabular-nums">{value}</span>
+    <span className="rounded-md bg-surface-3 px-1.5 font-mono text-xs tabular-nums">{value}</span>
   );
 }
 
@@ -102,14 +102,14 @@ function StatusPills({
 function StoryCard({ story }: { story: AssignedStory }) {
   const badgeVariant = story.stateType === null ? "neutral" : STATE_TYPE_BADGE[story.stateType];
   return (
-    <li className="flex flex-col gap-3 rounded-md border border-line bg-surface p-4 shadow-lift">
+    <li className="flex min-w-0 flex-col gap-3 rounded-xl border border-line-soft bg-surface p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-sm text-muted-foreground">sc-{story.id}</span>
         <Badge variant={badgeVariant}>{story.state}</Badge>
         {story.storyType === null ? null : <Badge variant="neutral">{story.storyType}</Badge>}
         {story.estimate === null ? null : <Badge variant="neutral">{story.estimate} pt</Badge>}
       </div>
-      <h3 className="font-display text-lg leading-snug font-semibold">
+      <h3 className="text-base leading-snug font-semibold break-words">
         <a
           href={story.url}
           target="_blank"
@@ -131,14 +131,14 @@ function StoryCard({ story }: { story: AssignedStory }) {
 function LaneContent({ group }: { group: StoryGroup }) {
   return (
     <>
-      <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
+      <h2 className="flex items-center gap-2 text-base font-semibold">
         {group.label} <span className="sr-only">(</span>
-        <span className="rounded-pill bg-tint-blue px-2 font-mono text-sm text-ink-blue tabular-nums">
+        <span className="rounded-md bg-surface-3 px-1.5 font-mono text-xs tabular-nums">
           {group.stories.length}
         </span>
         <span className="sr-only">)</span>
       </h2>
-      <ul className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
+      <ul className="flex flex-col gap-3">
         {group.stories.map((story) => (
           <StoryCard key={story.id} story={story} />
         ))}
@@ -154,7 +154,7 @@ function TicketLanes({ stories }: { stories: AssignedStory[] }) {
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
-        <div role="group" aria-label="Group by" className="flex gap-2">
+        <div role="group" aria-label="Group by" className="flex flex-wrap gap-2">
           {GROUPINGS.map((option) => (
             <FilterPill
               key={option.value}
@@ -170,13 +170,13 @@ function TicketLanes({ stories }: { stories: AssignedStory[] }) {
       {groups.length === 0 ? (
         <EmptyNote>No tickets here. Try another status, or sync.</EmptyNote>
       ) : (
-        <Panels className="min-h-0">
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] lg:gap-6">
           {groups.map((group) => (
-            <Panel key={group.key} title={group.label} className="min-h-0">
+            <Panel key={group.key} title={group.label}>
               <LaneContent group={group} />
             </Panel>
           ))}
-        </Panels>
+        </div>
       )}
     </>
   );
@@ -188,9 +188,9 @@ export function AssignedTickets({ api = realApi }: { api?: TallyApi }) {
   return (
     <main id="main" className="app-main">
       <header className="flex flex-wrap items-center gap-4">
-        <h1 className="flex items-center gap-3 font-display text-4xl font-semibold tracking-tight">
+        <h1 className="page-title flex items-center gap-2">
           Tickets <span className="sr-only">(</span>
-          <span className="rounded-pill bg-tint-blue px-3 font-mono text-base text-ink-blue tabular-nums">
+          <span className="rounded-md bg-surface-3 px-2 font-mono text-sm tabular-nums">
             {total}
           </span>
           <span className="sr-only">)</span>

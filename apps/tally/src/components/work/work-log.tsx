@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { EmptyNote, LoadingNote, ProblemAlert } from "@/components/layout/page-shell";
-import { Panel, Panels } from "@/components/neon/panels";
+import { Panel } from "@/components/neon/panels";
 import { Stream } from "@/components/neon/stream";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,6 @@ import { plural } from "@/lib/text";
 import { api as realApi, type TallyApi } from "../api";
 import { formatDayMonth, formatLongDay } from "../dashboard/format";
 import { useWorkLog } from "./use-work-log";
-import "./work-log.css";
 import { InlineMarkdown } from "@/components/inline-markdown";
 
 const currentTime = () => new Date();
@@ -38,12 +37,12 @@ const MAX_TALLY_MARKS = 5;
 const PULL_REQUEST_STYLE = {
   label: "Merged",
   text: "text-ink-amber",
-  dot: "bg-neon-amber shadow-glow-amber",
+  dot: "bg-ink-amber",
 };
 const TICKET_STYLE = {
   label: "Done",
   text: "text-ink-mint",
-  dot: "bg-neon-mint",
+  dot: "bg-ink-mint",
 };
 
 type WorkLogProps = { api?: TallyApi; now?: () => Date };
@@ -72,9 +71,11 @@ function DateField({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-1">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="font-display text-2xl leading-none font-semibold tabular-nums">{value}</dd>
+    <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-line-soft bg-surface p-4">
+      <dt className="text-[0.8125rem] text-muted-foreground">{label}</dt>
+      <dd className="font-mono text-[1.75rem] leading-none font-semibold tabular-nums break-words">
+        {value}
+      </dd>
     </div>
   );
 }
@@ -93,12 +94,8 @@ function TotalsBlock({
   children: ReactNode;
 }) {
   return (
-    <div
-      role="group"
-      aria-label={label}
-      className="flex flex-col gap-3 rounded-md border border-line-soft bg-surface-2 p-4"
-    >
-      <dl className="grid grid-cols-3 gap-4">{children}</dl>
+    <div role="group" aria-label={label} className="flex min-w-0 flex-col gap-3">
+      <dl className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-3">{children}</dl>
       {notes.map((note) => (
         <p key={note} className="text-sm text-muted-foreground">
           {note}
@@ -143,7 +140,7 @@ function TicketTotals({ totals }: { totals: WorkTotals }) {
 
 function Totals({ totals }: { totals: WorkTotals }) {
   return (
-    <section aria-label="Totals" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <section aria-label="Totals" className="grid grid-cols-1 gap-4">
       <PullRequestTotals totals={totals} />
       <TicketTotals totals={totals} />
     </section>
@@ -156,7 +153,7 @@ function RowLink({ row }: { row: WorkRow | DraftRow }) {
       href={row.url}
       target="_blank"
       rel="noreferrer"
-      className="font-display text-base leading-snug font-semibold underline-offset-4 hover:underline"
+      className="text-sm leading-snug font-semibold underline-offset-4 hover:underline"
     >
       <InlineMarkdown text={row.title} />
     </a>
@@ -169,7 +166,7 @@ function TimelineItem({ row }: { row: WorkRow }) {
     <li className="relative flex flex-col gap-1 py-3">
       <span
         aria-hidden="true"
-        className={`absolute -left-[33px] top-5 size-4 rounded-full border-4 border-background ${style.dot}`}
+        className={`absolute -left-[33px] top-5 size-4 rounded-full border-4 border-surface ${style.dot}`}
       />
       <span className={`font-mono text-xs tracking-wider uppercase ${style.text}`}>
         {style.label}
@@ -190,10 +187,7 @@ function TallyMarks({ count }: { count: number }) {
     <p className="flex items-center gap-2 font-mono text-sm text-muted-foreground">
       <span role="img" aria-label={plural(count, "thing")} className="flex items-end gap-1">
         {Array.from({ length: drawn }, (_, index) => (
-          <span
-            key={index}
-            className={`h-4 w-[3px] rounded-sm ${index < 4 ? "bg-neon-blue" : "bg-neon-amber"}`}
-          />
+          <span key={index} className="h-4 w-[3px] rounded-sm bg-muted-foreground" />
         ))}
       </span>
       <span aria-hidden="true">{count}</span>
@@ -215,7 +209,7 @@ function DraftRowItem({ row }: { row: DraftRow }) {
 function Timeline({ rows }: { rows: WorkRow[] }) {
   if (rows.length === 0) return <EmptyNote>A quiet stretch. Nothing here.</EmptyNote>;
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pr-2">
+    <div className="flex flex-col gap-6">
       {groupByDay(rows).map(({ day, rows: dayRows }) => (
         <section
           key={day}
@@ -223,7 +217,7 @@ function Timeline({ rows }: { rows: WorkRow[] }) {
           className="flex flex-col gap-1 border-l-2 border-line-soft pl-7"
         >
           <header className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 id={`day-${day}`} className="font-display text-lg font-semibold">
+            <h3 id={`day-${day}`} className="text-sm font-semibold">
               {formatLongDay(day)}
             </h3>
             <TallyMarks count={dayRows.length} />
@@ -256,7 +250,7 @@ function ExportActions({ report }: { report: WorkReport }) {
 }
 
 function CopyButton({ text }: { text: string }) {
-  const [label, setLabel] = useState("Copy Markdown");
+  const [label, setLabel] = useState("Copy markdown");
   const copy = () =>
     navigator.clipboard.writeText(text).then(
       () => setLabel("Copied"),
@@ -268,7 +262,7 @@ function CopyButton({ text }: { text: string }) {
         {label}
       </Button>
       <span role="status" className="sr-only">
-        {label === "Copy Markdown" ? "" : label}
+        {label === "Copy markdown" ? "" : label}
       </span>
     </>
   );
@@ -276,12 +270,15 @@ function CopyButton({ text }: { text: string }) {
 
 function WeekProgress({ dayIndex }: { dayIndex: number }) {
   return (
-    <Stream
-      steps={WEEK_DAYS.map((label) => ({ label }))}
-      current={dayIndex}
-      variant="small"
-      label="Week progress"
-    />
+    <div className="flex flex-col gap-2">
+      <p className="text-[0.8125rem] text-muted-foreground">Today is {WEEK_DAYS[dayIndex]}</p>
+      <Stream
+        steps={WEEK_DAYS.map((label) => ({ label }))}
+        current={dayIndex}
+        variant="small"
+        label="Week progress"
+      />
+    </div>
   );
 }
 
@@ -290,9 +287,7 @@ function Summary({ report, dayIndex }: { report: WorkReport; dayIndex: number })
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <h2 className="font-display text-3xl font-semibold tracking-tight">
-          <span className="text-neon-tally">{shipped} Things Shipped.</span>
-        </h2>
+        <h2 className="text-xl font-semibold tracking-tight">{shipped} things shipped.</h2>
         <p className="text-muted-foreground">
           {leadSentence(report.totals)}, {formatDayMonth(report.from)} to{" "}
           {formatDayMonth(report.to)}
@@ -307,10 +302,10 @@ function Summary({ report, dayIndex }: { report: WorkReport; dayIndex: number })
 
 function Drafts({ drafts }: { drafts: DraftRow[] }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
-      <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
-        Drafts in Progress <span className="sr-only">(</span>
-        <span className="rounded-pill bg-surface-3 px-2 font-mono text-sm tabular-nums">
+    <div className="flex flex-col gap-2">
+      <h2 className="flex items-center gap-2 text-base font-semibold">
+        Drafts in progress <span className="sr-only">(</span>
+        <span className="rounded-md bg-surface-3 px-2 font-mono text-xs tabular-nums">
           {drafts.length}
         </span>
         <span className="sr-only">)</span>
@@ -318,7 +313,7 @@ function Drafts({ drafts }: { drafts: DraftRow[] }) {
       {drafts.length === 0 ? (
         <EmptyNote>No drafts on the go.</EmptyNote>
       ) : (
-        <ul className="flex min-h-0 flex-1 flex-col divide-y divide-line-soft overflow-y-auto pr-2">
+        <ul className="flex flex-col divide-y divide-line-soft">
           {drafts.map((row) => (
             <DraftRowItem key={row.externalId} row={row} />
           ))}
@@ -333,20 +328,20 @@ function Report({ report, dayIndex }: { report: WorkReport; dayIndex: number }) 
     second.occurredAt.localeCompare(first.occurredAt),
   );
   return (
-    <Panels className="work-panels min-h-0">
-      <Panel title="Summary" className="work-summary min-h-0">
-        <Summary report={report} dayIndex={dayIndex} />
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 lg:gap-6">
+      <div className="flex min-w-0 flex-col gap-4 lg:gap-6">
+        <Panel title="Summary">
+          <Summary report={report} dayIndex={dayIndex} />
+        </Panel>
+        <Panel title="Drafts in progress">
+          <Drafts drafts={report.drafts} />
+        </Panel>
+      </div>
+      <Panel title="Timeline">
+        <h2 className="text-base font-semibold">Timeline</h2>
+        <Timeline rows={timelineRows} />
       </Panel>
-      <Panel title="Drafts in Progress" className="work-drafts min-h-0">
-        <Drafts drafts={report.drafts} />
-      </Panel>
-      <Panel title="Timeline" className="work-timeline min-h-0">
-        <div className="flex min-h-0 flex-1 flex-col gap-4">
-          <h2 className="font-display text-xl font-semibold">Timeline</h2>
-          <Timeline rows={timelineRows} />
-        </div>
-      </Panel>
-    </Panels>
+    </div>
   );
 }
 
@@ -359,7 +354,7 @@ export function WorkLog({ api = realApi, now = currentTime }: WorkLogProps) {
   return (
     <main id="main" className="app-main">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="font-display text-4xl font-semibold tracking-tight">Work Log</h1>
+        <h1 className="page-title">Work log</h1>
         <div className="flex flex-wrap items-center gap-3">
           <DateField
             label="From"

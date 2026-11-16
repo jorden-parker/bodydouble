@@ -1,15 +1,15 @@
 "use client";
 
-import "./dashboard.css";
 import Link from "next/link";
 import { RefreshCwIcon } from "lucide-react";
 import {
+  EmptyNote,
   LoadingNote,
   PageShell,
   ProblemAlert,
   SectionHeading,
 } from "@/components/layout/page-shell";
-import { Panel, Panels } from "@/components/neon/panels";
+import { Panel } from "@/components/neon/panels";
 import { TallyMark } from "@/components/neon/tally-mark";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -40,14 +40,14 @@ function RangeSwitch({ range, onChange }: { range: Range; onChange: (range: Rang
         if (isRange(chosen)) onChange(chosen);
       }}
       spacing={0}
-      className="rounded-lg border border-line-soft bg-surface p-1"
+      className="rounded-md border border-line bg-surface p-0.5"
     >
       {RANGES.map((option) => (
         <ToggleGroupItem
           key={option}
           value={option}
           size="sm"
-          className="rounded-md! px-4 text-muted-foreground aria-pressed:bg-surface-3 aria-pressed:text-foreground"
+          className="rounded-sm! px-3 text-muted-foreground aria-pressed:bg-surface-3 aria-pressed:text-foreground"
         >
           {RANGE_LABELS[option]}
         </ToggleGroupItem>
@@ -60,22 +60,21 @@ function needsSetup(settings: Settings | null): boolean {
   return settings !== null && settings.allowList.length === 0;
 }
 
-function SetupNote() {
-  return (
-    <p className="rounded-lg border border-dashed px-4 py-3 text-center text-sm text-muted-foreground">
-      No GitHub orgs or repos are counted yet.{" "}
-      <Link href="/settings" className="font-medium text-foreground underline underline-offset-4">
-        Choose them in settings
-      </Link>
-      .
-    </p>
-  );
-}
-
 function Notices({ settings, problems }: { settings: Settings | null; problems: string[] }) {
   return (
     <>
-      {needsSetup(settings) ? <SetupNote /> : null}
+      {needsSetup(settings) ? (
+        <EmptyNote>
+          No GitHub orgs or repos are counted yet.{" "}
+          <Link
+            href="/settings"
+            className="font-medium text-foreground underline underline-offset-4"
+          >
+            Choose them in settings
+          </Link>
+          .
+        </EmptyNote>
+      ) : null}
       <ProblemAlert messages={problems} />
     </>
   );
@@ -83,7 +82,7 @@ function Notices({ settings, problems }: { settings: Settings | null; problems: 
 
 function Encouragement() {
   return (
-    <p className="flex items-center gap-3 self-start rounded-pill border border-dashed border-line bg-tint-violet px-4 py-2 text-sm font-semibold text-foreground">
+    <p className="flex items-center gap-3 text-sm text-muted-foreground">
       <TallyMark size="small" />
       Tiny scribbles still add up. Go easy on yourself today.
     </p>
@@ -100,20 +99,15 @@ function Report({
   problems: string[];
 }) {
   return (
-    <Panels className="dashboard-panels">
+    <div className="flex flex-col gap-8">
       {needsSetup(settings) || problems.length > 0 ? (
-        <Panel title="Notices" className="dashboard-notices">
+        <section aria-label="Notices" className="flex flex-col gap-4">
           <Notices settings={settings} problems={problems} />
-        </Panel>
+        </section>
       ) : null}
-      <Panel title="Overview" className="dashboard-overview">
-        <StatLedger summary={summary} />
-      </Panel>
-      <Panel
-        title="Your Tickets"
-        className="dashboard-tickets gap-5 rounded-xl border border-line-soft bg-surface p-6 shadow-lift"
-      >
-        <SectionHeading title="Your Tickets" />
+      <StatLedger summary={summary} />
+      <Panel title="Your tickets" className="gap-6">
+        <SectionHeading title="Your tickets" />
         <TicketCards
           open={summary.open}
           completedTickets={summary.completedTickets}
@@ -121,14 +115,11 @@ function Report({
         />
         <Encouragement />
       </Panel>
-      <Panel
-        title="The Last Four Weeks, in Scribbles"
-        className="dashboard-chart gap-5 rounded-xl border border-line-soft bg-surface p-6 shadow-lift"
-      >
-        <SectionHeading title="The Last Four Weeks, in Scribbles" />
+      <Panel title="Last four weeks" className="gap-6">
+        <SectionHeading title="Last four weeks" />
         <DailyChart points={summary.daily} />
       </Panel>
-    </Panels>
+    </div>
   );
 }
 
@@ -137,11 +128,7 @@ export function Dashboard({ api = realApi, now = currentTime }: DashboardProps) 
 
   return (
     <PageShell
-      title={
-        <>
-          Hey There. <span className="text-neon-tally">Here&apos;s Your Tally.</span>
-        </>
-      }
+      title="Your tally"
       actions={
         <>
           <RangeSwitch range={range} onChange={setRange} />

@@ -114,7 +114,7 @@ type NoteChecklistProps = {
 function NoteChecklist({ notes, selected, flagged, onToggle }: NoteChecklistProps) {
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="text-sm font-bold text-fg">Notes to Post ({selected.length})</h3>
+      <h3 className="text-heading text-fg">Notes to post ({selected.length})</h3>
       {notes.length === 0 && <EmptyState emoji="📝">No notes.</EmptyState>}
       {notes.map((note) => (
         <label
@@ -168,12 +168,12 @@ function VerdictCards({ event, onChoose }: VerdictCardsProps) {
             aria-checked={isChosen}
             onClick={() => onChoose(verdict.value)}
             className={cn(
-              "flex min-h-24 flex-col items-start gap-1 rounded-xl border-2 p-4 text-left text-fg transition-[border-color,box-shadow] duration-calm focus-visible:ring-3 focus-visible:ring-neon-blue focus-visible:outline-none",
+              "flex min-h-24 flex-col items-start gap-1 rounded-xl border-2 p-4 text-left text-fg transition-colors duration-calm focus-visible:ring-3 focus-visible:ring-neon-blue focus-visible:outline-none",
               verdict.tint,
-              isChosen ? "border-fg shadow-lift" : "border-transparent",
+              isChosen ? "border-fg" : "border-transparent",
             )}
           >
-            <span className="font-display text-lg font-semibold">{verdict.label}</span>
+            <span className="text-heading">{verdict.label}</span>
             <span className="text-sm text-fg-muted">{verdict.hint}</span>
           </button>
         );
@@ -221,18 +221,16 @@ export function FinishReview({
   }
 
   return (
-    <AppDialog title="Submit Review" onClose={onCancel} wide>
+    <AppDialog title="Submit review" onClose={onCancel} wide>
       {unfinished ? (
         <Callout>{unfinished}</Callout>
       ) : (
-        <p className="rounded-lg bg-tint-mint px-3 py-2 text-sm text-fg">
-          Every step and hotspot is ticked off.
-        </p>
+        <Callout>Every step and hotspot is ticked off.</Callout>
       )}
       {offDiff.length > 0 && <Callout>{offTheDiffMessage(offDiff)}</Callout>}
       <section aria-labelledby="verdict-heading" className="flex flex-col gap-3">
-        <h3 id="verdict-heading" className="text-sm font-bold text-fg">
-          Your Verdict
+        <h3 id="verdict-heading" className="text-heading text-fg">
+          Your verdict
         </h3>
         <VerdictCards event={event} onChoose={setEvent} />
       </section>
@@ -243,7 +241,7 @@ export function FinishReview({
         </p>
       )}
       <section aria-labelledby="summary-heading" className="flex flex-col gap-3">
-        <h3 id="summary-heading" className="text-sm font-bold text-fg">
+        <h3 id="summary-heading" className="text-heading text-fg">
           Summary
         </h3>
         {onDraftSummary && (
@@ -267,8 +265,8 @@ export function FinishReview({
         aria-labelledby="posted-heading"
         className="flex flex-col gap-2 rounded-xl border border-line-soft bg-surface-2 p-4 text-sm text-fg-muted"
       >
-        <h3 id="posted-heading" className="text-sm font-bold text-fg">
-          What Gets Posted
+        <h3 id="posted-heading" className="text-heading text-fg">
+          What gets posted
         </h3>
         <p>
           {plural(selected.length, "note")} with the verdict {verdictLabel(event)}.
@@ -280,11 +278,11 @@ export function FinishReview({
           {error}
         </p>
       )}
-      <div className="flex flex-wrap justify-end gap-3">
-        <Button variant="ghost" onClick={onCancel} className="min-h-11">
+      <div className="sticky bottom-0 -mx-6 -mb-6 flex flex-wrap justify-end gap-2 border-t border-line-soft bg-background px-6 py-4">
+        <Button variant="ghost" onClick={onCancel}>
           Not yet
         </Button>
-        <Button variant="neon" onClick={send} disabled={sending} className="min-h-11 px-6">
+        <Button onClick={send} disabled={sending}>
           <Otter size="small" />
           {sending ? "Posting…" : "Post review"}
         </Button>

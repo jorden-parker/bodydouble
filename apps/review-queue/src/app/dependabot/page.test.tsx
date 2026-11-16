@@ -12,6 +12,6 @@ describe("DependabotPage", () => {
 
   it("keeps the pull requests in one labelled panel", () => {
     render(<DependabotPage />);
-    expect(screen.getByRole("region", { name: "Open Pull Requests" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Open pull requests" })).toBeTruthy();
   });
 });

@@ -13,15 +13,25 @@ describe("PageShell", () => {
     expect(main.contains(screen.getByText("Body content"))).toBe(true);
   });
 
-  it("fills the app frame and scrolls only inside itself until its screen moves to panels", () => {
+  it("is a normal scrolling page container, not a fixed-height pane", () => {
     render(
       <PageShell>
         <p>Body content</p>
       </PageShell>,
     );
     const classes = screen.getByRole("main").classList;
-    expect(classes.contains("flex-1")).toBe(true);
-    expect(classes.contains("overflow-y-auto")).toBe(true);
+    expect(classes.contains("page-shell")).toBe(true);
+    expect(classes.contains("page-shell--narrow")).toBe(false);
+    expect(classes.contains("overflow-y-auto")).toBe(false);
+  });
+
+  it("uses the narrow form column when asked", () => {
+    render(
+      <PageShell isNarrow>
+        <p>Body content</p>
+      </PageShell>,
+    );
+    expect(screen.getByRole("main").classList.contains("page-shell--narrow")).toBe(true);
   });
 
   it("gives the main landmark the id the skip link targets", () => {
@@ -55,15 +65,8 @@ describe("PageHeader", () => {
     expect(screen.getByRole("link", { name: "Review Queue" }).getAttribute("href")).toBe("/");
   });
 
-  it("draws no decorative backdrop behind the header", () => {
-    const { container } = render(<PageHeader title="Settings" />);
-    expect(container.querySelector(".bg-grid")).toBeNull();
-  });
-
-  it("sets the title at a calm size", () => {
+  it("sets the title at the page-title scale", () => {
     render(<PageHeader title="Settings" />);
-    const classes = screen.getByRole("heading", { level: 1 }).classList;
-    expect(classes.contains("text-4xl")).toBe(true);
-    expect(classes.contains("text-5xl")).toBe(false);
+    expect(screen.getByRole("heading", { level: 1 }).classList.contains("text-title")).toBe(true);
   });
 });

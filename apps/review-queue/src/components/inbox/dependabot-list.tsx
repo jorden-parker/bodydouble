@@ -1,4 +1,4 @@
-import { ExternalLink, GitPullRequest } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { EmptyState } from "@/components/common/empty-state";
@@ -25,8 +25,8 @@ function bumpFrom(title: string): { packageName: string; from: string; to: strin
 function PausedNote({ pause }: { pause: PauseState }) {
   const note = pause.note.trim();
   return (
-    <p className="flex flex-wrap items-center gap-s-2 text-sm">
-      <span className="rounded-pill bg-tint-amber px-s-3 py-0.5 font-semibold">
+    <p className="flex flex-wrap items-center gap-2 text-label">
+      <span className="rounded-sm bg-tint-amber px-2 py-0.5 font-medium">
         {note ? `You were about to: ${note}` : "Paused"}
       </span>
       <span className="text-fg-muted">{relativeTime(pause.at)}</span>
@@ -39,26 +39,26 @@ function DependabotRow({ entry }: { entry: QueueEntry }) {
   const bump = bumpFrom(request.title);
   const reference = prKey(request.ref);
   return (
-    <li className="flex flex-wrap items-center gap-x-s-4 gap-y-s-3 border-t border-line-soft py-s-4">
-      <div className="grid min-w-0 flex-1 basis-72 gap-s-2">
-        <p className="flex flex-wrap items-center gap-x-s-3 gap-y-s-1">
-          <span className="font-mono text-sm text-fg-faint">
+    <li className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3">
+      <div className="grid min-w-0 flex-1 basis-72 gap-2">
+        <p className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="font-mono text-label text-fg-muted wrap-anywhere">
             {request.ref.owner}/{request.ref.repo} #{request.ref.number}
           </span>
           {bump ? (
             <>
-              <span className="text-lg font-semibold">{bump.packageName}</span>
+              <span className="text-sm font-medium wrap-anywhere">{bump.packageName}</span>
               <Badge variant="blue" className="font-mono">
                 {bump.from} → {bump.to}
               </Badge>
             </>
           ) : (
-            <span className="text-lg font-semibold">
+            <span className="text-sm font-medium wrap-anywhere">
               <InlineMarkdown text={request.title} />
             </span>
           )}
         </p>
-        <p className="flex flex-wrap items-center gap-x-s-3 gap-y-s-1 text-sm text-fg-muted">
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-fg-muted">
           <span>by {request.author}</span>
           <span>updated {relativeTime(request.updatedAt)}</span>
           {request.isDraft && <span>draft</span>}
@@ -66,7 +66,7 @@ function DependabotRow({ entry }: { entry: QueueEntry }) {
         </p>
         {progress?.pause && <PausedNote pause={progress.pause} />}
       </div>
-      <div className="flex flex-none flex-wrap items-center gap-s-2">
+      <div className="flex flex-wrap items-center gap-2">
         {progress ? (
           <Badge variant="mint">Resume, {progress.doneCount} steps done</Badge>
         ) : (
@@ -104,14 +104,12 @@ function DependabotRows({
   const started = entries.filter((entry) => entry.progress);
   const notStarted = entries.filter((entry) => !entry.progress);
   return (
-    <ul className="flex flex-col px-s-5">
+    <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line-soft">
       {started.map((entry) => (
         <DependabotRow key={prKey(entry.request.ref)} entry={entry} />
       ))}
       {started.length > 0 && notStarted.length > 0 && (
-        <li className="border-t border-line-soft py-s-3 text-sm font-semibold text-fg-muted">
-          Not started
-        </li>
+        <li className="bg-surface-2 px-4 py-2 text-label font-medium text-fg-muted">Not started</li>
       )}
       {notStarted.map((entry) => (
         <DependabotRow key={prKey(entry.request.ref)} entry={entry} />
@@ -131,24 +129,18 @@ export async function DependabotList() {
   const progress = store.progressSummaries(outcome.requests.map((request) => prKey(request.ref)));
   const count = outcome.requests.length;
   return (
-    <div className="grid gap-s-4">
-      <div className="flex flex-wrap items-center gap-s-3">
-        <span
-          aria-hidden="true"
-          className="grid size-11 shrink-0 place-items-center rounded-md bg-tint-blue text-ink-blue"
-        >
-          <GitPullRequest className="size-[22px]" />
-        </span>
-        <h2 className="font-display text-xl font-semibold">Open Pull Requests</h2>
+    <div className="grid min-w-0 gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-heading">Open pull requests</h2>
         <Badge variant="blue">{count}</Badge>
       </div>
       {outcome.error ? (
-        <div className="grid gap-s-2 rounded-md border border-ink-coral/40 p-s-4 text-sm">
+        <div className="grid gap-2 rounded-xl border border-ink-coral/40 p-4 text-sm">
           <p>
             <span aria-hidden="true">🔌</span> Couldn&apos;t reach GitHub through{" "}
             <code className="font-mono">gh</code>. Is it installed and logged in?
           </p>
-          <p className="font-mono text-fg-muted">{outcome.error}</p>
+          <p className="font-mono text-label text-fg-muted wrap-anywhere">{outcome.error}</p>
         </div>
       ) : count === 0 ? (
         <EmptyState emoji="🌴">
@@ -167,7 +159,7 @@ export async function DependabotList() {
       ) : (
         <>
           {count === REVIEW_REQUEST_LIMIT && (
-            <p className="text-sm text-fg-muted">Showing the first {REVIEW_REQUEST_LIMIT}</p>
+            <p className="text-label text-fg-muted">Showing the first {REVIEW_REQUEST_LIMIT}</p>
           )}
           <DependabotRows requests={outcome.requests} progress={progress} />
         </>

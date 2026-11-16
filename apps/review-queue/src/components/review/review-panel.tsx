@@ -36,6 +36,7 @@ type SideStyle = {
   asideEdge: string;
   stripEdge: string;
   columnEdge: string;
+  columnBorder: string;
   handleSide: string;
   OpenIcon: LucideIcon;
   CloseIcon: LucideIcon;
@@ -47,8 +48,9 @@ const SIDE_STYLES: Record<PanelSide, SideStyle> = {
     toggleName: "panel",
     shortcut: "]",
     asideEdge: "",
-    stripEdge: "",
-    columnEdge: "max-lg:right-full",
+    stripEdge: "border-l border-line-soft",
+    columnEdge: "max-lg:right-full max-lg:absolute max-lg:inset-y-0 max-lg:z-30",
+    columnBorder: "border-l border-line-soft",
     handleSide: "-left-1",
     OpenIcon: PanelRightOpen,
     CloseIcon: PanelRightClose,
@@ -58,8 +60,9 @@ const SIDE_STYLES: Record<PanelSide, SideStyle> = {
     toggleName: "chat side",
     shortcut: "[",
     asideEdge: "flex-row-reverse",
-    stripEdge: "",
-    columnEdge: "max-lg:left-full",
+    stripEdge: "border-r border-line-soft",
+    columnEdge: "max-xl:left-full max-xl:absolute max-xl:inset-y-0 max-xl:z-30",
+    columnBorder: "border-r border-line-soft",
     handleSide: "-right-1",
     OpenIcon: PanelLeftOpen,
     CloseIcon: PanelLeftClose,
@@ -175,14 +178,14 @@ function PaneFrame({
     <section
       aria-label={pane.label}
       data-pane-index={index}
-      className="flex min-h-0 flex-1 basis-0 flex-col border-b last:border-b-0"
+      className="flex min-h-0 flex-1 basis-0 flex-col border-b border-line-soft last:border-b-0"
     >
       <header
         draggable
         onDragStart={(event) => startPaneDrag(event, pane.id, side)}
-        className="group/pane-header flex min-h-11 shrink-0 cursor-grab items-center gap-2 px-5 pt-3 text-sm font-medium text-muted-foreground active:cursor-grabbing"
+        className="group/pane-header flex min-h-11 shrink-0 cursor-grab items-center gap-2 px-4 text-label font-semibold text-fg active:cursor-grabbing"
       >
-        <span className="flex-1 wrap-anywhere">{pane.label}</span>
+        <span className="flex-1 truncate">{pane.label}</span>
         <GripVertical
           aria-hidden
           className="size-3.5 opacity-0 transition-opacity duration-calm group-hover/pane-header:opacity-60"
@@ -197,7 +200,7 @@ function PaneFrame({
           <X />
         </Button>
       </header>
-      <div className="flex min-h-0 flex-1 animate-step-enter flex-col overflow-y-auto px-5 pt-2 pb-5 [scrollbar-gutter:stable]">
+      <div className="flex min-h-0 flex-1 animate-step-enter flex-col gap-4 overflow-y-auto px-4 pt-2 pb-4 [scrollbar-gutter:stable]">
         {content.body}
       </div>
     </section>
@@ -271,7 +274,7 @@ export function ReviewPanel({
       onDrop={onDrop}
     >
       <div
-        className={`flex w-panel-strip-compact shrink-0 flex-col items-center gap-3 overflow-y-auto ${style.stripEdge} bg-rail py-3`}
+        className={`flex w-panel-strip-compact shrink-0 flex-col items-center gap-2 overflow-y-auto bg-rail p-2 ${style.stripEdge}`}
       >
         <PanelToggle side={side} open={panes.length > 0} onToggle={controls.togglePanel} />
         <div className="flex w-full flex-col gap-1">
@@ -293,7 +296,7 @@ export function ReviewPanel({
           ref={contentRef}
           data-testid="pane-column"
           style={{ width }}
-          className={`relative flex min-h-0 max-w-panel-overlay flex-col bg-surface max-lg:absolute max-lg:inset-y-0 max-lg:z-30 max-lg:shadow-lg ${style.columnEdge} ${dragging ? "" : "transition-[width] duration-calm ease-calm"}`}
+          className={`relative flex min-h-0 max-w-panel-overlay flex-col bg-surface ${style.columnBorder} ${style.columnEdge} ${dragging ? "" : "transition-[width] duration-calm ease-calm"}`}
         >
           <PanelResizeHandle sizing={sizing} handleSide={style.handleSide} />
           {panes.map((id, index) => {

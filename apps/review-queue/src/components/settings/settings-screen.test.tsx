@@ -40,11 +40,11 @@ describe("SettingsScreen", () => {
     }
   });
 
-  it("sizes the cache panel to its content so its button stays inside the card", () => {
+  it("gives the cache section its own card below the settings, with the danger tint", () => {
     render(<SettingsScreen initial={VIEW} />);
-    expect(
-      screen.getByRole("region", { name: "Clear the Cache" }).classList.contains("self-start"),
-    ).toBe(true);
+    const section = screen.getByRole("region", { name: "Clear the Cache" });
+    expect(section.classList.contains("border-ink-coral/50")).toBe(true);
+    expect(section.classList.contains("border-line-soft")).toBe(false);
   });
 
   it("keeps the backend options side by side on one line", () => {

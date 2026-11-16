@@ -16,30 +16,27 @@ export function AppBar() {
 
   return (
     <header className="app-bar">
-      <Link href="/" className="flex shrink-0 min-h-11 items-center gap-s-3 text-fg no-underline">
-        <Otter size="medium" />
-        <span className="text-base font-semibold whitespace-nowrap max-sm:sr-only">
-          Review <span className="text-neon-rq">Queue</span>
-        </span>
-      </Link>
-      <nav aria-label="Main" className="flex gap-s-1">
-        {NAVIGATION_LINKS.map((link) => {
-          const isCurrent = pathname === link.href;
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={isCurrent ? "page" : undefined}
-              className={cn(
-                "inline-flex min-h-11 items-center rounded-md px-s-2 whitespace-nowrap text-sm font-medium text-fg-muted no-underline transition-colors hover:text-fg sm:px-s-3",
-                isCurrent && "text-fg",
-              )}
-            >
-              {link.label}
-            </Link>
-          );
-        })}
-      </nav>
+      <div className="app-bar__inner">
+        <Link href="/" className="app-bar__brand">
+          <Otter size="small" />
+          <span>Review Queue</span>
+        </Link>
+        <nav aria-label="Main" className="app-bar__nav">
+          {NAVIGATION_LINKS.map((link) => {
+            const isCurrent = pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={isCurrent ? "page" : undefined}
+                className={cn("app-bar__link", isCurrent && "is-current")}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
     </header>
   );
 }

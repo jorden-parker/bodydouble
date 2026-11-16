@@ -1,12 +1,13 @@
 "use client";
 
-import { Bot, Check, ChevronDown, Clock, Flag, GitPullRequest } from "lucide-react";
+import { Bot, ChevronDown, Clock, Flag, GitPullRequest } from "lucide-react";
+import { cn } from "cn";
 import { useState, type FormEvent } from "react";
 import { CacheZone } from "@/components/settings/cache-zone";
 import { Otter } from "@/components/neon/otter";
-import { Panel, Panels } from "@/components/neon/panels";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { CARD_CLASS } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CLAUDE_MODELS, type ClaudeModel, type LlmBackend } from "@/lib/llm/backends";
 import type { LlmSettings } from "@/lib/settings/llm-settings";
@@ -26,18 +27,14 @@ const BACKEND_OPTIONS: { value: LlmBackend; label: string }[] = [
   { value: "claude-code", label: "Claude Code" },
 ];
 
-const PANEL_CLASS =
-  "min-w-72 self-stretch rounded-2xl border border-line bg-surface p-s-5 shadow-lift";
-const DANGER_PANEL_CLASS =
-  "min-w-72 self-start rounded-2xl border-[1.5px] border-ink-coral bg-[color-mix(in_oklch,var(--neon-coral)_6%,var(--surface))] p-s-5 shadow-lift";
-const FRAME_CLASS = "mx-auto w-full max-w-[1680px] px-[clamp(var(--s-4),3vw,var(--s-7))]";
-
 function modelChoices(view: SettingsView, chosen: string | null): string[] {
   return chosen && !view.models.includes(chosen) ? [chosen, ...view.models] : view.models;
 }
 
 const SELECT_CLASS =
-  "min-h-12 w-full appearance-none rounded-md border-[1.5px] border-line bg-canvas px-s-4 pr-s-6 font-mono text-[0.95rem] text-fg";
+  "h-10 w-full min-w-0 appearance-none rounded-sm border border-line bg-bg px-3 pr-9 font-mono text-sm text-fg outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const CHEVRON_CLASS =
+  "pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-fg-muted";
 
 export function SettingsScreen({ initial }: { initial: SettingsView }) {
   const [view, setView] = useState(initial);
@@ -75,213 +72,190 @@ export function SettingsScreen({ initial }: { initial: SettingsView }) {
   const isClaudeCode = settings.backend === "claude-code";
 
   return (
-    <form
-      onSubmit={save}
-      className="flex min-h-0 flex-1 flex-col [&_.app-main]:grid-rows-[auto_minmax(0,1fr)]"
-    >
-      <Panels label="Settings sections">
-        <Panel
-          title="Model Settings"
-          className={`${PANEL_CLASS} col-start-1 row-span-2 row-start-1`}
-        >
-          <PanelHeading icon={Bot} title="Model Settings" />
-          <SettingRow
-            label={
-              <label htmlFor="enabled" className="font-bold">
-                Use the Model
-              </label>
-            }
-            hint="Orientation, step explanations, summary drafts and Ask."
-            control={
-              <ToggleSwitch
-                id="enabled"
-                checked={settings.enabled}
-                onChange={(enabled) => change({ enabled })}
+    <form onSubmit={save} className="flex min-w-0 flex-col gap-4">
+      <section aria-label="Model Settings" className={CARD_CLASS}>
+        <PanelHeading icon={Bot} title="Model Settings" />
+        <SettingRow
+          label={
+            <label htmlFor="enabled" className="font-medium">
+              Use the Model
+            </label>
+          }
+          hint="Orientation, step explanations, summary drafts and Ask."
+          control={
+            <ToggleSwitch
+              id="enabled"
+              checked={settings.enabled}
+              onChange={(enabled) => change({ enabled })}
+            />
+          }
+        />
+        <SettingRow
+          label={
+            <span id="backend-label" className="font-medium">
+              Model Backend
+            </span>
+          }
+          hint="Where the model runs for this review."
+          control={
+            <>
+              <SegmentedPicker<LlmBackend>
+                name="backend"
+                labelId="backend-label"
+                options={BACKEND_OPTIONS}
+                value={settings.backend}
+                onChange={(backend) => change({ backend })}
               />
-            }
-          />
-          <SettingRow
-            label={
-              <span id="backend-label" className="font-bold">
-                Model Backend
-              </span>
-            }
-            hint="Where the model runs for this review."
-            control={
-              <>
-                <SegmentedPicker<LlmBackend>
-                  name="backend"
-                  labelId="backend-label"
-                  options={BACKEND_OPTIONS}
-                  value={settings.backend}
-                  onChange={(backend) => change({ backend })}
-                />
-                {isClaudeCode && (
-                  <p className="flex gap-s-2 rounded-md bg-tint-amber p-s-3 text-sm">
-                    <Flag aria-hidden="true" className="mt-0.5 size-4 flex-none text-ink-amber" />
-                    <span>
-                      Claude Code runs your logged-in <code className="font-mono">claude</code>{" "}
-                      command, so PR code is sent to Anthropic.
-                    </span>
-                  </p>
-                )}
-              </>
-            }
-          />
-        </Panel>
+              {isClaudeCode && (
+                <p className="flex gap-2 rounded-sm bg-tint-amber p-3 text-label">
+                  <Flag aria-hidden="true" className="mt-0.5 size-4 flex-none text-ink-amber" />
+                  <span>
+                    Claude Code runs your logged-in <code className="font-mono">claude</code>{" "}
+                    command, so PR code is sent to Anthropic.
+                  </span>
+                </p>
+              )}
+            </>
+          }
+        />
+      </section>
 
-        <Panel
-          title="Model Behavior"
-          className={`${PANEL_CLASS} col-start-2 row-span-2 row-start-1`}
-        >
-          <PanelHeading icon={Clock} title="Model Behavior" />
-          {isClaudeCode ? (
-            <SettingRow
-              label={
-                <label htmlFor="claude-model" className="font-bold">
-                  Claude Model
-                </label>
-              }
-              hint="Ask answers without looking up other files."
-              control={
-                <div className="relative w-64 max-w-full">
-                  <select
-                    id="claude-model"
-                    value={settings.claudeModel}
-                    onChange={(event) => change({ claudeModel: event.target.value as ClaudeModel })}
-                    className={SELECT_CLASS}
-                  >
-                    {CLAUDE_MODELS.map((model) => (
-                      <option key={model} value={model}>
-                        {model}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    aria-hidden="true"
-                    className="pointer-events-none absolute top-1/2 right-s-4 size-4 -translate-y-1/2 text-fg-muted"
-                  />
-                </div>
-              }
-            />
-          ) : (
-            <SettingRow
-              label={
-                <label htmlFor="model" className="font-bold">
-                  Model
-                </label>
-              }
-              hint="Auto uses the first suitable installed model."
-              control={
-                <div className="relative w-64 max-w-full">
-                  <select
-                    id="model"
-                    value={settings.model ?? ""}
-                    onChange={(event) => change({ model: event.target.value || null })}
-                    className={SELECT_CLASS}
-                  >
-                    <option value="">{view.autoModel ? `Auto (${view.autoModel})` : "Auto"}</option>
-                    {modelChoices(view, settings.model).map((model) => (
-                      <option key={model} value={model}>
-                        {model}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    aria-hidden="true"
-                    className="pointer-events-none absolute top-1/2 right-s-4 size-4 -translate-y-1/2 text-fg-muted"
-                  />
-                </div>
-              }
-            />
-          )}
+      <section aria-label="Model Behavior" className={CARD_CLASS}>
+        <PanelHeading icon={Clock} title="Model Behavior" />
+        {isClaudeCode ? (
           <SettingRow
             label={
-              <label htmlFor="thinking" className="font-bold">
-                Let the Model Think Before Answering
+              <label htmlFor="claude-model" className="font-medium">
+                Claude Model
               </label>
             }
-            hint="Turn off only for models that answer directly. Qwen models repeat themselves without it."
+            hint="Ask answers without looking up other files."
             control={
-              <ToggleSwitch
-                id="thinking"
-                checked={settings.thinking}
-                onChange={(thinking) => change({ thinking })}
-              />
+              <div className="relative w-full min-w-0 sm:w-64">
+                <select
+                  id="claude-model"
+                  value={settings.claudeModel}
+                  onChange={(event) => change({ claudeModel: event.target.value as ClaudeModel })}
+                  className={SELECT_CLASS}
+                >
+                  {CLAUDE_MODELS.map((model) => (
+                    <option key={model} value={model}>
+                      {model}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown aria-hidden="true" className={CHEVRON_CLASS} />
+              </div>
             }
           />
+        ) : (
           <SettingRow
             label={
-              <label htmlFor="timeout" className="font-bold">
-                Timeout (Seconds)
+              <label htmlFor="model" className="font-medium">
+                Model
               </label>
             }
-            hint="How long to wait for the model to start answering, up to 3600. Raise it on a slow machine or when reviewing whole files; once the answer starts it is never cut off."
+            hint="Auto uses the first suitable installed model."
             control={
-              <Input
-                id="timeout"
-                type="number"
-                min={1}
-                max={3600}
-                inputMode="numeric"
-                value={seconds}
-                onChange={(event) => setSeconds(event.target.value)}
-                className="h-12 w-32 font-mono"
-              />
+              <div className="relative w-full min-w-0 sm:w-64">
+                <select
+                  id="model"
+                  value={settings.model ?? ""}
+                  onChange={(event) => change({ model: event.target.value || null })}
+                  className={SELECT_CLASS}
+                >
+                  <option value="">{view.autoModel ? `Auto (${view.autoModel})` : "Auto"}</option>
+                  {modelChoices(view, settings.model).map((model) => (
+                    <option key={model} value={model}>
+                      {model}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown aria-hidden="true" className={CHEVRON_CLASS} />
+              </div>
             }
           />
-        </Panel>
+        )}
+        <SettingRow
+          label={
+            <label htmlFor="thinking" className="font-medium">
+              Let the Model Think Before Answering
+            </label>
+          }
+          hint="Turn off only for models that answer directly. Qwen models repeat themselves without it."
+          control={
+            <ToggleSwitch
+              id="thinking"
+              checked={settings.thinking}
+              onChange={(thinking) => change({ thinking })}
+            />
+          }
+        />
+        <SettingRow
+          label={
+            <label htmlFor="timeout" className="font-medium">
+              Timeout (Seconds)
+            </label>
+          }
+          hint="How long to wait for the model to start answering, up to 3600. Raise it on a slow machine or when reviewing whole files; once the answer starts it is never cut off."
+          control={
+            <Input
+              id="timeout"
+              type="number"
+              min={1}
+              max={3600}
+              inputMode="numeric"
+              value={seconds}
+              onChange={(event) => setSeconds(event.target.value)}
+              className="w-32 font-mono"
+            />
+          }
+        />
+      </section>
 
-        <Panel title="Pull Requests" className={`${PANEL_CLASS} col-start-3 row-start-1`}>
-          <PanelHeading icon={GitPullRequest} title="Pull Requests" />
-          <div className="grid gap-s-2 border-t border-line-soft py-s-3">
-            <div className="flex flex-wrap items-center gap-s-2">
-              <label htmlFor="repositories-input" className="font-bold">
-                Repositories
-              </label>
-              <Badge variant="blue">
-                {repositories.length} of {REPOSITORY_LIMIT}
-              </Badge>
-            </div>
-            <p id="repositories-hint" className="text-sm text-fg-muted">
-              One owner/repo each. Their open pull requests show on the home page.
-            </p>
-            <TokenInput
-              id="repositories-input"
-              describedBy="repositories-hint"
-              values={repositories}
-              onAdd={addRepositories}
-              onRemove={removeRepository}
-            />
+      <section aria-label="Pull Requests" className={CARD_CLASS}>
+        <PanelHeading icon={GitPullRequest} title="Pull Requests" />
+        <div className="grid gap-2 border-t border-line-soft pt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="repositories-input" className="font-medium">
+              Repositories
+            </label>
+            <Badge variant="blue">
+              {repositories.length} of {REPOSITORY_LIMIT}
+            </Badge>
           </div>
-        </Panel>
-
-        <Panel title="Clear the Cache" className={`${DANGER_PANEL_CLASS} col-start-3 row-start-2`}>
-          <CacheZone />
-        </Panel>
-      </Panels>
-
-      <div className={`${FRAME_CLASS} pb-s-4 pt-s-4`}>
-        <div
-          role="region"
-          aria-label="Save changes"
-          className="flex flex-wrap items-center gap-s-3 rounded-pill border border-line bg-surface py-s-2 pr-s-2 pl-s-4 shadow-lift"
-        >
-          <span
-            aria-hidden="true"
-            className="size-2.5 flex-none rounded-full bg-neon-amber shadow-[0_0_0_4px_var(--tint-amber)]"
-          />
-          <p aria-live="polite" className="grid min-w-0">
-            <strong className="font-bold">{status ?? "Press save to keep your changes"}</strong>
-            <span className="text-sm text-fg-muted">The otter is ready when you are.</span>
+          <p id="repositories-hint" className="text-label text-fg-muted">
+            One owner/repo each. Their open pull requests show on the home page.
           </p>
-          <Otter size="medium" className="max-md:hidden" />
-          <Button type="submit" variant="neon" className="ml-auto">
-            <Check aria-hidden="true" />
-            Save settings
-          </Button>
+          <TokenInput
+            id="repositories-input"
+            describedBy="repositories-hint"
+            values={repositories}
+            onAdd={addRepositories}
+            onRemove={removeRepository}
+          />
         </div>
-      </div>
+      </section>
+
+      <section aria-label="Clear the Cache" className={cn(CARD_CLASS, "border-ink-coral/50")}>
+        <CacheZone />
+      </section>
+
+      <section
+        aria-label="Save changes"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft bg-surface p-4 sm:p-6"
+      >
+        <p aria-live="polite" className="flex min-w-0 items-center gap-3">
+          <Otter size="small" />
+          <span className="grid min-w-0 gap-1">
+            <span className="text-sm font-medium">
+              {status ?? "Press save to keep your changes"}
+            </span>
+            <span className="text-label text-fg-muted">The otter is ready when you are.</span>
+          </span>
+        </p>
+        <Button type="submit">Save settings</Button>
+      </section>
     </form>
   );
 }

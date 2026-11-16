@@ -23,7 +23,7 @@ export function SelectionToolbar({
       role="toolbar"
       aria-label="Work with the selected lines"
       style={{ top: selection.top, left: selection.left }}
-      className="fixed z-30 flex animate-step-enter items-center gap-1 rounded-lg border bg-popover p-1 shadow-md"
+      className="fixed z-30 flex animate-step-enter items-center gap-1 rounded-lg border bg-popover p-1"
       onMouseDown={(event) => event.preventDefault()}
     >
       {onNote && (

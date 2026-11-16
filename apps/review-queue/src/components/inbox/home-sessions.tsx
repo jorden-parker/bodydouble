@@ -66,7 +66,7 @@ export function HomeSessions({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-s-6 p-s-1">
+    <div className="flex min-w-0 flex-col gap-6">
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}

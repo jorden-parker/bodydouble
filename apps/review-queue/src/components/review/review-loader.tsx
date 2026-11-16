@@ -13,15 +13,15 @@ export function ReviewLoader({ pullRequest }: { pullRequest: PullRequestRef }) {
     return (
       <main
         id="main"
-        className="flex h-screen flex-col items-center justify-center gap-3 px-4 text-center sm:px-6"
+        className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 py-8 text-center sm:px-6"
       >
         <span aria-hidden className="animate-float text-4xl">
           🦦
         </span>
-        <h1 role="status" className="text-lg font-bold">
+        <h1 role="status" className="text-heading">
           Getting the PR ready…
         </h1>
-        <p className="max-w-md text-sm text-muted-foreground">
+        <p className="max-w-md text-sm text-fg-muted">
           Fetching, checking out the branch and indexing symbols. The first time for a repo can take
           a minute.
         </p>

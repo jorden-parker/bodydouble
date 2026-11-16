@@ -39,7 +39,7 @@ function CurrentStep({
             {step.role}, {plural(step.changedLines, "line")}
           </span>
         </p>
-        <h2 className="text-lg font-bold">{step.title}</h2>
+        <h2 className="text-heading">{step.title}</h2>
       </div>
       <p className="text-sm text-muted-foreground">{step.reason}</p>
       {done && (
@@ -72,7 +72,7 @@ function StepHotspots({ session, workspace }: { session: Session; workspace: Wor
   if (hotspots.length === 0) return null;
   return (
     <section aria-label="Hotspots in this step" className="flex flex-col gap-2">
-      <h2 className="text-sm font-bold">Hotspots in this step</h2>
+      <h2 className="text-label font-semibold">Hotspots in this step</h2>
       <HotspotList
         hotspots={hotspots}
         checked={session.checkedHotspots}

@@ -72,6 +72,7 @@ const checkOptions = {
   baseUrl: "http://127.0.0.1:4488",
   paths: ["/", "/work"],
   screenshotDirectory: "/shots",
+  viewport: { width: 1280, height: 900 },
 };
 
 describe("findPageProblems", () => {
@@ -152,6 +153,7 @@ describe("parseCheckOptions", () => {
       baseUrl: "http://127.0.0.1:4488",
       paths: ["/", "/work", "/tickets", "/settings"],
       screenshotDirectory: "/default-shots",
+      viewport: { width: 1280, height: 900 },
     });
   });
 
@@ -167,7 +169,20 @@ describe("parseCheckOptions", () => {
       baseUrl: "http://127.0.0.1:4488",
       paths: ["/work"],
       screenshotDirectory: "/elsewhere",
+      viewport: { width: 1280, height: 900 },
     });
+  });
+
+  it("checks at the viewport it is given", () => {
+    expect(
+      parseCheckOptions(["--viewport", "360x800", "/work"], "/default-shots").viewport,
+    ).toEqual({ width: 360, height: 800 });
+  });
+
+  it("rejects a viewport that is not WIDTHxHEIGHT", () => {
+    expect(() => parseCheckOptions(["--viewport", "wide"], "/default-shots")).toThrow(
+      'Expected a viewport like 1024x768, got "wide"',
+    );
   });
 
   it("rejects a path that is not rooted in the app", () => {

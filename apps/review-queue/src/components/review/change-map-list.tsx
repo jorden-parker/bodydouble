@@ -93,8 +93,8 @@ function PartsProgress({ sections }: { sections: MapSection[] }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-display text-lg font-semibold text-fg">Parts of This Change</h2>
-        <span className="text-sm font-bold text-fg-muted tabular-nums">
+        <h2 className="text-heading text-fg">Parts of this change</h2>
+        <span className="text-label font-semibold text-fg-muted tabular-nums">
           {seenCount} of {sections.length} parts seen
         </span>
       </div>
@@ -211,7 +211,7 @@ function MapThread({
     <section
       className={cn(
         "flex flex-col gap-1 rounded-xl border p-3 transition-colors duration-calm motion-reduce:transition-none",
-        hasCurrent ? "border-neon-blue/55 bg-surface-2 shadow-glow-blue" : "border-line-soft",
+        hasCurrent ? "border-neon-blue/55 bg-surface-2" : "border-line-soft",
       )}
     >
       <ThreadHeader section={section} open={open} onToggle={onToggle} />
@@ -323,7 +323,7 @@ function MapStop({
       className={cn(
         "relative",
         isMuted(row, part, linked) && "text-muted-foreground",
-        row.current && "ring-2 ring-neon-blue/55 shadow-glow-blue",
+        row.current && "bg-surface-2",
       )}
     >
       {trunk ? (
@@ -427,11 +427,11 @@ function StationMark({
       >
         <span
           className={cn(
-            "border-2 transition-shadow duration-calm motion-reduce:transition-none",
+            "border-2 transition-colors duration-calm motion-reduce:transition-none",
             STATION_SIZE_BY_WEIGHT[weight ?? "supporting"] ?? "size-2.5",
             row.kind === "entry" ? "rounded-xs" : "rounded-full",
             stationColour(row),
-            linked && "ring-2 ring-primary/50",
+            linked && "outline-2 outline-offset-2 outline-primary/50",
           )}
         />
       </span>
@@ -440,7 +440,7 @@ function StationMark({
 }
 
 function stationColour(row: MapRow): string {
-  if (row.current) return "border-neon-blue bg-surface ring-2 ring-neon-blue/40";
+  if (row.current) return "border-neon-blue bg-surface";
   if (row.done) return "border-ink-mint bg-tint-mint";
   return "border-fg-faint bg-surface";
 }

@@ -49,10 +49,9 @@ beforeEach(() => {
 });
 
 describe("InboxResume hero", () => {
-  it("titles the screen Review Queue with Queue in the review gradient", async () => {
+  it("leaves the page title to the inbox page, so the resume panel has no h1", async () => {
     await renderResume();
-    expect(screen.getByRole("heading", { level: 1, name: "Review Queue" })).toBeTruthy();
-    expect(screen.getByText("Queue").classList.contains("text-neon-rq")).toBe(true);
+    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
   });
 });
 
@@ -65,15 +64,11 @@ describe("InboxResume in progress", () => {
     expect(stream.getAttribute("aria-valuenow")).toBe("2");
   });
 
-  it("keeps the hero fixed and lets the In Progress region fill the rest without its own scroll box", async () => {
+  it("lets the resume card grow with its content, with no fixed height or inner scroll box", async () => {
     await renderResume();
-    const hero = screen.getByRole("heading", { level: 1, name: "Review Queue" }).closest("div");
-    expect(hero?.parentElement?.classList.contains("shrink-0")).toBe(true);
-    const region = screen
-      .getByRole("heading", { name: "Add retry budget" })
-      .closest(".flex-1.min-h-0");
-    expect(region?.classList.contains("flex-1")).toBe(true);
-    expect(region?.classList.contains("overflow-y-auto")).toBe(false);
+    const card = screen.getByRole("heading", { name: "Add retry budget" }).closest("article");
+    expect(card?.classList.contains("overflow-y-auto")).toBe(false);
+    expect(card?.className).not.toMatch(/\bh-\d/);
   });
 
   it("links the resume button to the pull request", async () => {
@@ -82,47 +77,44 @@ describe("InboxResume in progress", () => {
     expect(resume.getAttribute("href")).toBe("/pr/acme/billing/482");
   });
 
-  it("makes Resume review the one neon action while a review is waiting", async () => {
+  it("makes Resume review the one primary action while a review is waiting", async () => {
     await renderResume();
     const resume = screen.getByRole("link", { name: /Resume review/ });
-    expect(resume.getAttribute("data-variant")).toBe("neon");
+    expect(resume.getAttribute("data-variant")).toBe("default");
   });
 });
 
 describe("InboxResume all clear", () => {
-  it("shows Pond's Clear with an Open a PR by URL link when nothing waits", async () => {
+  it("shows Nothing waiting for review with an Open any PR by URL link when nothing waits", async () => {
     vi.mocked(reviewRequests).mockResolvedValue([]);
     await renderResume();
-    expect(screen.getByRole("heading", { name: "Pond’s Clear. Go Stretch." })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Open a PR by URL/ }).getAttribute("href")).toBe("#pr");
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Nothing waiting for review" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Open any PR by URL/ }).getAttribute("href")).toBe(
+      "#pr",
+    );
   });
 
-  it("keeps the ripple rings inside the hero, each growing only to the ring's box", async () => {
+  it("draws no decorative ripple rings, keeping the card flat", async () => {
     vi.mocked(reviewRequests).mockResolvedValue([]);
     const { container } = await renderResume();
-    const rings = Array.from(container.querySelectorAll(".animate-ping"));
-    expect(rings).toHaveLength(3);
-    for (const ring of rings) {
-      expect(ring.classList.contains("inset-1/4")).toBe(true);
-      expect(ring.parentElement?.classList.contains("overflow-hidden")).toBe(true);
-    }
-    expect(rings[0].parentElement?.className).toContain("clamp(");
+    expect(container.querySelectorAll(".animate-ping")).toHaveLength(0);
   });
 
-  it("keeps Resume review soft so the Open a PR by URL link stays the only neon action", async () => {
+  it("keeps Resume review soft so the Open any PR by URL link stays the only primary action", async () => {
     vi.mocked(reviewRequests).mockResolvedValue([]);
     await renderResume();
     const resume = screen.getByRole("link", { name: /Resume review/ });
     expect(resume.getAttribute("data-variant")).toBe("soft");
     expect(
-      screen.getByRole("link", { name: /Open a PR by URL/ }).getAttribute("data-variant"),
-    ).toBe("neon");
+      screen.getByRole("link", { name: /Open any PR by URL/ }).getAttribute("data-variant"),
+    ).toBe("default");
   });
 
-  it("does not claim the pond is clear when GitHub could not be asked", async () => {
+  it("does not claim nothing waits when GitHub could not be asked", async () => {
     vi.mocked(reviewRequests).mockRejectedValue(new Error("gh is not logged in"));
     await renderResume();
-    expect(screen.queryByText(/Pond’s Clear/)).toBeNull();
-    expect(screen.getByRole("heading", { level: 1, name: "Review Queue" })).toBeTruthy();
+    expect(screen.queryByText(/Nothing waiting for review/)).toBeNull();
   });
 });

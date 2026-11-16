@@ -1,26 +1,27 @@
 import { Suspense } from "react";
-import { Panel, Panels } from "@/components/neon/panels";
+import { PageHeader, PageShell } from "@/components/common/page-shell";
 import { InboxList } from "@/components/inbox/inbox-list";
 import { InboxResume } from "@/components/inbox/inbox-resume";
 import { InboxSkeleton } from "@/components/inbox/inbox-skeleton";
 import { OpenPullRequestForm } from "@/components/inbox/open-pull-request-form";
 
-const PANEL_CLASS = "rounded-lg border border-line-soft bg-surface p-s-5 shadow-lift";
-
 export default function InboxPage() {
   return (
-    <Panels label="Inbox sections" className="grid-cols-[5fr_6fr] items-stretch">
-      <Panel title="Pick Up Where You Left Off" className={`${PANEL_CLASS} grid-rows-1`}>
-        <Suspense fallback={<InboxSkeleton />}>
-          <InboxResume />
-        </Suspense>
-      </Panel>
-      <Panel title="Waiting for You" className={`${PANEL_CLASS} grid-rows-[minmax(0,1fr)_auto]`}>
-        <Suspense fallback={<InboxSkeleton />}>
-          <InboxList />
-        </Suspense>
-        <OpenPullRequestForm />
-      </Panel>
-    </Panels>
+    <PageShell>
+      <PageHeader title="Inbox" lede="One PR at a time. Pick one, follow the path, take breaks." />
+      <div className="grid gap-8 lg:grid-cols-[5fr_6fr] lg:gap-6">
+        <section aria-label="Pick up where you left off" className="flex min-w-0 flex-col gap-6">
+          <Suspense fallback={<InboxSkeleton />}>
+            <InboxResume />
+          </Suspense>
+        </section>
+        <section aria-label="Waiting for you" className="flex min-w-0 flex-col gap-6">
+          <Suspense fallback={<InboxSkeleton />}>
+            <InboxList />
+          </Suspense>
+          <OpenPullRequestForm />
+        </section>
+      </div>
+    </PageShell>
   );
 }

@@ -30,8 +30,8 @@ function ProgressBadges({ entry }: { entry: QueueEntry }) {
 function PausedNote({ pause }: { pause: PauseState }) {
   const note = pause.note.trim();
   return (
-    <span className="flex flex-wrap items-center gap-s-2 text-sm">
-      <span className="rounded-pill bg-callout px-s-3 py-0.5 text-callout-foreground">
+    <span className="flex flex-wrap items-center gap-2 text-label">
+      <span className="rounded-sm bg-callout px-2 py-0.5 wrap-anywhere text-callout-foreground">
         {note ? `You were about to: ${note}` : "Paused"}
       </span>
       <span className="text-fg-muted">{relativeTime(pause.at)}</span>
@@ -42,39 +42,41 @@ function PausedNote({ pause }: { pause: PauseState }) {
 function InboxRow({ entry }: { entry: QueueEntry }) {
   const { request, progress } = entry;
   return (
-    <li className="flex items-center gap-s-2">
+    <li className="flex min-w-0 items-center">
       <Link
         href={prPath(request.ref)}
-        className="flex min-w-0 flex-1 items-center gap-s-4 rounded-md border border-line-soft bg-surface-2 px-s-4 py-s-3 transition-colors duration-calm hover:border-line hover:bg-surface-3 focus-visible:bg-surface-3"
+        className="flex min-w-0 flex-1 items-start gap-3 px-4 py-3 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2"
       >
         <span
           aria-hidden="true"
-          className="grid size-9 shrink-0 place-items-center rounded-full bg-tint-violet font-display text-sm font-semibold text-ink-violet"
+          className="grid size-8 shrink-0 place-items-center rounded-full border border-line-soft bg-surface-2 text-label font-medium text-fg-muted"
         >
           {initialsOf(request.author)}
         </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-s-1">
-          <span className="font-display text-lg leading-snug font-semibold">
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="text-sm font-medium wrap-anywhere">
             <InlineMarkdown text={request.title} />
           </span>
-          <span className="flex flex-wrap gap-x-s-3 text-sm text-fg-muted">
-            <span className="font-mono text-fg">{prKey(request.ref)}</span>
+          <span className="flex flex-wrap gap-x-3 gap-y-1 text-label text-fg-muted">
+            <span className="font-mono text-fg wrap-anywhere">{prKey(request.ref)}</span>
             <span>by {request.author}</span>
             <span>updated {relativeTime(request.updatedAt)}</span>
             {request.isDraft && <span>draft</span>}
           </span>
           {progress?.pause && <PausedNote pause={progress.pause} />}
-          <span className="flex flex-wrap gap-s-2">
+          <span className="flex flex-wrap gap-2">
             <ProgressBadges entry={entry} />
           </span>
         </span>
-        <Button variant="soft" asChild className="shrink-0">
-          <span>
-            Start <ArrowRight />
-          </span>
-        </Button>
+        <span className="hidden shrink-0 self-center sm:inline-flex">
+          <Button variant="soft" size="sm" asChild>
+            <span>
+              Start <ArrowRight />
+            </span>
+          </Button>
+        </span>
       </Link>
-      <div className="pr-s-1">
+      <div className="shrink-0 pr-2">
         <HintButton
           variant="ghost"
           size="icon-sm"
@@ -100,7 +102,7 @@ function QueueRows({ entries }: { entries: QueueEntry[] }) {
         <InboxRow key={prKey(entry.request.ref)} entry={entry} />
       ))}
       {started.length > 0 && notStarted.length > 0 && (
-        <li className="px-s-1 text-sm font-medium text-fg-muted">Not started</li>
+        <li className="bg-surface-2 px-4 py-2 text-label font-medium text-fg-muted">Not started</li>
       )}
       {notStarted.map((entry) => (
         <InboxRow key={prKey(entry.request.ref)} entry={entry} />
@@ -121,9 +123,9 @@ function QueueSection({
   children: ReactNode;
 }) {
   return (
-    <section className="flex min-h-0 flex-col gap-s-4">
-      <div className="flex flex-wrap items-center justify-between gap-s-3">
-        <h2 className="font-display text-2xl font-semibold">
+    <section className="flex min-w-0 flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-heading">
           {title} <span className="tabular-nums text-fg-muted">({count})</span>
         </h2>
         {action}
@@ -151,12 +153,12 @@ function RequestQueue({
   if (error) {
     return (
       <QueueSection title={title} count={0} action={action}>
-        <Card className="gap-2 px-5 text-sm border-destructive/40">
+        <Card className="gap-2 border-destructive/40">
           <p>
             <span aria-hidden="true">🔌</span> Couldn&apos;t reach GitHub through{" "}
             <code className="font-mono">gh</code>. Is it installed and logged in?
           </p>
-          <p className="font-mono text-sm text-fg-muted">{error}</p>
+          <p className="font-mono text-label text-fg-muted wrap-anywhere">{error}</p>
         </Card>
       </QueueSection>
     );
@@ -164,18 +166,16 @@ function RequestQueue({
   if (requests.length === 0) {
     return (
       <QueueSection title={title} count={0} action={action}>
-        <div className="rounded-md border border-line-soft bg-surface-2">
-          <EmptyState emoji="🌴">{emptyMessage}</EmptyState>
-        </div>
+        <EmptyState emoji="🌴">{emptyMessage}</EmptyState>
       </QueueSection>
     );
   }
   return (
     <QueueSection title={title} count={requests.length} action={action}>
       {requests.length === REVIEW_REQUEST_LIMIT && (
-        <p className="text-sm text-fg-muted">Showing the first {REVIEW_REQUEST_LIMIT}</p>
+        <p className="text-label text-fg-muted">Showing the first {REVIEW_REQUEST_LIMIT}</p>
       )}
-      <ul className="grid min-h-0 gap-s-2 overflow-y-auto">
+      <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line-soft">
         <QueueRows entries={orderQueue(requests, progress)} />
       </ul>
     </QueueSection>
@@ -191,12 +191,12 @@ function batchedBumpsMessage(count: number): string {
 function DependabotSummary({ count }: { count: number | null }) {
   if (count === null) return null;
   return (
-    <p className="flex flex-wrap items-center gap-s-2 rounded-md border border-dashed border-line px-s-4 text-sm text-fg-muted">
-      <Bot aria-hidden="true" className="text-ink-violet" />
+    <p className="flex flex-wrap items-center gap-2 rounded-xl border border-line-soft bg-card px-4 py-3 text-sm text-fg-muted">
+      <Bot aria-hidden="true" className="size-4 shrink-0" />
       <span>{batchedBumpsMessage(count)}</span>
       <Link
         href="/dependabot"
-        className="inline-flex min-h-11 items-center font-bold text-ink-violet"
+        className="inline-flex min-h-8 items-center font-medium text-fg underline underline-offset-4"
       >
         See Dependabot
       </Link>
@@ -207,10 +207,10 @@ function DependabotSummary({ count }: { count: number | null }) {
 export async function InboxList() {
   const inbox = await loadInbox();
   return (
-    <div className="flex min-h-0 flex-col gap-s-7">
+    <div className="flex min-w-0 flex-col gap-6">
       {!isPondClear(inbox) && (
         <RequestQueue
-          title="Waiting for You"
+          title="Waiting for you"
           requests={inbox.requests}
           progress={inbox.progress}
           error={inbox.requestsError}
@@ -219,9 +219,9 @@ export async function InboxList() {
       )}
       {inbox.hasRepositories ? (
         <RequestQueue
-          title="Open in Your Repositories"
+          title="Open in your repositories"
           action={
-            <Button variant="ghost" asChild className="text-fg-muted">
+            <Button variant="ghost" size="sm" asChild>
               <Link href="/dependabot">Dependabot PRs</Link>
             </Button>
           }
@@ -231,7 +231,7 @@ export async function InboxList() {
           emptyMessage="No open pull requests in your repositories."
         />
       ) : (
-        <p className="text-sm text-fg-muted">
+        <p className="text-label text-fg-muted">
           Pick repositories in{" "}
           <Link href="/settings" className="text-fg underline underline-offset-4">
             Settings

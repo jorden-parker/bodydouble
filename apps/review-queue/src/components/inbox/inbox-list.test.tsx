@@ -41,11 +41,10 @@ beforeEach(() => {
 });
 
 describe("InboxList rows", () => {
-  it("lifts each queued pull request's border and fill on hover", async () => {
+  it("tints each queued pull request row on hover", async () => {
     await renderInbox();
     const classes = screen.getByRole("link", { name: /Add retry/ }).classList;
-    expect(classes.contains("hover:border-line")).toBe(true);
-    expect(classes.contains("hover:bg-surface-3")).toBe(true);
+    expect(classes.contains("hover:bg-surface-2")).toBe(true);
   });
 
   it("starts each queued pull request with a Start button inside its row link", async () => {
@@ -62,31 +61,33 @@ describe("InboxList rows", () => {
     expect(link.closest('a[href^="/pr/"]')).toBeNull();
   });
 
-  it("lets the queue list shrink to fit the panel instead of a fixed height cap", async () => {
+  it("separates the rows with dividers inside one list, with no fixed height cap", async () => {
     await renderInbox();
     const list = screen.getAllByRole("list")[0];
-    expect(list.classList.contains("max-h-80")).toBe(false);
-    expect(list.classList.contains("min-h-0")).toBe(true);
+    expect(list.classList.contains("divide-y")).toBe(true);
+    expect(list.className).not.toMatch(/\bmax-h-|\bh-\d/);
   });
 
-  it("sets the row title in semibold", async () => {
+  it("sets the row title in medium weight", async () => {
     await renderInbox();
-    expect(screen.getByText("Add retry").closest(".font-semibold")).not.toBeNull();
+    expect(screen.getByText("Add retry").closest(".font-medium")).not.toBeNull();
   });
 
-  it("draws each queued row on a hairline border rather than a ring", async () => {
+  it("draws the queue as one bordered list card rather than separate rings", async () => {
     await renderInbox();
     const row = screen.getByRole("link", { name: /Add retry/ });
-    expect(row.classList.contains("border")).toBe(true);
+    const list = row.closest("ul") as HTMLElement;
+    expect(list.classList.contains("border-line-soft")).toBe(true);
+    expect(list.classList.contains("rounded-xl")).toBe(true);
     expect(row.classList.contains("ring-1")).toBe(false);
   });
 });
 
 describe("InboxList states", () => {
-  it("leaves out the waiting queue when nothing waits, since the resume panel says Pond's Clear", async () => {
+  it("leaves out the waiting queue when nothing waits, since the resume panel says nothing waits", async () => {
     vi.mocked(reviewRequests).mockResolvedValue([]);
     await renderInbox();
-    expect(screen.queryByRole("heading", { name: /Waiting for You/ })).toBeNull();
+    expect(screen.queryByRole("heading", { name: /Waiting for you/ })).toBeNull();
   });
 
   it("tints the GitHub error card with a destructive border", async () => {
@@ -110,7 +111,7 @@ const REPOSITORY_REQUEST: ReviewRequest = {
 };
 
 function repositorySection(): HTMLElement {
-  const heading = screen.getByRole("heading", { name: /Open in Your Repositories/ });
+  const heading = screen.getByRole("heading", { name: /Open in your repositories/ });
   return heading.closest("section") as HTMLElement;
 }
 
@@ -120,14 +121,14 @@ describe("InboxList repositories", () => {
     await renderInbox();
     expect(openPullRequests).toHaveBeenCalledWith("others");
     expect(within(repositorySection()).getByRole("link", { name: /Bump lodash/ })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: /Waiting for You/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Waiting for you/ })).toBeTruthy();
   });
 
   it("leaves out pull requests already waiting for you", async () => {
     vi.mocked(openPullRequests).mockResolvedValue([REQUEST]);
     await renderInbox();
     expect(screen.getAllByRole("link", { name: /Add retry/ })).toHaveLength(1);
-    expect(screen.getByRole("heading", { name: /Open in Your Repositories \(0\)/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Open in your repositories \(0\)/ })).toBeTruthy();
   });
 
   it("links the repositories section to the Dependabot page", async () => {
@@ -140,8 +141,8 @@ describe("InboxList repositories", () => {
     vi.mocked(savedRepositories).mockReturnValue([]);
     await renderInbox();
     expect(screen.getByRole("link", { name: "Settings" }).getAttribute("href")).toBe("/settings");
-    expect(screen.queryByRole("heading", { name: /Open in Your Repositories/ })).toBeNull();
-    expect(screen.getByRole("heading", { name: /Waiting for You/ })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: /Open in your repositories/ })).toBeNull();
+    expect(screen.getByRole("heading", { name: /Waiting for you/ })).toBeTruthy();
   });
 
   it("shows a repository failure only inside its section", async () => {

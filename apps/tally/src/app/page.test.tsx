@@ -44,7 +44,7 @@ describe("pages", () => {
   it("give each page its own document title", () => {
     expect([ticketsMetadata.title, workMetadata.title, settingsMetadata.title]).toEqual([
       "Tickets · Tally",
-      "Work Log · Tally",
+      "Work log · Tally",
       "Settings · Tally",
     ]);
   });

@@ -16,7 +16,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { LoadingNote, ProblemAlert } from "@/components/layout/page-shell";
-import { Panel, Panels } from "@/components/neon/panels";
+import { Panel } from "@/components/neon/panels";
 import { TallyMark } from "@/components/neon/tally-mark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ const WEEK_STARTS: { value: string; label: string }[] = [
   { value: "0", label: "Sunday" },
 ];
 const CHIP_CLASS =
-  "inline-flex min-h-11 items-center gap-1 rounded-pill bg-tint-pink py-0 pr-1 pl-3 text-sm font-semibold text-ink-pink";
+  "inline-flex h-8 items-center gap-1 rounded-md border border-line bg-surface-2 pr-1 pl-3 text-[0.8125rem] font-medium text-foreground";
 
 function toFields(view: Settings): Fields {
   return {
@@ -68,12 +68,12 @@ function WeekStartChoice({
       role="radiogroup"
       aria-labelledby="week-start-label"
       aria-describedby="week-start-hint"
-      className="inline-flex gap-1 rounded-pill border border-line bg-background p-1"
+      className="inline-flex gap-1 rounded-md border border-line bg-background p-0.5"
     >
       {WEEK_STARTS.map((option) => (
         <label
           key={option.value}
-          className="inline-flex min-h-11 cursor-pointer items-center rounded-pill px-4 text-sm font-bold text-muted-foreground has-[:checked]:bg-tint-blue has-[:checked]:text-ink-blue has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
+          className="inline-flex h-8 cursor-pointer items-center rounded-sm px-3 text-[0.8125rem] font-medium text-muted-foreground has-[:checked]:bg-surface-3 has-[:checked]:text-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
         >
           <input
             type="radio"
@@ -121,16 +121,16 @@ function SourcesContent({
 
   return (
     <>
-      <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
-        <GitBranchIcon aria-hidden="true" className="size-5 text-ink-pink" />
+      <h2 className="flex items-center gap-2 text-base font-semibold">
+        <GitBranchIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         Sources
       </h2>
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <Label htmlFor="allow-list" className="text-base font-semibold">
-            GitHub Orgs and Repos
+          <Label htmlFor="allow-list" className="text-sm font-semibold">
+            GitHub orgs and repos
           </Label>
-          <Badge variant="pink">{allowList.length} chosen</Badge>
+          <Badge variant="neutral">{allowList.length} chosen</Badge>
         </div>
         <p id="allow-list-hint" className="text-sm text-muted-foreground">
           An owner (acme) or a single repo (acme/api). Tally counts PRs you review or open in these.
@@ -143,7 +143,7 @@ function SourcesContent({
                 type="button"
                 aria-label={`Remove ${source}`}
                 onClick={() => onRemove(source)}
-                className="grid size-11 place-items-center rounded-pill outline-none hover:bg-tint-pink focus-visible:ring-2 focus-visible:ring-ring"
+                className="grid size-8 place-items-center rounded-md outline-none hover:bg-surface-3 focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <XIcon aria-hidden="true" className="size-4" />
               </button>
@@ -193,13 +193,13 @@ function CalendarContent({
 }) {
   return (
     <>
-      <h2 className="flex items-center gap-2 font-display text-xl font-semibold">
-        <CalendarIcon aria-hidden="true" className="size-5 text-ink-amber" />
+      <h2 className="flex items-center gap-2 text-base font-semibold">
+        <CalendarIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         Calendar
       </h2>
       <div className="flex flex-col gap-3">
-        <p id="week-start-label" className="font-display text-base font-semibold">
-          Week Starts On
+        <p id="week-start-label" className="text-sm font-semibold">
+          Week starts on
         </p>
         <p id="week-start-hint" className="text-sm text-muted-foreground">
           Your weekly counts begin on this day.
@@ -207,8 +207,8 @@ function CalendarContent({
         <WeekStartChoice value={weekStart} onChange={onWeekStartChange} />
       </div>
       <div className="flex flex-col gap-3">
-        <Label htmlFor="time-zone" className="font-display text-base font-semibold">
-          Time Zone
+        <Label htmlFor="time-zone" className="text-sm font-semibold">
+          Time zone
         </Label>
         <p id="time-zone-hint" className="text-sm text-muted-foreground">
           Decides which day a review or ticket counts toward.
@@ -246,7 +246,7 @@ function CountedContent({
     <>
       <div className="flex items-center gap-3">
         <TallyMark size="small" />
-        <h2 className="font-display text-xl font-semibold">What Tally Counts</h2>
+        <h2 className="text-base font-semibold">What Tally counts</h2>
       </div>
       <p className="text-muted-foreground">Pull requests you review or open in these sources:</p>
       {allowList.length === 0 ? (
@@ -257,13 +257,13 @@ function CountedContent({
         <ul aria-label="Counted sources" className="flex flex-wrap gap-2">
           {allowList.map((source) => (
             <li key={source}>
-              <Badge variant="pink">{source}</Badge>
+              <Badge variant="neutral">{source}</Badge>
             </li>
           ))}
         </ul>
       )}
-      <div className="mt-auto flex flex-wrap gap-2">
-        <Badge variant="amber">Weeks start {weekStartName}</Badge>
+      <div className="flex flex-wrap gap-2">
+        <Badge variant="neutral">Weeks start {weekStartName}</Badge>
         <Badge variant="neutral">{timeZone}</Badge>
       </div>
     </>
@@ -275,13 +275,13 @@ function SaveBar({ isDirty, isSaved }: { isDirty: boolean; isSaved: boolean }) {
     <div
       role="region"
       aria-label="Save changes"
-      className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface-2 px-5 py-4"
+      className="flex flex-wrap items-center gap-4 rounded-xl border border-line-soft bg-surface p-4"
     >
       <span
         aria-hidden="true"
-        className={`size-3 rounded-full ${isDirty ? "bg-neon-amber shadow-glow-amber" : "bg-faint"}`}
+        className={`size-2 rounded-full ${isDirty ? "bg-ink-amber" : "bg-faint"}`}
       />
-      <p aria-live="polite" className="flex-1 text-sm text-muted-foreground">
+      <p aria-live="polite" className="min-w-0 flex-1 text-sm text-muted-foreground">
         {saveStatus(isDirty, isSaved)}
       </p>
       <Button type="submit">
@@ -359,31 +359,29 @@ export function SettingsForm({ api = realApi }: SettingsFormProps) {
       <ProblemAlert messages={error === null ? [] : [error]} />
       {fields === null && error === null ? <LoadingNote /> : null}
       {fields ? (
-        <form onSubmit={save} className="flex min-h-0 flex-1 flex-col gap-4">
-          <Panels className="min-h-0">
-            <Panel title="Sources" className="min-h-0 min-w-72!">
-              <SourcesContent
-                allowList={fields.allowList}
-                onAdd={addToAllowList}
-                onRemove={removeSource}
-              />
-            </Panel>
-            <Panel title="Calendar" className="min-h-0 min-w-72!">
-              <CalendarContent
-                weekStart={fields.weekStart}
-                timeZone={fields.timeZone}
-                onWeekStartChange={(value) => changeField("weekStart", value)}
-                onTimeZoneChange={(value) => changeField("timeZone", value)}
-              />
-            </Panel>
-            <Panel title="What Tally Counts" className="min-h-0 min-w-72!">
-              <CountedContent
-                allowList={fields.allowList}
-                weekStartName={weekStartName}
-                timeZone={fields.timeZone}
-              />
-            </Panel>
-          </Panels>
+        <form onSubmit={save} className="flex flex-col gap-4">
+          <Panel title="Sources">
+            <SourcesContent
+              allowList={fields.allowList}
+              onAdd={addToAllowList}
+              onRemove={removeSource}
+            />
+          </Panel>
+          <Panel title="Calendar">
+            <CalendarContent
+              weekStart={fields.weekStart}
+              timeZone={fields.timeZone}
+              onWeekStartChange={(value) => changeField("weekStart", value)}
+              onTimeZoneChange={(value) => changeField("timeZone", value)}
+            />
+          </Panel>
+          <Panel title="What Tally counts">
+            <CountedContent
+              allowList={fields.allowList}
+              weekStartName={weekStartName}
+              timeZone={fields.timeZone}
+            />
+          </Panel>
           <SaveBar isDirty={isDirty} isSaved={isSaved} />
         </form>
       ) : null}

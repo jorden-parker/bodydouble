@@ -5,10 +5,10 @@ export const metadata: Metadata = { title: "Settings · Tally" };
 
 export default function SettingsPage() {
   return (
-    <main id="main" className="app-main">
+    <main id="main" className="app-main app-main--narrow">
       <header className="flex flex-col gap-2">
-        <h1 className="font-display text-4xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
+        <h1 className="page-title">Settings</h1>
+        <p className="text-sm text-muted-foreground">
           Choose what Tally counts and how it reads your week.
         </p>
       </header>

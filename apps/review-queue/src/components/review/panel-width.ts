@@ -2,6 +2,7 @@ import type { PanelSide } from "./pane-layout";
 
 export const PANEL_WIDTH = { default: 384, min: 288, diffRoom: 480 };
 export const PANEL_STRIP_WIDTH = 72;
+const SIDE_BY_SIDE_MIN_WIDTH = 1280;
 
 const KEY_STEP = 16;
 const SHIFT_KEY_STEP = 64;
@@ -12,8 +13,7 @@ export function maxPanelWidth(viewportWidth: number, reservedWidth = 0): number 
 }
 
 export function fitsBothSides(viewportWidth: number): boolean {
-  const bothSidesNeed = 2 * PANEL_WIDTH.min + 2 * PANEL_STRIP_WIDTH + PANEL_WIDTH.diffRoom;
-  return viewportWidth >= bothSidesNeed;
+  return viewportWidth >= SIDE_BY_SIDE_MIN_WIDTH;
 }
 
 export function clampPanelWidth(width: number, viewportWidth: number, reservedWidth = 0): number {

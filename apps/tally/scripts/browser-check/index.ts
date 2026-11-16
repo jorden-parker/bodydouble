@@ -11,6 +11,7 @@ import {
   type CheckOptions,
   type PageObservation,
   type RunningServer,
+  type Viewport,
 } from "./browser-check";
 
 const SERVER_READY_LINE = "Open Tally at";
@@ -18,7 +19,6 @@ const SERVER_START_TIMEOUT_MILLISECONDS = 120_000;
 const PAGE_SETTLE_TIMEOUT_MILLISECONDS = 30_000;
 const POLL_INTERVAL_MILLISECONDS = 250;
 const ERROR_OVERLAY_SELECTOR = "nextjs-portal [data-nextjs-dialog]";
-const VIEWPORT = { width: 1280, height: 900 };
 
 function pause(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -169,9 +169,9 @@ async function observePage(
   }
 }
 
-async function openChromeSession(): Promise<BrowserSession> {
+async function openChromeSession(viewport: Viewport): Promise<BrowserSession> {
   const browser = await chromium.launch({ channel: "chrome", headless: true });
-  const context = await browser.newContext({ viewport: VIEWPORT });
+  const context = await browser.newContext({ viewport });
   return {
     async signIn(loginUrl) {
       const page = await context.newPage();
@@ -195,7 +195,7 @@ prepareScreenshotDirectory(options);
 const isHealthy = await runBrowserCheck(options, {
   startServer: () => reuseOrStartServer(options.baseUrl),
   readAccessToken,
-  openBrowser: openChromeSession,
+  openBrowser: () => openChromeSession(options.viewport),
   report: (line) => console.log(line),
 });
 process.exit(isHealthy ? 0 : 1);

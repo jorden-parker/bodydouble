@@ -8,7 +8,6 @@ import {
   formatSynced,
   isStale,
   rangePhrase,
-  tallyGroups,
 } from "./format";
 
 describe("comparisonLabel", () => {
@@ -52,18 +51,6 @@ describe("formatSynced", () => {
     ["2026-10-28T12:00:00Z", "Synced 2 days ago"],
   ])("formats %s", (lastSyncedAt, expected) => {
     expect(formatSynced(lastSyncedAt, now)).toBe(expected);
-  });
-});
-
-describe("tallyGroups", () => {
-  it("splits a count into groups of five plus a remainder", () => {
-    expect(tallyGroups(0)).toEqual({ groups: 0, remainder: 0, overflow: 0 });
-    expect(tallyGroups(4)).toEqual({ groups: 0, remainder: 4, overflow: 0 });
-    expect(tallyGroups(12)).toEqual({ groups: 2, remainder: 2, overflow: 0 });
-  });
-
-  it("caps the drawing and reports what it left out", () => {
-    expect(tallyGroups(53)).toEqual({ groups: 10, remainder: 0, overflow: 3 });
   });
 });
 

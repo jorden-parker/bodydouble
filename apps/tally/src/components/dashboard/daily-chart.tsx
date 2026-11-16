@@ -56,7 +56,7 @@ function ScribbleSwatch({ className }: { className: string }) {
 
 function Legend() {
   return (
-    <ul aria-label="Legend" className="flex gap-5 text-sm">
+    <ul aria-label="Legend" className="flex gap-5 text-[0.8125rem] text-muted-foreground">
       <li className="flex items-center gap-2">
         <ScribbleSwatch className="text-reviewed" />
         Reviewed
@@ -117,9 +117,9 @@ function Tooltip({ point, index, count }: { point: DailyPoint; index: number; co
     <div
       role="tooltip"
       style={style}
-      className={`pointer-events-none absolute top-0 z-10 flex flex-col rounded-lg border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md ${className}`}
+      className={`pointer-events-none absolute top-0 z-10 flex flex-col gap-1 rounded-md border border-line bg-popover px-3 py-2 text-sm text-popover-foreground ${className}`}
     >
-      <strong className="font-hand text-xl leading-none">{formatDay(point.day)}</strong>
+      <strong className="font-semibold">{formatDay(point.day)}</strong>
       <span>{point.reviewed} reviewed</span>
       <span>{point.created} created</span>
     </div>
@@ -140,9 +140,9 @@ export function DailyChart({ points }: DailyChartProps) {
   const plotWidth = points.length * COLUMN_WIDTH;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-4">
       <Legend />
-      <div className="grid min-h-40 flex-1 grid-cols-[auto_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] gap-x-3">
+      <div className="grid h-48 grid-cols-[auto_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] gap-x-3 sm:h-56">
         <div
           aria-hidden="true"
           className="flex flex-col justify-between py-0.5 text-right font-mono text-xs leading-none text-muted-foreground"
@@ -224,7 +224,7 @@ export function DailyChart({ points }: DailyChartProps) {
         </div>
         <div
           aria-hidden="true"
-          className="relative col-start-2 h-6 font-hand text-lg text-muted-foreground"
+          className="relative col-start-2 h-5 text-[0.8125rem] text-muted-foreground"
         >
           {points.map((point, index) =>
             index % LABEL_EVERY === 0 ? (

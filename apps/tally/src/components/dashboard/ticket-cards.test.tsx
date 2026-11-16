@@ -183,7 +183,7 @@ describe("TicketCards", () => {
 
     renderCards({ prs, tickets });
 
-    const unlinked = section("Open PRs Without a Ticket");
+    const unlinked = section("Open PRs without a ticket");
     expect(unlinked.tagName).toBe("SECTION");
     expect(
       within(unlinked)
@@ -200,14 +200,14 @@ describe("TicketCards", () => {
 
     renderCards({ prs: [openPr(9)], tickets });
 
-    expect(screen.queryByRole("region", { name: "Open PRs Without a Ticket" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Open PRs without a ticket" })).toBeNull();
   });
 
   it("says when there are no tickets", () => {
     renderCards({});
 
     expect(
-      within(section("In Your Hands")).getByText("Your desk is clear. Suspiciously clear."),
+      within(section("In your hands")).getByText("Your desk is clear. Suspiciously clear."),
     ).toBeDefined();
   });
 
@@ -257,8 +257,8 @@ describe("TicketCards", () => {
     it("names the range in the heading and dates each card", () => {
       renderCards({ completedTickets: [completed], range: "week" });
 
-      const region = section("Completed This Week");
-      expect(within(region).getByRole("heading", { name: "Completed This Week" })).toBeDefined();
+      const region = section("Completed this week");
+      expect(within(region).getByRole("heading", { name: "Completed this week" })).toBeDefined();
       expect(within(card("21")).getByText("Completed Thu 29 Oct")).toBeDefined();
     });
 
@@ -286,6 +286,6 @@ describe("TicketCards", () => {
 
     expect(within(card("7")).getByText("userId").tagName).toBe("CODE");
     expect(within(card("7")).getByText("legacy").tagName).toBe("STRONG");
-    expect(within(section("Open PRs Without a Ticket")).getByText("zod").tagName).toBe("CODE");
+    expect(within(section("Open PRs without a ticket")).getByText("zod").tagName).toBe("CODE");
   });
 });

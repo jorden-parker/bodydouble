@@ -29,7 +29,13 @@ describe("WorkLog", () => {
     expect(
       await screen.findByText("1 PR merged and 1 ticket completed, 1 Oct to 30 Oct"),
     ).toBeDefined();
-    expect(screen.getByRole("heading", { level: 2, name: "2 Things Shipped." })).toBeDefined();
+    expect(screen.getByRole("heading", { level: 2, name: "2 things shipped." })).toBeDefined();
+  });
+
+  it("says which day of the week it is beside the progress stream", async () => {
+    render(<WorkLog api={fakeApi()} now={now} />);
+
+    expect(await screen.findByText("Today is Fri")).toBeDefined();
   });
 
   it("shows where the week stands as a progress stream", async () => {
@@ -115,8 +121,8 @@ describe("WorkLog", () => {
     });
     render(<WorkLog api={fakeApi({ fetchWork })} now={now} />);
 
-    const drafts = await screen.findByRole("region", { name: "Drafts in Progress" });
-    expect(within(drafts).getByRole("heading", { name: "Drafts in Progress (1)" })).toBeDefined();
+    const drafts = await screen.findByRole("region", { name: "Drafts in progress" });
+    expect(within(drafts).getByRole("heading", { name: "Drafts in progress (1)" })).toBeDefined();
     expect(within(drafts).getByRole("link", { name: "Tidy the proxy" })).toBeDefined();
     expect(
       within(drafts).getByText("Opened Tue 20 Oct · acme/api · Awaiting review"),
@@ -126,7 +132,7 @@ describe("WorkLog", () => {
   it("keeps drafts in their own panel so the summary never scrolls", async () => {
     render(<WorkLog api={fakeApi()} now={now} />);
 
-    const drafts = await screen.findByRole("region", { name: "Drafts in Progress" });
+    const drafts = await screen.findByRole("region", { name: "Drafts in progress" });
     const summary = screen.getByRole("region", { name: "Summary" });
     expect(drafts.closest(".panel")).not.toBe(summary);
     expect(summary.contains(drafts)).toBe(false);
@@ -136,7 +142,7 @@ describe("WorkLog", () => {
   it("leaves the review status off a draft when it is unknown", async () => {
     render(<WorkLog api={fakeApi()} now={now} />);
 
-    const drafts = await screen.findByRole("region", { name: "Drafts in Progress" });
+    const drafts = await screen.findByRole("region", { name: "Drafts in progress" });
     expect(within(drafts).getByText("Opened Tue 20 Oct · acme/api")).toBeDefined();
   });
 
@@ -200,7 +206,7 @@ describe("WorkLog", () => {
     vi.stubGlobal("navigator", { clipboard: { writeText } });
     render(<WorkLog api={fakeApi()} now={now} />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Copy Markdown" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Copy markdown" }));
 
     await screen.findByRole("button", { name: "Copied" });
     expect(screen.getByRole("status").textContent).toBe("Copied");
@@ -213,7 +219,7 @@ describe("WorkLog", () => {
     });
     render(<WorkLog api={fakeApi()} now={now} />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Copy Markdown" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Copy markdown" }));
 
     expect(await screen.findByRole("button", { name: "Copy failed" })).toBeDefined();
   });

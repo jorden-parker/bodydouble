@@ -1,17 +1,15 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 
-type PageShellProps = { children: ReactNode };
+type PageShellProps = { children: ReactNode; isNarrow?: boolean };
 
-export function PageShell({ children }: PageShellProps) {
+export function PageShell({ children, isNarrow = false }: PageShellProps) {
   return (
-    <main
-      id="main"
-      className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col gap-10 overflow-y-auto px-4 py-12 sm:px-6 sm:py-16"
-    >
-      {children}
+    <main id="main" className={cn("page-shell", isNarrow && "page-shell--narrow")}>
+      <div className="flex flex-col gap-8">{children}</div>
     </main>
   );
 }
@@ -26,19 +24,19 @@ type PageHeaderProps = {
 
 export function PageHeader({ title, lede, action, backHref, backLabel }: PageHeaderProps) {
   return (
-    <header className="flex flex-col gap-3">
+    <header className="flex flex-col gap-4">
       {backHref && (
-        <Button variant="ghost" size="sm" asChild className="-ml-2.5 w-fit text-muted-foreground">
+        <Button variant="ghost" size="sm" asChild className="-ml-3 w-fit">
           <Link href={backHref}>
             <ArrowLeft /> {backLabel}
           </Link>
         </Button>
       )}
-      <div className="flex items-start justify-between gap-6">
-        <h1 className="flex items-center gap-3 text-4xl font-semibold tracking-tight">{title}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="min-w-0 text-title wrap-anywhere">{title}</h1>
         {action}
       </div>
-      {lede && <p className="max-w-prose text-base text-muted-foreground">{lede}</p>}
+      {lede && <p className="max-w-prose text-sm text-fg-muted">{lede}</p>}
     </header>
   );
 }

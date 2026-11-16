@@ -132,8 +132,8 @@ function FileHeader({
   wholeFileToggle: WholeFileToggle;
 }) {
   return (
-    <div className="sticky top-0 z-10 flex min-h-12 flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-card px-4 py-2 font-sans">
-      <span className="flex min-w-0 items-center gap-2 max-sm:basis-full">
+    <div className="sticky top-0 z-10 flex min-h-12 min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line-soft bg-card px-4 py-2 font-sans">
+      <span className="flex min-w-0 flex-1 basis-48 items-center gap-2">
         {file.status === "renamed" && file.oldPath && (
           <>
             <PathLabel path={file.oldPath} truncate className="text-sm opacity-60" />
@@ -142,7 +142,7 @@ function FileHeader({
         )}
         <PathLabel path={file.path} truncate className="text-sm" />
       </span>
-      <span className="flex shrink-0 items-center gap-3 text-sm tabular-nums">
+      <span className="flex min-w-0 max-w-full flex-wrap items-center gap-x-3 gap-y-1 text-label tabular-nums">
         {wholeFileToggle && <WholeFileButton toggle={wholeFileToggle} />}
         {onAskFile && !file.binary && (
           <FileActionsButton onAsk={(action) => onAskFile(file.path, action)} />
@@ -296,37 +296,39 @@ function FileBody({
     request();
   };
   return (
-    <div className="animate-step-enter font-mono text-code">
-      {layout.map((item) =>
-        item.kind === "hunk" ? (
-          <HunkBlock
-            key={`hunk:${item.index}`}
-            file={file}
-            hunkIndex={item.index}
-            anchored={stepFile.hunkIndexes.includes(item.index)}
-            context={context}
-            lenses={lenses}
-            annotations={annotations}
-          />
-        ) : (
-          <ContextGapView
-            key={`gap:${item.gap.from}`}
-            gap={item.gap}
-            open={isOpen(item.gap.from)}
-            load={load}
-            onExpand={() => expand(item.gap.from)}
-            path={file.path}
-            landed={context.landed}
-            linked={file.navigable}
-            handlers={context.handlers}
-          />
-        ),
-      )}
-      {anyOpen && load.lines?.truncated && (
-        <p className="px-4 py-2 font-sans text-sm text-muted-foreground">
-          The file is cut at 300 KB.
-        </p>
-      )}
+    <div className="animate-step-enter overflow-x-auto font-mono text-code">
+      <div className="w-max min-w-full">
+        {layout.map((item) =>
+          item.kind === "hunk" ? (
+            <HunkBlock
+              key={`hunk:${item.index}`}
+              file={file}
+              hunkIndex={item.index}
+              anchored={stepFile.hunkIndexes.includes(item.index)}
+              context={context}
+              lenses={lenses}
+              annotations={annotations}
+            />
+          ) : (
+            <ContextGapView
+              key={`gap:${item.gap.from}`}
+              gap={item.gap}
+              open={isOpen(item.gap.from)}
+              load={load}
+              onExpand={() => expand(item.gap.from)}
+              path={file.path}
+              landed={context.landed}
+              linked={file.navigable}
+              handlers={context.handlers}
+            />
+          ),
+        )}
+        {anyOpen && load.lines?.truncated && (
+          <p className="px-4 py-2 font-sans text-sm text-muted-foreground">
+            The file is cut at 300 KB.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -352,7 +354,7 @@ function FileBlock({
       ? { wholeFile, onToggle: () => setWholeFile(!wholeFile) }
       : null;
   return (
-    <Card className="gap-0 overflow-clip py-0">
+    <Card className="gap-0 overflow-clip p-0 sm:p-0">
       <FileHeader file={file} onAskFile={context.onAskFile} wholeFileToggle={wholeFileToggle} />
       {!expanded ? (
         <Button

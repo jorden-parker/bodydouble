@@ -59,17 +59,17 @@ describe("PostedList", () => {
     expect(screen.getByText(`Showing the latest ${POSTED_REVIEW_LIMIT}`)).toBeTruthy();
   });
 
-  it("draws each posted row on a hairline border rather than a ring", () => {
+  it("draws the posted rows as one bordered list with dividers, not rings", () => {
     const { container } = render(<PostedList reviews={[review()]} />);
-    const row = container.querySelector("li");
-    expect(row?.classList.contains("border")).toBe(true);
+    const list = container.querySelector("ul");
+    expect(list?.classList.contains("border-line-soft")).toBe(true);
+    expect(list?.classList.contains("divide-y")).toBe(true);
     expect(container.querySelector(".ring-1")).toBeNull();
   });
 
-  it("draws the empty posted state on a hairline border rather than a ring", () => {
+  it("shows the empty posted state as a bordered card", () => {
     const { container } = render(<PostedList reviews={[]} />);
-    const classes = (container.querySelector(".rounded-md") as HTMLElement).classList;
-    expect(classes.contains("border")).toBe(true);
-    expect(classes.contains("ring-1")).toBe(false);
+    const card = container.querySelector(".p-8") as HTMLElement;
+    expect(card.classList.contains("border-line-soft")).toBe(true);
   });
 });

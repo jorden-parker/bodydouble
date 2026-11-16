@@ -17,17 +17,17 @@ async function openPullRequest(text: string) {
 describe("OpenPullRequestForm", () => {
   afterEach(() => router.push.mockClear());
 
-  it("titles the form Open Any PR by URL", () => {
+  it("titles the form Open any PR by URL", () => {
     render(<OpenPullRequestForm />);
-    expect(screen.getByRole("heading", { name: "Open Any PR by URL" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Open any PR by URL" })).toBeTruthy();
   });
 
-  it("gives the link field and its Open button a 44px touch target", () => {
+  it("gives the link field and its Open button the 40px control height", () => {
     render(<OpenPullRequestForm />);
-    expect(screen.getByLabelText("PR link or owner/repo#number").classList.contains("h-11")).toBe(
+    expect(screen.getByLabelText("PR link or owner/repo#number").classList.contains("h-10")).toBe(
       true,
     );
-    expect(screen.getByRole("button", { name: "Open" }).classList.contains("h-11")).toBe(true);
+    expect(screen.getByRole("button", { name: "Open" }).classList.contains("h-10")).toBe(true);
   });
 
   it("opens the review page for a pasted PR link", async () => {

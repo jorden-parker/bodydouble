@@ -1,19 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Atkinson_Hyperlegible, JetBrains_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { SkipLink } from "@/components/common/skip-link";
 import { NeonShell } from "@/components/neon/neon-shell";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
-const sans = Atkinson_Hyperlegible({
+const sans = Geist({
   subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-atkinson",
+  variable: "--font-geist-sans",
 });
-const mono = JetBrains_Mono({
+const mono = Geist_Mono({
   subsets: ["latin"],
-  weight: ["400", "600"],
-  variable: "--font-jetbrains-mono",
+  variable: "--font-geist-mono",
 });
 
 export const metadata: Metadata = {
@@ -32,7 +30,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
-      <body className="h-dvh overflow-hidden">
+      <body>
         <SkipLink />
         <TooltipProvider>
           <NeonShell>{children}</NeonShell>

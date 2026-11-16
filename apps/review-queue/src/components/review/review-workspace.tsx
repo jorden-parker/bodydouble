@@ -116,7 +116,7 @@ const PANES: { id: PaneId; label: string; icon: LucideIcon }[] = [
 
 const REVIEW_PATH = [
   { label: "Orient" },
-  { label: "Walk the Changes" },
+  { label: "Walk the changes" },
   { label: "Conversation" },
   { label: "Submit" },
 ];
@@ -135,23 +135,23 @@ function reviewStage(workspace: Workspace, orientation: OrientationState): numbe
 
 function BreakPill({ workspace }: { workspace: Workspace }) {
   return (
-    <div
+    <Callout
       role="status"
-      className="animate-step-enter flex flex-wrap items-center justify-between gap-2 self-start rounded-pill border border-neon-amber/50 bg-tint-amber py-1 pr-2 pl-3 text-sm font-bold text-fg shadow-glow-amber"
+      className="animate-step-enter flex flex-wrap items-center justify-between gap-3"
     >
-      <span className="flex items-center gap-2">
+      <span className="flex min-w-0 items-center gap-2">
         <Otter size="small" />
         25 min in. Otter says stretch.
       </span>
-      <span className="flex gap-1">
-        <Button size="sm" variant="soft" onClick={() => workspace.setDialog("pause")}>
+      <span className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" onClick={() => workspace.setDialog("pause")}>
           Pause with a note
         </Button>
         <Button size="sm" variant="ghost" onClick={() => workspace.setBreakDue(false)}>
           Keep going
         </Button>
       </span>
-    </div>
+    </Callout>
   );
 }
 
@@ -165,41 +165,43 @@ function TopBar({
   orientation: OrientationState;
 }) {
   return (
-    <header className="sticky top-0 z-10 grid gap-4 bg-canvas/90 px-4 pt-4 pb-3 backdrop-blur sm:px-6">
-      <div className="flex items-start gap-3">
-        <HintButton
-          variant="ghost"
-          size="icon"
-          hint="Back to inbox"
-          aria-label="Back to inbox"
-          asChild
-        >
-          <Link href="/">
-            <ArrowLeft />
-          </Link>
-        </HintButton>
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <h1 className="font-display text-2xl leading-tight font-semibold wrap-anywhere sm:text-3xl">
-            <InlineMarkdown text={review.pr.title} />
-          </h1>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-fg-muted">
-            <span>{prKey(review.pr.ref)}</span>
-            <span>by {review.pr.author}</span>
-            <span className="font-mono max-sm:hidden">{review.headSha.slice(0, 7)}</span>
-            <a
-              href={review.pr.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Open ${prKey(review.pr.ref)} on GitHub`}
-              className="inline-flex min-h-11 items-center gap-2 rounded-pill font-bold text-ink-blue no-underline hover:underline"
-            >
-              Open on GitHub
-              <ExternalLink aria-hidden className="size-4" />
-            </a>
-            <LinkedIssueChip issues={workspace.linkedIssues.issues} />
+    <header className="flex min-w-0 flex-col gap-3 border-b border-line-soft px-4 pt-4 pb-3 sm:px-6">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="flex min-w-0 flex-1 basis-72 items-start gap-2">
+          <HintButton
+            variant="ghost"
+            size="icon"
+            hint="Back to inbox"
+            aria-label="Back to inbox"
+            asChild
+          >
+            <Link href="/">
+              <ArrowLeft />
+            </Link>
+          </HintButton>
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <h1 className="line-clamp-2 text-title wrap-anywhere">
+              <InlineMarkdown text={review.pr.title} />
+            </h1>
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-label text-fg-muted">
+              <span className="wrap-anywhere">{prKey(review.pr.ref)}</span>
+              <span className="wrap-anywhere">by {review.pr.author}</span>
+              <span className="font-mono">{review.headSha.slice(0, 7)}</span>
+              <a
+                href={review.pr.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Open ${prKey(review.pr.ref)} on GitHub`}
+                className="control-target inline-flex items-center gap-1 text-fg underline underline-offset-4"
+              >
+                Open on GitHub
+                <ExternalLink aria-hidden className="size-3.5" />
+              </a>
+              <LinkedIssueChip issues={workspace.linkedIssues.issues} />
+            </div>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+        <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
           <FocusTimer onFinished={() => workspace.setBreakDue(true)} />
           <Popover>
             <PopoverTrigger asChild>
@@ -225,25 +227,27 @@ function TopBar({
             </PopoverContent>
           </Popover>
           <HintButton
-            variant="ghost"
+            variant="outline"
             hint="Pause with a note"
             shortcut="."
-            className="text-fg-muted"
             onClick={() => workspace.setDialog("pause")}
           >
-            <Coffee /> <span className="max-sm:sr-only">Pause</span>
+            <Coffee />
+            <span className="max-sm:sr-only">Pause</span>
           </HintButton>
-          <Button variant="soft" onClick={() => workspace.setDialog("finish")}>
-            <Send /> <span className="max-sm:sr-only">Finish</span>
+          <Button onClick={() => workspace.setDialog("finish")}>
+            <Send /> Finish
           </Button>
         </div>
       </div>
       {workspace.breakDue && <BreakPill workspace={workspace} />}
-      <Stream
-        steps={REVIEW_PATH}
-        currentIndex={reviewStage(workspace, orientation)}
-        label="Review path"
-      />
+      <div className="px-8">
+        <Stream
+          steps={REVIEW_PATH}
+          currentIndex={reviewStage(workspace, orientation)}
+          label="Review path"
+        />
+      </div>
     </header>
   );
 }
@@ -534,20 +538,18 @@ function StepBar({ review, workspace }: { review: ReviewPayload; workspace: Work
   if (!step) return null;
   const isLast = workspace.currentIndex >= review.steps.length - 1;
   return (
-    <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-      <h2 className="flex min-w-48 flex-1 flex-col gap-1 font-display">
-        <span className="text-sm font-bold text-fg-muted tabular-nums">
+    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+      <div className="flex min-w-0 flex-1 basis-56 flex-col gap-1">
+        <span className="text-label text-fg-muted tabular-nums">
           {workspace.currentIndex + 1} of {review.steps.length}
         </span>
-        <span className="truncate text-2xl font-semibold text-fg">
-          {stepBarTitle(workspace, step)}
-        </span>
-      </h2>
+        <h2 className="text-heading wrap-anywhere">{stepBarTitle(workspace, step)}</h2>
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         {workspace.showChanges ? (
           <Button variant="ghost" onClick={() => workspace.setShowChanges(false)}>
             <ArrowLeft />
-            <span>Back to the path</span>
+            Back to the path
           </Button>
         ) : (
           <HintButton
@@ -557,29 +559,21 @@ function StepBar({ review, workspace }: { review: ReviewPayload; workspace: Work
             onClick={() => workspace.setShowAll(!workspace.showAll)}
           >
             <Layers />
-            <span className="max-sm:sr-only">
-              {workspace.showAll ? "Back to one step at a time" : "Show whole PR"}
-            </span>
+            {workspace.showAll ? "Back to one step at a time" : "Show whole PR"}
           </HintButton>
         )}
         {!workspace.showAll && !workspace.showChanges && (
           <>
             <HintButton
-              variant="soft"
+              variant="outline"
               hint="Previous step"
               shortcut="p"
               onClick={() => workspace.moveStep(-1)}
               disabled={workspace.currentIndex <= 0}
             >
-              <ArrowLeft /> <span className="max-sm:sr-only">Previous</span>
+              <ArrowLeft /> Previous
             </HintButton>
-            <HintButton
-              variant="neon"
-              hint="Mark done and go on"
-              shortcut="x"
-              onClick={workspace.doneAndNext}
-              className="min-h-13 px-6"
-            >
+            <HintButton hint="Mark done and go on" shortcut="x" onClick={workspace.doneAndNext}>
               {isLast ? "Done with this step" : "Next part"} <ArrowRight />
             </HintButton>
           </>
@@ -591,9 +585,11 @@ function StepBar({ review, workspace }: { review: ReviewPayload; workspace: Work
 
 function PushNotice({ headSha, onDismiss }: { headSha: string; onDismiss: () => void }) {
   return (
-    <Callout role="status" className="flex flex-wrap items-center justify-between gap-2">
-      <span>New commits were pushed ({headSha.slice(0, 7)}). Reload to re-check what changed.</span>
-      <span className="flex gap-2">
+    <Callout role="status" className="flex flex-wrap items-center justify-between gap-3">
+      <span className="min-w-0">
+        New commits were pushed ({headSha.slice(0, 7)}). Reload to re-check what changed.
+      </span>
+      <span className="flex flex-wrap gap-2">
         <Button size="sm" onClick={() => location.reload()}>
           Reload
         </Button>
@@ -823,7 +819,7 @@ function CentreBody({
     >
       {workspace.visibleSteps.map((step) => (
         <div key={step.id} className="flex flex-col gap-3">
-          {workspace.showAll && <h3 className="text-base font-bold">{step.title}</h3>}
+          {workspace.showAll && <h3 className="text-heading">{step.title}</h3>}
           <StepView step={step} context={context} />
         </div>
       ))}
@@ -917,7 +913,7 @@ export function ReviewWorkspace({
   );
 
   return (
-    <div className="grid h-screen grid-cols-shell grid-rows-shell">
+    <div className="grid min-h-0 grid-cols-shell grid-rows-shell">
       <TopBar review={review} workspace={workspace} orientation={orientation} />
       <div className="grid min-h-0 grid-cols-workspace">
         <WorkspacePanel
@@ -930,8 +926,8 @@ export function ReviewWorkspace({
           fresh={fresh}
         />
         <div className="relative flex min-h-0 min-w-0 flex-col">
-          <div className="shrink-0 bg-background px-3 pt-4 pb-6 sm:px-10">
-            <div className="mx-auto flex max-w-5xl flex-col gap-3">
+          <div className="shrink-0 px-4 pt-4 pb-4 sm:px-6">
+            <div className="mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-3">
               <StepBar review={review} workspace={workspace} />
               <ClosedNotice state={review.pr.state} />
               {controls.actionError && (
@@ -947,8 +943,11 @@ export function ReviewWorkspace({
               )}
             </div>
           </div>
-          <main id="main" className="min-h-0 flex-1 overflow-y-auto px-3 pb-24 sm:px-10">
-            <div id="step-top" className="mx-auto flex max-w-5xl flex-col gap-6 pt-6">
+          <main id="main" className="min-h-0 flex-1 overflow-y-auto px-4 pb-24 sm:px-6">
+            <div
+              id="step-top"
+              className="mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-6 pt-2"
+            >
               <CentreBody
                 workspace={workspace}
                 review={review}

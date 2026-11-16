@@ -20,7 +20,7 @@ describe("AppBar", () => {
     render(<AppBar />);
 
     const hrefs = Object.fromEntries(
-      ["Dashboard", "Tickets", "Work Log", "Settings"].map((name) => [
+      ["Dashboard", "Tickets", "Work log", "Settings"].map((name) => [
         name,
         screen.getByRole("link", { name }).getAttribute("href"),
       ]),
@@ -28,40 +28,40 @@ describe("AppBar", () => {
     expect(hrefs).toEqual({
       Dashboard: "/",
       Tickets: "/tickets",
-      "Work Log": "/work",
+      "Work log": "/work",
       Settings: "/settings",
     });
   });
 
-  it("marks the current page with more than colour", () => {
+  it("underlines the current page as a tab, not a filled pill", () => {
     pathname.current = "/tickets";
     render(<AppBar />);
 
-    expect(screen.getByRole("link", { name: "Tickets" }).classList.contains("bg-surface-2")).toBe(
-      true,
-    );
-    expect(screen.getByRole("link", { name: "Settings" }).classList.contains("bg-surface-2")).toBe(
-      false,
-    );
+    expect(
+      screen.getByRole("link", { name: "Tickets" }).classList.contains("app-tab-current"),
+    ).toBe(true);
+    expect(
+      screen.getByRole("link", { name: "Settings" }).classList.contains("app-tab-current"),
+    ).toBe(false);
   });
 
   it("marks the current page", () => {
     pathname.current = "/work";
     render(<AppBar />);
 
-    expect(screen.getByRole("link", { name: "Work Log" }).getAttribute("aria-current")).toBe(
+    expect(screen.getByRole("link", { name: "Work log" }).getAttribute("aria-current")).toBe(
       "page",
     );
     expect(screen.getByRole("link", { name: "Dashboard" }).getAttribute("aria-current")).toBeNull();
   });
 
-  it("names the app with a link home and the gradient brand", () => {
+  it("names the app with a link home and the mark", () => {
     pathname.current = "/settings";
     const { container } = render(<AppBar />);
 
     const home = screen.getByRole("link", { name: "Tally home" });
     expect(home.getAttribute("href")).toBe("/");
-    expect(home.querySelector(".text-neon-tally")?.textContent).toBe("Tally");
+    expect(home.querySelector("span")?.textContent).toBe("Tally");
     expect(container.querySelector("header")).not.toBeNull();
   });
 });

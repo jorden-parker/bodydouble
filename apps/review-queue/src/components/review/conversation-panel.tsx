@@ -175,7 +175,7 @@ function ConversationEmpty({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="text-sm font-bold">{title}</h3>
+      <h3 className="text-label font-semibold">{title}</h3>
       {children}
     </section>
   );
@@ -274,13 +274,13 @@ function ThreadRow({
     <article className="flex gap-3 rounded-xl border border-line bg-surface-2 p-4">
       <span
         aria-hidden
-        className="grid size-9 shrink-0 place-items-center rounded-full bg-tint-violet text-sm font-bold text-ink-violet"
+        className="grid size-9 shrink-0 place-items-center rounded-full bg-surface-3 text-label font-semibold text-fg-muted"
       >
         {initialsOf(root.author)}
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-fg-muted">
-          <strong className="font-bold text-fg">{root.author}</strong>
+          <strong className="font-semibold text-fg">{root.author}</strong>
           {line !== null && <span>on line {line}</span>}
           <span className="font-mono">{path}</span>
           <span>· {relativeTime(root.createdAt)}</span>

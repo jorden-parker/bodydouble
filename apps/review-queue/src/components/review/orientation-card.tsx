@@ -118,7 +118,7 @@ export function OrientationCard({
   return (
     <section aria-label="About this PR" className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-bold">{fresh ? "Before you start" : "About this PR"}</h2>
+        <h2 className="text-label font-semibold">{fresh ? "Before you start" : "About this PR"}</h2>
         <DetailsToggle expanded={expanded} onToggle={() => setExpanded(!expanded)} />
       </div>
       <div className={cn("flex flex-col", expanded ? "gap-4" : "gap-2")}>

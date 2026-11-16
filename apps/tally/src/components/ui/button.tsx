@@ -7,7 +7,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        neon: "bg-neon text-background hover:opacity-90",
+        neon: "bg-foreground text-background hover:opacity-90",
         soft: "border-line bg-surface-2 text-foreground hover:bg-surface-3",
         ghost:
           "text-muted-foreground hover:bg-surface-2 hover:text-foreground aria-expanded:bg-surface-2 aria-expanded:text-foreground",
@@ -15,10 +15,10 @@ const buttonVariants = cva(
         link: "min-h-0 text-ink-blue underline-offset-4 hover:underline",
       },
       size: {
-        default: "min-h-11 px-6",
-        sm: "min-h-11 px-4 text-sm",
-        lg: "min-h-12 px-6 text-base",
-        icon: "size-11 px-0",
+        default: "h-10 px-4",
+        sm: "h-8 px-3 text-[0.8125rem]",
+        lg: "h-10 px-4",
+        icon: "size-10 px-0",
       },
     },
     defaultVariants: {

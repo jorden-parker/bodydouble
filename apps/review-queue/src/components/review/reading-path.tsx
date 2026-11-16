@@ -37,7 +37,7 @@ function ProgressSummary({ doneCount, total }: { doneCount: number; total: numbe
   return (
     <div className="relative flex flex-col gap-2">
       <div className="flex items-baseline justify-between text-sm">
-        <span className="font-bold">
+        <span className="font-semibold">
           {doneCount} of {total} steps
         </span>
         <span className="text-xs text-muted-foreground tabular-nums">
@@ -122,7 +122,7 @@ function StepItem({ step, index, path }: StepItemProps) {
         <span
           className={cn(
             "text-sm wrap-anywhere",
-            done ? "text-muted-foreground line-through" : "font-bold",
+            done ? "text-muted-foreground line-through" : "font-semibold",
             current && "text-accent-foreground",
           )}
         >

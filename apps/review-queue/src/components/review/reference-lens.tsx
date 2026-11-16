@@ -26,7 +26,7 @@ export function ReferenceLens({
       <span className="w-12 shrink-0" />
       <span className="w-6 shrink-0" />
       <span className="w-4 shrink-0" />
-      <span className="min-w-0 flex-1 pr-4 font-mono text-code break-words whitespace-pre-wrap">
+      <span className="min-w-0 flex-1 pr-4 font-mono text-code whitespace-pre">
         {leadingWhitespace(lineText)}
         <button
           type="button"

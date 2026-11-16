@@ -14,6 +14,7 @@ import {
   type SideLayouts,
   showPane,
   splitPane,
+  withOnlySide,
 } from "./pane-layout";
 
 type PaneChange = (layout: PaneLayout, id: PaneId) => PaneLayout;
@@ -38,7 +39,11 @@ export function usePanes() {
 
   const togglePanel = useCallback((side: PanelSide) => {
     setPanes((layouts) => {
-      if (layouts[side].length === 0) return { ...layouts, [side]: hiddenPanes.current[side] };
+      if (layouts[side].length === 0) {
+        const restored = { ...layouts, [side]: hiddenPanes.current[side] };
+        const isCrowded = !fitsBothSides(window.innerWidth) && hiddenPanes.current[side].length > 0;
+        return isCrowded ? withOnlySide(restored, side) : restored;
+      }
       hiddenPanes.current = { ...hiddenPanes.current, [side]: layouts[side] };
       return { ...layouts, [side]: [] };
     });

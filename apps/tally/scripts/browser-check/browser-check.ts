@@ -3,6 +3,8 @@ import path from "node:path";
 const BASE_URL = "http://127.0.0.1:4488";
 const DEFAULT_PATHS = ["/", "/work", "/tickets", "/settings"];
 const SCREENSHOTS_FLAG = "--screenshots";
+const VIEWPORT_FLAG = "--viewport";
+const VIEWPORT_PATTERN = /^(\d+)x(\d+)$/;
 const PROBLEM_INDENT = "     - ";
 
 export interface PageObservation {
@@ -33,11 +35,19 @@ export interface CheckDependencies {
   report(line: string): void;
 }
 
+export interface Viewport {
+  width: number;
+  height: number;
+}
+
 export interface CheckOptions {
   baseUrl: string;
   paths: string[];
   screenshotDirectory: string;
+  viewport: Viewport;
 }
+
+const DEFAULT_VIEWPORT: Viewport = { width: 1280, height: 900 };
 
 function findResponseProblems(status: number | null): string[] {
   if (status === null) return ["did not respond"];
@@ -68,22 +78,36 @@ function requireAppPath(candidate: string): string {
   return candidate;
 }
 
+function takeFlag(
+  commandLineArguments: string[],
+  flag: string,
+): { value: string | undefined; rest: string[] } {
+  const flagIndex = commandLineArguments.indexOf(flag);
+  if (flagIndex === -1) return { value: undefined, rest: commandLineArguments };
+  return {
+    value: commandLineArguments[flagIndex + 1],
+    rest: commandLineArguments.toSpliced(flagIndex, 2),
+  };
+}
+
+function parseViewport(candidate: string | undefined): Viewport {
+  const match = VIEWPORT_PATTERN.exec(candidate ?? "");
+  if (!match) throw new Error(`Expected a viewport like 1024x768, got "${candidate}"`);
+  return { width: Number(match[1]), height: Number(match[2]) };
+}
+
 export function parseCheckOptions(
   commandLineArguments: string[],
   defaultScreenshotDirectory: string,
 ): CheckOptions {
-  const flagIndex = commandLineArguments.indexOf(SCREENSHOTS_FLAG);
-  const hasScreenshotsFlag = flagIndex !== -1;
-  const pathArguments = hasScreenshotsFlag
-    ? commandLineArguments.toSpliced(flagIndex, 2)
-    : commandLineArguments;
-  const paths = pathArguments.map(requireAppPath);
+  const screenshots = takeFlag(commandLineArguments, SCREENSHOTS_FLAG);
+  const viewport = takeFlag(screenshots.rest, VIEWPORT_FLAG);
+  const paths = viewport.rest.map(requireAppPath);
   return {
     baseUrl: BASE_URL,
     paths: paths.length > 0 ? paths : DEFAULT_PATHS,
-    screenshotDirectory: hasScreenshotsFlag
-      ? (commandLineArguments[flagIndex + 1] ?? defaultScreenshotDirectory)
-      : defaultScreenshotDirectory,
+    screenshotDirectory: screenshots.value ?? defaultScreenshotDirectory,
+    viewport: viewport.value === undefined ? DEFAULT_VIEWPORT : parseViewport(viewport.value),
   };
 }
 

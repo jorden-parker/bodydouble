@@ -38,8 +38,8 @@ export function ShortcutHelp({ onClose }: { onClose: () => void }) {
           <div key={description} className="contents">
             <dt>
               <KbdGroup>
-                {keys.map((key) => (
-                  <Kbd key={key}>{key}</Kbd>
+                {keys.map((key, index) => (
+                  <Kbd key={`${index}-${key}`}>{key}</Kbd>
                 ))}
               </KbdGroup>
             </dt>

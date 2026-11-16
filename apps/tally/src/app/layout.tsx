@@ -1,14 +1,10 @@
 import type { Metadata } from "next";
-import { Atkinson_Hyperlegible, JetBrains_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { AppBar } from "@/components/neon/app-bar";
 import "./globals.css";
 
-const atkinson = Atkinson_Hyperlegible({
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-sans-face",
-});
-const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono-face" });
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans-face" });
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono-face" });
 
 export const metadata: Metadata = {
   title: "Tally",
@@ -17,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${atkinson.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en" className={`${geist.variable} ${geistMono.variable}`}>
       <body className="app">
         <AppBar />
         {children}

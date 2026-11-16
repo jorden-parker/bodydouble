@@ -17,18 +17,15 @@ export function ArchivedList({
   if (sessions.length === 0) return null;
   return (
     <details>
-      <summary
-        ref={summaryRef}
-        className="flex min-h-11 cursor-pointer items-center font-display text-lg font-semibold"
-      >
-        Archived <span className="ml-s-2 tabular-nums text-fg-muted">({sessions.length})</span>
+      <summary ref={summaryRef} className="flex min-h-10 cursor-pointer items-center text-heading">
+        Archived <span className="ml-2 tabular-nums text-fg-muted">({sessions.length})</span>
       </summary>
-      <div className="grid gap-s-3 pt-s-3">
+      <div className="grid gap-3 pt-3">
         <p className="text-sm text-fg-muted">
           Archived sessions stay out of &ldquo;Also in Progress&rdquo; until you restore them or
           push a new commit to the PR.
         </p>
-        <ul className="grid max-h-80 gap-s-2 overflow-y-auto">
+        <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line-soft">
           {sessions.map((session) => (
             <InProgressRow
               key={session.key}

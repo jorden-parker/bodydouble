@@ -91,7 +91,7 @@ export function ChangesView({ pullRequest, headSha, context, onCaughtUp }: Chang
   return (
     <section className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-base font-bold">{headingFor(state, headSha)}</h3>
+        <h3 className="text-heading">{headingFor(state, headSha)}</h3>
         <Button onClick={onCaughtUp}>I&apos;ve caught up</Button>
       </div>
       <ChangesBody state={state} context={context} />

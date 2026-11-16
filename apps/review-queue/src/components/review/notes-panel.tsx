@@ -44,7 +44,7 @@ export function NotesPanel({
   return (
     <div className="flex flex-col gap-4">
       <form onSubmit={park} className="flex flex-col gap-2">
-        <label htmlFor="parking" className="text-sm font-bold">
+        <label htmlFor="parking" className="text-label font-semibold">
           Parking lot
         </label>
         <Input
@@ -70,7 +70,7 @@ export function NotesPanel({
         </ul>
       )}
       <div className="flex flex-col gap-2">
-        <h3 className="text-sm font-bold">Notes on code ({lineNotes.length})</h3>
+        <h3 className="text-label font-semibold">Notes on code ({lineNotes.length})</h3>
         {lineNotes.length === 0 ? (
           <EmptyState emoji="💬">Hover a line and click the speech bubble, or press c.</EmptyState>
         ) : (

@@ -94,9 +94,9 @@ function TicketCard({ ticket, labels }: { ticket: Ticket; labels: StatusLabels }
   const label = `sc-${ticket.id}`;
   return (
     <article aria-label={label} className="flex">
-      <Card className="flex-1 transition-colors hover:ring-1 hover:ring-foreground/25">
+      <Card className="flex-1 transition-colors hover:border-line">
         <CardHeader className="flex items-center justify-between gap-3 text-muted-foreground">
-          <span className="flex items-center gap-2">
+          <span className="flex min-w-0 items-center gap-2">
             <span className="font-mono text-xs">{label}</span>
             {ticket.storyType ? (
               <span className="flex items-center gap-1.5 text-xs">
@@ -112,7 +112,7 @@ function TicketCard({ ticket, labels }: { ticket: Ticket; labels: StatusLabels }
             <span className="text-xs">{estimateText(ticket.estimate)}</span>
           )}
         </CardHeader>
-        <CardContent className="flex flex-1 flex-col gap-2">
+        <CardContent className="flex min-w-0 flex-1 flex-col gap-2 break-words">
           <a href={ticket.url} target="_blank" rel="noreferrer" className={TITLE_LINK_CLASS}>
             <InlineMarkdown text={ticket.title} />
           </a>
@@ -127,7 +127,7 @@ function TicketCard({ ticket, labels }: { ticket: Ticket; labels: StatusLabels }
             </span>
           ) : null}
         </CardContent>
-        <CardFooter className="flex-col items-start gap-3 bg-muted">
+        <CardFooter className="flex-col items-start gap-3">
           <Badge variant="neutral">{ticket.state}</Badge>
           <PullRequestStatus pullRequests={ticket.pullRequests} labels={labels} />
         </CardFooter>
@@ -148,12 +148,12 @@ function CardSection({
   labels?: StatusLabels;
 }) {
   return (
-    <section aria-label={title} className="flex min-w-0 flex-col gap-4">
+    <section aria-label={title} className="flex min-w-0 flex-col gap-3">
       <SectionHeading title={title} level={3} />
       {tickets.length === 0 ? (
         <EmptyNote>{emptyText}</EmptyNote>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {tickets.map((ticket) => (
             <TicketCard key={ticket.id} ticket={ticket} labels={labels} />
           ))}
@@ -165,7 +165,7 @@ function CardSection({
 
 function UnlinkedPullRequest({ item }: { item: OpenItem }) {
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
+    <li className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
       <a href={item.url} target="_blank" rel="noreferrer" className={TITLE_LINK_CLASS}>
         <InlineMarkdown text={item.title} />
       </a>
@@ -192,9 +192,9 @@ function unlinkedPullRequests(open: Summary["open"]): OpenItem[] {
 function UnlinkedPullRequests({ items }: { items: OpenItem[] }) {
   if (items.length === 0) return null;
   return (
-    <section aria-label="Open PRs Without a Ticket" className="flex min-w-0 flex-col gap-4">
-      <SectionHeading title="Open PRs Without a Ticket" level={3} />
-      <ul className="divide-y rounded-xl border bg-card">
+    <section aria-label="Open PRs without a ticket" className="flex min-w-0 flex-col gap-3">
+      <SectionHeading title="Open PRs without a ticket" level={3} />
+      <ul className="divide-y divide-line-soft rounded-xl border border-line-soft bg-surface">
         {items.map((item) => (
           <UnlinkedPullRequest key={item.externalId} item={item} />
         ))}
@@ -214,14 +214,14 @@ export function TicketCards({
 }) {
   const phrase = rangePhrase(range);
   return (
-    <div className="@container flex min-h-0 flex-1 flex-col">
-      <div className="grid min-h-0 flex-1 grid-cols-1 items-start content-start gap-8 overflow-y-auto pr-1 @md:grid-cols-2">
+    <div className="flex flex-col">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
         <CardSection
-          title="In Your Hands"
+          title="In your hands"
           emptyText="Your desk is clear. Suspiciously clear."
           tickets={open.tickets}
         />
-        <div className="flex min-w-0 flex-col gap-8">
+        <div className="flex min-w-0 flex-col gap-6">
           <CardSection
             title="Reviewing"
             emptyText="Nobody needs your eyes right now."

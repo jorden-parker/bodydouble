@@ -33,12 +33,12 @@ describe("maxPanelWidth", () => {
 });
 
 describe("fitsBothSides", () => {
-  it("is false just below the width both sides need", () => {
-    expect(fitsBothSides(1199)).toBe(false);
+  it("is false just below the side-by-side breakpoint", () => {
+    expect(fitsBothSides(1279)).toBe(false);
   });
 
-  it("is true at the width both sides need", () => {
-    expect(fitsBothSides(1200)).toBe(true);
+  it("is true at the side-by-side breakpoint", () => {
+    expect(fitsBothSides(1280)).toBe(true);
   });
 
   it("is false at 1100, where only one side fits", () => {

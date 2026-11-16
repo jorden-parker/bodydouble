@@ -25,7 +25,7 @@ export function AppDialog({ title, onClose, className, wide = false, children }:
         )}
       >
         <DialogHeader>
-          <DialogTitle className="text-lg font-bold">{title}</DialogTitle>
+          <DialogTitle className="text-heading">{title}</DialogTitle>
         </DialogHeader>
         {children}
       </DialogContent>

@@ -13,18 +13,18 @@ export const POSTED_REVIEW_LIMIT = 10;
 function PostedRow({ review }: { review: RecentSubmission }) {
   const ref = parsePullRequestRef(review.key);
   return (
-    <li className="flex flex-wrap items-center gap-x-s-4 gap-y-s-2 rounded-md border border-line-soft bg-surface-2 px-s-4 py-s-3">
-      <span className="flex min-w-0 flex-1 flex-col gap-s-1">
-        <span className="font-display font-semibold">
+    <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="text-sm font-medium wrap-anywhere">
           <InlineMarkdown text={review.title ?? review.key} />
         </span>
-        <span className="flex flex-wrap gap-x-s-3 text-sm text-fg-muted">
-          <span>{review.key}</span>
+        <span className="flex flex-wrap gap-x-3 gap-y-1 text-label text-fg-muted">
+          <span className="font-mono wrap-anywhere">{review.key}</span>
           <span>posted {relativeTime(review.postedAt)}</span>
         </span>
       </span>
       <Badge variant="outline">{VERDICT_LABELS[review.event]}</Badge>
-      <span className="flex items-center gap-s-1">
+      <span className="flex items-center gap-1">
         {ref && (
           <Button variant="ghost" size="sm" asChild>
             <Link href={prPath(ref)}>Open</Link>
@@ -42,15 +42,13 @@ function PostedRow({ review }: { review: RecentSubmission }) {
 
 export function PostedList({ reviews }: { reviews: RecentSubmission[] }) {
   return (
-    <section className="flex min-h-0 flex-col gap-s-4">
-      <h2 className="font-display text-2xl font-semibold">Posted</h2>
+    <section className="flex min-w-0 flex-col gap-3">
+      <h2 className="text-heading">Posted</h2>
       {reviews.length === 0 ? (
-        <div className="rounded-md border border-line-soft bg-surface-2">
-          <EmptyState emoji="📭">Nothing posted yet</EmptyState>
-        </div>
+        <EmptyState emoji="📭">Nothing posted yet</EmptyState>
       ) : (
         <>
-          <ul className="grid min-h-0 gap-s-2 overflow-y-auto">
+          <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line-soft">
             {reviews.map((review) => (
               <PostedRow key={review.reviewId} review={review} />
             ))}

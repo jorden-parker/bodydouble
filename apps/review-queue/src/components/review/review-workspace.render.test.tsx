@@ -125,11 +125,10 @@ afterEach(() => {
 });
 
 describe("review workspace renders", () => {
-  it("keeps the top bar pinned with a blurred background", async () => {
+  it("keeps the top bar outside the scrolling column, so it never scrolls away", async () => {
     await renderWorkspace();
     const topBar = screen.getByRole("link", { name: "Back to inbox" }).closest("header");
-    expect(topBar?.classList.contains("sticky")).toBe(true);
-    expect(topBar?.classList.contains("backdrop-blur")).toBe(true);
+    expect(document.getElementById("main")?.contains(topBar ?? null)).toBe(false);
   });
 
   it("makes the main column the skip link target", async () => {
@@ -147,7 +146,7 @@ describe("review workspace renders", () => {
     await renderWorkspace();
     const path = screen.getByRole("progressbar", { name: "Review path" });
     expect(path.closest("header")).not.toBeNull();
-    expect(path.getAttribute("aria-valuetext")).toBe("Walk the Changes");
+    expect(path.getAttribute("aria-valuetext")).toBe("Walk the changes");
   });
 
   it("links the top bar to the pull request on GitHub", async () => {

@@ -1,10 +1,16 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NeonShell } from "./neon-shell";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
+const pathnameState = vi.hoisted(() => ({ current: "/" }));
+
+vi.mock("next/navigation", () => ({ usePathname: () => pathnameState.current }));
 
 describe("NeonShell", () => {
+  beforeEach(() => {
+    pathnameState.current = "/";
+  });
+
   it("puts the app bar above the page content", () => {
     render(
       <NeonShell>
@@ -15,7 +21,7 @@ describe("NeonShell", () => {
     expect(screen.getByText("Page body")).toBeTruthy();
   });
 
-  it("wraps the app bar and the page in the full-height app frame", () => {
+  it("wraps the app bar and the page in the app frame", () => {
     const { container } = render(
       <NeonShell>
         <p>Page body</p>
@@ -23,6 +29,19 @@ describe("NeonShell", () => {
     );
     const shell = container.firstElementChild as HTMLElement;
     expect(shell.classList.contains("app")).toBe(true);
+    expect(shell.classList.contains("app--workspace")).toBe(false);
     expect(shell.querySelector(".app-body")?.contains(screen.getByText("Page body"))).toBe(true);
+  });
+
+  it("gives the PR workspace a full-viewport shell so its own panes can scroll", () => {
+    pathnameState.current = "/pr/acme/app/7";
+    const { container } = render(
+      <NeonShell>
+        <p>Workspace</p>
+      </NeonShell>,
+    );
+    expect((container.firstElementChild as HTMLElement).classList.contains("app--workspace")).toBe(
+      true,
+    );
   });
 });

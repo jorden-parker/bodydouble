@@ -20,11 +20,6 @@ describe("AppBar", () => {
     expect(brand.textContent).toContain("🦦");
   });
 
-  it("sets Queue in the Review Queue gradient", () => {
-    render(<AppBar />);
-    expect(screen.getByText("Queue").classList.contains("text-neon-rq")).toBe(true);
-  });
-
   it("lists Inbox, Dependabot and Settings in the main navigation", () => {
     render(<AppBar />);
     const navigation = screen.getByRole("navigation", { name: "Main" });
@@ -37,34 +32,19 @@ describe("AppBar", () => {
     ]);
   });
 
-  it("marks the link for the current page with aria-current", () => {
+  it("marks the link for the current page with aria-current and the tab underline", () => {
     pathnameState.current = "/dependabot";
     render(<AppBar />);
-    expect(screen.getByRole("link", { name: "Dependabot" }).getAttribute("aria-current")).toBe(
-      "page",
-    );
+    const current = screen.getByRole("link", { name: "Dependabot" });
+    expect(current.getAttribute("aria-current")).toBe("page");
+    expect(current.classList.contains("is-current")).toBe(true);
     expect(screen.getByRole("link", { name: "Inbox" }).getAttribute("aria-current")).toBeNull();
   });
 
-  it("hides the app name visually on phones but keeps it for screen readers", () => {
+  it("keeps the nav in a horizontally scrolling strip rather than wrapping", () => {
     render(<AppBar />);
-    const name = screen.getByText("Queue").closest('[class*="max-sm:sr-only"]');
-    expect(name).not.toBeNull();
-    expect(screen.getByRole("link", { name: /Review Queue/ }).textContent).toContain("Review");
-  });
-
-  it("keeps each nav label on one line so the bar fits a phone", () => {
-    render(<AppBar />);
-    const navigation = screen.getByRole("navigation", { name: "Main" });
-    for (const link of within(navigation).getAllByRole("link")) {
-      expect(link.classList.contains("whitespace-nowrap")).toBe(true);
-    }
-  });
-
-  it("keeps every nav link at least 44px tall", () => {
-    render(<AppBar />);
-    expect(screen.getByRole("link", { name: "Settings" }).classList.contains("min-h-11")).toBe(
-      true,
-    );
+    expect(
+      screen.getByRole("navigation", { name: "Main" }).classList.contains("app-bar__nav"),
+    ).toBe(true);
   });
 });

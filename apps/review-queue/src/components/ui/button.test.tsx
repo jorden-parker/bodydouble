@@ -18,23 +18,31 @@ describe("Button", () => {
     expect(classes.contains("ease-spring")).toBe(false);
   });
 
-  it("keeps the default size at a 44px touch target", () => {
+  it("sets the default control at 40px and the small control at 32px", () => {
     render(<Button>Save</Button>);
-    expect(screen.getByRole("button", { name: "Save" }).classList.contains("h-11")).toBe(true);
+    expect(screen.getByRole("button", { name: "Save" }).classList.contains("h-10")).toBe(true);
+    render(<Button size="sm">Skip</Button>);
+    expect(screen.getByRole("button", { name: "Skip" }).classList.contains("h-8")).toBe(true);
   });
 
-  it("offers a neon variant as a flat high-contrast fill", () => {
+  it("uses the solid primary fill for the main action", () => {
+    render(<Button>Start</Button>);
+    const classes = screen.getByRole("button", { name: "Start" }).classList;
+    expect(classes.contains("bg-primary")).toBe(true);
+    expect(classes.contains("text-primary-foreground")).toBe(true);
+  });
+
+  it("keeps the neon variant as the same solid primary fill", () => {
     render(<Button variant="neon">Start</Button>);
     const classes = screen.getByRole("button", { name: "Start" }).classList;
-    expect(classes.contains("bg-neon")).toBe(true);
-    expect(classes.contains("text-background")).toBe(true);
+    expect(classes.contains("bg-primary")).toBe(true);
     expect(classes.contains("shadow-glow-pink")).toBe(false);
   });
 
-  it("offers a soft variant on the raised surface", () => {
+  it("offers a soft variant on the surface with a hairline border", () => {
     render(<Button variant="soft">Skip</Button>);
-    expect(screen.getByRole("button", { name: "Skip" }).classList.contains("bg-surface-2")).toBe(
-      true,
-    );
+    const classes = screen.getByRole("button", { name: "Skip" }).classList;
+    expect(classes.contains("bg-surface")).toBe(true);
+    expect(classes.contains("border-line")).toBe(true);
   });
 });

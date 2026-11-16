@@ -2,31 +2,20 @@
 
 import { X, Plus, type LucideIcon } from "lucide-react";
 import { useState, type KeyboardEvent, type ReactNode } from "react";
-import { cn } from "cn";
 
 export function PanelHeading({
   icon: Icon,
   title,
-  isDanger = false,
   children,
 }: {
   icon: LucideIcon;
   title: string;
-  isDanger?: boolean;
   children?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-s-3">
-      <span
-        aria-hidden="true"
-        className={cn(
-          "grid size-11 shrink-0 place-items-center rounded-md",
-          isDanger ? "bg-tint-coral text-ink-coral" : "bg-tint-blue text-ink-blue",
-        )}
-      >
-        <Icon className="size-[22px]" />
-      </span>
-      <h2 className="font-display text-xl font-semibold">{title}</h2>
+    <div className="flex min-w-0 flex-wrap items-center gap-3">
+      <Icon aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
+      <h2 className="text-heading">{title}</h2>
       {children}
     </div>
   );
@@ -42,12 +31,12 @@ export function SettingRow({
   control: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-s-4 gap-y-s-2 border-t border-line-soft py-s-3">
-      <div className="grid min-w-0 flex-1 basis-44 gap-0.5">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-line-soft pt-4">
+      <div className="grid min-w-0 flex-1 basis-56 gap-1">
         {label}
-        <p className="text-sm text-fg-muted">{hint}</p>
+        <p className="text-label text-fg-muted">{hint}</p>
       </div>
-      <div className="grid max-w-full flex-none items-start justify-items-start gap-s-2">
+      <div className="grid max-w-full min-w-0 flex-none items-start justify-items-start gap-2">
         {control}
       </div>
     </div>
@@ -70,7 +59,7 @@ export function ToggleSwitch({
       role="switch"
       checked={checked}
       onChange={(event) => onChange(event.target.checked)}
-      className="relative m-0 h-11 w-14 shrink-0 cursor-pointer appearance-none rounded-pill transition-colors before:absolute before:top-1/2 before:left-1/2 before:h-7 before:w-13 before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-pill before:border before:border-line before:bg-surface-3 before:transition-colors checked:before:border-transparent checked:before:bg-neon after:absolute after:top-1/2 after:left-[calc(50%-23px)] after:size-[22px] after:-translate-y-1/2 after:rounded-full after:bg-fg-muted after:transition-transform checked:after:translate-x-6 checked:after:bg-background focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-neon-amber"
+      className="relative m-0 h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-pill border border-line bg-bg transition-colors before:absolute before:top-0.5 before:left-0.5 before:size-4 before:rounded-pill before:bg-fg-muted before:transition-transform checked:border-primary checked:bg-primary checked:before:translate-x-5 checked:before:bg-primary-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
     />
   );
 }
@@ -92,12 +81,12 @@ export function SegmentedPicker<Value extends string>({
     <div
       role="radiogroup"
       aria-labelledby={labelId}
-      className="inline-flex max-w-full flex-nowrap gap-s-1 rounded-pill border border-line bg-canvas p-s-1"
+      className="inline-flex max-w-full flex-nowrap gap-1 overflow-x-auto rounded-sm border border-line bg-bg p-1"
     >
       {options.map((option) => (
         <label
           key={option.value}
-          className="relative inline-flex min-h-11 cursor-pointer items-center whitespace-nowrap rounded-pill px-s-4 font-bold text-fg-muted hover:text-fg has-[:checked]:bg-tint-blue has-[:checked]:text-fg has-[:checked]:shadow-[inset_0_0_0_1.5px_var(--neon-blue)] has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-neon-amber"
+          className="inline-flex min-h-8 cursor-pointer items-center whitespace-nowrap rounded-sm px-3 text-label font-medium text-fg-muted transition-colors hover:text-fg has-[:checked]:bg-surface-2 has-[:checked]:text-fg has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
         >
           <input
             type="radio"
@@ -143,25 +132,25 @@ export function TokenInput({
   return (
     <ul
       aria-label="Chosen repositories"
-      className="flex w-full flex-wrap items-center gap-s-2 rounded-md border-[1.5px] border-line bg-canvas p-s-2 focus-within:border-neon-blue focus-within:ring-4 focus-within:ring-tint-blue"
+      className="flex w-full min-w-0 flex-wrap items-center gap-2 rounded-sm border border-line bg-bg p-2 focus-within:ring-2 focus-within:ring-ring"
     >
       {values.map((value) => (
         <li
           key={value}
-          className="inline-flex min-h-11 items-center rounded-pill border border-ink-blue/45 bg-tint-blue pl-s-3 font-mono text-sm font-semibold"
+          className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm border border-line-soft bg-surface-2 pl-2 font-mono text-label"
         >
-          {value}
+          <span className="min-w-0 wrap-anywhere">{value}</span>
           <button
             type="button"
             aria-label={`Remove ${value}`}
             onClick={() => onRemove(value)}
-            className="grid size-11 place-items-center rounded-full text-fg-muted hover:bg-surface-3 hover:text-fg"
+            className="control-target grid size-7 shrink-0 place-items-center rounded-sm text-fg-muted hover:bg-surface-3 hover:text-fg"
           >
-            <X aria-hidden="true" className="size-4" />
+            <X aria-hidden="true" className="size-3.5" />
           </button>
         </li>
       ))}
-      <li className="flex min-w-0 flex-1 basis-36 items-center gap-s-1">
+      <li className="flex min-w-0 flex-1 basis-36 items-center gap-1">
         <input
           id={id}
           type="text"
@@ -174,15 +163,15 @@ export function TokenInput({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={handleKey}
-          className="min-h-11 min-w-0 flex-1 bg-transparent px-s-2 font-mono text-sm text-fg placeholder:text-fg-faint"
+          className="min-h-8 min-w-0 flex-1 bg-transparent px-2 font-mono text-sm text-fg placeholder:text-fg-faint outline-none"
         />
         <button
           type="button"
           aria-label="Add repository"
           onClick={commit}
-          className="grid size-11 flex-none place-items-center rounded-full bg-surface-2 text-ink-blue hover:bg-surface-3"
+          className="control-target grid size-7 flex-none place-items-center rounded-sm border border-line bg-surface text-fg hover:bg-surface-2"
         >
-          <Plus aria-hidden="true" className="size-4" />
+          <Plus aria-hidden="true" className="size-3.5" />
         </button>
       </li>
     </ul>

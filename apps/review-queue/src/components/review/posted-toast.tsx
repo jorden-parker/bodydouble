@@ -8,7 +8,7 @@ export function PostedToast({ url, onDismiss }: { url: string | null; onDismiss:
   return (
     <div
       role="status"
-      className="fixed bottom-6 left-1/2 z-30 flex -translate-x-1/2 animate-step-enter items-center gap-3 rounded-xl bg-card px-4 py-3 text-sm text-card-foreground shadow-lg"
+      className="fixed bottom-6 left-1/2 z-30 flex -translate-x-1/2 animate-step-enter items-center gap-3 rounded-xl bg-card px-4 py-3 text-sm text-card-foreground"
     >
       <span className="relative text-lg" aria-hidden>
         🎉

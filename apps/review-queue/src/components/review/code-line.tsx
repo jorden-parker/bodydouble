@@ -169,7 +169,7 @@ function LineCode({
 }: LineCodeProps) {
   const positionOf = (target: IdentifierTarget) => symbolPosition(path, line, target);
   return (
-    <code className="flex-1 pr-4 break-words whitespace-pre-wrap max-sm:tab-2 max-sm:pr-2">
+    <code className="flex-1 pr-4 whitespace-pre max-sm:tab-2 max-sm:pr-2">
       <CodeTokens
         tokens={tokens}
         onIdentifier={linked ? (target) => handlers.onIdentifier(positionOf(target)) : undefined}

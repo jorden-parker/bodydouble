@@ -434,6 +434,15 @@ describe("ReviewLoader", () => {
     expect(openPanes("right")).toEqual(["Path"]);
   });
 
+  it("closes the right panel when the chat side opens below the side-by-side width", async () => {
+    setViewportWidth(1100);
+    const { user } = await renderReview(reviewPayload(), MODEL_ON);
+    expect(openPanes("right")).toEqual(["Step"]);
+    await user.click(screen.getByRole("button", { name: "Show chat side" }));
+    expect(openPanes("right")).toEqual([]);
+    expect(openPanes("left")).toHaveLength(1);
+  });
+
   it("keeps a split when a peek opens a Context pane that is already open", async () => {
     const { user } = await renderReview(
       reviewPayload(emptySession({ currentStepId: "core:src/client.ts:0" })),
@@ -748,12 +757,12 @@ describe("ReviewLoader", () => {
     );
     const { api, user } = await renderReview(payload);
     await user.click(screen.getByRole("button", { name: /Finish/ }));
-    const dialog = screen.getByRole("dialog", { name: "Submit Review" });
+    const dialog = screen.getByRole("dialog", { name: "Submit review" });
     expect(within(dialog).getByText(/3 steps and 1 hotspot are not/)).toBeTruthy();
     await user.click(within(dialog).getByRole("radio", { name: "Approve" }));
     await user.type(within(dialog).getByPlaceholderText(/Overall summary/), "Nice work");
     await user.click(within(dialog).getByRole("button", { name: "Post review" }));
-    await waitFor(() => expect(screen.queryByText("Submit Review")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Submit review")).toBeNull());
     expect(screen.getByRole("status").textContent).toMatch(/Review posted/);
     expect(screen.getByRole("link", { name: "Open it" }).getAttribute("href")).toBe(
       SUBMITTED_REVIEW_URL,
@@ -786,7 +795,7 @@ describe("ReviewLoader", () => {
     );
     const { user } = await renderReview(payload, { status: "error", message: "x" });
     await user.click(screen.getByRole("button", { name: /Finish/ }));
-    const dialog = screen.getByRole("dialog", { name: "Submit Review" });
+    const dialog = screen.getByRole("dialog", { name: "Submit review" });
     await user.click(within(dialog).getByRole("button", { name: /Draft from my notes/ }));
     await waitFor(() =>
       expect(within(dialog).getByPlaceholderText(/Overall summary/)).toHaveProperty(
@@ -799,7 +808,7 @@ describe("ReviewLoader", () => {
   it("has no draft button when the model is off", async () => {
     const { user } = await renderReview();
     await user.click(screen.getByRole("button", { name: /Finish/ }));
-    const dialog = screen.getByRole("dialog", { name: "Submit Review" });
+    const dialog = screen.getByRole("dialog", { name: "Submit review" });
     expect(within(dialog).queryByRole("button", { name: /Draft from my notes/ })).toBeNull();
   });
 

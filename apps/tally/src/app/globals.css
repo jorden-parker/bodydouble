@@ -15,10 +15,10 @@
   --primary-foreground: var(--bg);
   --accent: var(--surface-3);
   --destructive-surface: var(--tint-coral);
-  --ring: var(--ink-blue);
+  --ring: var(--text);
 
-  --series-reviewed: var(--ink-pink);
-  --series-created: var(--ink-amber);
+  --series-reviewed: var(--text);
+  --series-created: var(--text-faint);
   --story-feature: var(--neon-amber);
   --story-bug: var(--neon-coral);
   --story-chore: var(--neon-violet);
@@ -45,34 +45,11 @@
   --radius-pill: var(--r-pill);
 
   --font-heading: var(--font-sans);
-  --font-hand: var(--font-sans);
-
-  --animate-draw: draw 450ms ease-out both;
-
-  @keyframes draw {
-    from {
-      stroke-dasharray: 1;
-      stroke-dashoffset: 1;
-    }
-    to {
-      stroke-dasharray: 1;
-      stroke-dashoffset: 0;
-    }
-  }
 }
 
 @theme {
   --font-sans: var(--font-sans-face), system-ui, sans-serif;
-  --font-display: var(--font-sans-face), system-ui, sans-serif;
   --font-mono: var(--font-mono-face), ui-monospace, monospace;
-}
-
-@utility text-neon {
-  color: var(--text);
-}
-
-@utility text-neon-tally {
-  color: var(--text);
 }
 
 @layer base {
@@ -82,6 +59,8 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-size: 0.875rem;
+    line-height: 1.5;
     font-variant-numeric: tabular-nums;
   }
 

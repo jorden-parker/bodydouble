@@ -138,7 +138,7 @@ describe("FinishReview", () => {
     const fine = note({ id: 8, path: "a.ts", line: 2, body: "still here" });
     const { onSubmit } = renderDialog({ notes: [stale, fine], stepsLeft: 1 });
     expect(screen.getByText(/a line the diff no longer has/)).toBeTruthy();
-    expect(screen.getByRole("heading", { name: /Notes to Post \(1\)/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Notes to post \(1\)/ })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Post review" }));
     expect(onSubmit).toHaveBeenCalledWith("COMMENT", "", [8]);
   });

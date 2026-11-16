@@ -20,15 +20,15 @@ export function OpenPullRequestForm() {
   }
 
   return (
-    <form onSubmit={open} className="grid gap-s-3" aria-labelledby="open-pr-heading">
-      <h2 id="open-pr-heading" className="font-display text-2xl font-semibold">
-        Open Any PR by URL
+    <form onSubmit={open} className="grid gap-3" aria-labelledby="open-pr-heading">
+      <h2 id="open-pr-heading" className="text-heading">
+        Open any PR by URL
       </h2>
-      <div className="grid gap-s-2">
+      <div className="grid gap-2">
         <label htmlFor="pr" className="text-sm text-fg-muted">
           PR link or owner/repo#number
         </label>
-        <div className="flex gap-s-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Input
             id="pr"
             name="pullRequest"
@@ -39,13 +39,13 @@ export function OpenPullRequestForm() {
             placeholder="https://github.com/owner/repo/pull/123 or owner/repo#123"
             aria-invalid={invalid}
             aria-describedby="pr-error"
-            className="h-11 flex-1 font-mono text-sm"
+            className="flex-1 font-mono"
           />
-          <Button type="submit" variant="soft" className="h-11">
+          <Button type="submit" variant="soft">
             Open <ArrowRight />
           </Button>
         </div>
-        <p id="pr-error" aria-live="polite" className="empty:hidden text-sm text-destructive">
+        <p id="pr-error" aria-live="polite" className="empty:hidden text-label text-destructive">
           {invalid ? "That doesn't look like a PR link." : null}
         </p>
       </div>

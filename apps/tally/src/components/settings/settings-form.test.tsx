@@ -6,7 +6,7 @@ import { SettingsForm } from "./settings-form";
 
 async function renderLoaded(overrides = {}) {
   render(<SettingsForm api={fakeApi(overrides)} />);
-  await screen.findByLabelText("GitHub Orgs and Repos");
+  await screen.findByLabelText("GitHub orgs and repos");
 }
 
 function chosenSources(): string[] {
@@ -25,14 +25,14 @@ describe("SettingsForm", () => {
     expect(chosenSources()).toEqual(["acme", "me/side"]);
     expect(screen.getByText("2 chosen")).toBeDefined();
     expect((screen.getByRole("radio", { name: "Sunday" }) as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByLabelText("Time Zone") as HTMLInputElement).value).toBe("UTC");
+    expect((screen.getByLabelText("Time zone") as HTMLInputElement).value).toBe("UTC");
   });
 
   it("adds sources with Enter and removes them with their chip", async () => {
     const saveSettings = vi.fn(async () => makeSettings());
     await renderLoaded({ saveSettings });
 
-    await userEvent.type(screen.getByLabelText("GitHub Orgs and Repos"), "northwind{Enter}");
+    await userEvent.type(screen.getByLabelText("GitHub orgs and repos"), "northwind{Enter}");
     await userEvent.click(screen.getByRole("button", { name: "Remove acme" }));
     await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
 
@@ -46,7 +46,7 @@ describe("SettingsForm", () => {
   it("adds sources from the add button too", async () => {
     await renderLoaded();
 
-    await userEvent.type(screen.getByLabelText("GitHub Orgs and Repos"), "me/side");
+    await userEvent.type(screen.getByLabelText("GitHub orgs and repos"), "me/side");
     await userEvent.click(screen.getByRole("button", { name: "Add org or repo" }));
 
     expect(chosenSources()).toEqual(["acme", "me/side"]);
@@ -55,7 +55,7 @@ describe("SettingsForm", () => {
   it("ignores blank and repeated sources", async () => {
     await renderLoaded();
 
-    await userEvent.type(screen.getByLabelText("GitHub Orgs and Repos"), "   {Enter}acme{Enter}");
+    await userEvent.type(screen.getByLabelText("GitHub orgs and repos"), "   {Enter}acme{Enter}");
 
     expect(chosenSources()).toEqual(["acme"]);
   });
@@ -63,7 +63,7 @@ describe("SettingsForm", () => {
   it("adds every line of a pasted list", async () => {
     await renderLoaded();
 
-    fireEvent.paste(screen.getByLabelText("GitHub Orgs and Repos"), {
+    fireEvent.paste(screen.getByLabelText("GitHub orgs and repos"), {
       clipboardData: { getData: () => "me/side\nnorthwind\n" },
     });
 
@@ -73,8 +73,8 @@ describe("SettingsForm", () => {
   it("gives every settings panel a minimum width so narrow screens page them", async () => {
     await renderLoaded();
 
-    for (const title of ["Sources", "Calendar", "What Tally Counts"]) {
-      expect(screen.getByRole("region", { name: title }).className).toContain("min-w-72!");
+    for (const title of ["Sources", "Calendar", "What Tally counts"]) {
+      expect(screen.getByRole("region", { name: title }).className).toContain("rounded-xl");
     }
   });
 
@@ -82,7 +82,7 @@ describe("SettingsForm", () => {
     const saveSettings = vi.fn(async () => makeSettings());
     await renderLoaded({ saveSettings });
 
-    await userEvent.type(screen.getByLabelText("GitHub Orgs and Repos"), "me/side{Enter}");
+    await userEvent.type(screen.getByLabelText("GitHub orgs and repos"), "me/side{Enter}");
     await userEvent.click(screen.getByRole("radio", { name: "Sunday" }));
     await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
 
@@ -106,7 +106,7 @@ describe("SettingsForm", () => {
   it("previews what Tally counts with the chosen week start and time zone", async () => {
     await renderLoaded();
 
-    const preview = screen.getByRole("region", { name: "What Tally Counts" });
+    const preview = screen.getByRole("region", { name: "What Tally counts" });
     expect(within(preview).getByText("acme")).toBeDefined();
     expect(within(preview).getByText("Weeks start Monday")).toBeDefined();
     expect(within(preview).getByText("UTC")).toBeDefined();
@@ -119,7 +119,7 @@ describe("SettingsForm", () => {
   it("describes the week start and time zone fields with their hints", async () => {
     render(<SettingsForm api={fakeApi()} />);
 
-    const timeZone = await screen.findByLabelText("Time Zone");
+    const timeZone = await screen.findByLabelText("Time zone");
     expect(timeZone.getAttribute("name")).toBe("timeZone");
     expect(timeZone.getAttribute("autocomplete")).toBe("off");
     expect(timeZone.getAttribute("spellcheck")).toBe("false");
@@ -127,7 +127,7 @@ describe("SettingsForm", () => {
     expect(
       document.getElementById(timeZone.getAttribute("aria-describedby") ?? "")?.textContent,
     ).toBe("Decides which day a review or ticket counts toward.");
-    const weekStart = screen.getByRole("radiogroup", { name: "Week Starts On" });
+    const weekStart = screen.getByRole("radiogroup", { name: "Week starts on" });
     expect(
       document.getElementById(weekStart.getAttribute("aria-describedby") ?? "")?.textContent,
     ).toBe("Your weekly counts begin on this day.");
@@ -136,7 +136,7 @@ describe("SettingsForm", () => {
   it("says what happens with no sources", async () => {
     await renderLoaded({ fetchSettings: async () => makeSettings({ allowList: [] }) });
 
-    const preview = screen.getByRole("region", { name: "What Tally Counts" });
+    const preview = screen.getByRole("region", { name: "What Tally counts" });
     expect(within(preview).getByText(/Tally counts nothing/)).toBeDefined();
   });
 

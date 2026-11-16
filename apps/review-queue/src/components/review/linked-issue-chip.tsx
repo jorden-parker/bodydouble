@@ -13,7 +13,7 @@ export function LinkedIssueChip({ issues }: { issues: LinkedIssue[] }) {
       href={first.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex min-h-11 max-w-full items-center gap-2 rounded-pill border border-neon-amber/50 bg-tint-amber px-3 text-sm font-bold text-fg no-underline hover:brightness-105"
+      className="control-target inline-flex max-w-full items-center gap-2 rounded-pill border border-line bg-surface px-3 text-label font-medium text-fg no-underline hover:bg-surface-2"
     >
       <Ticket aria-hidden className="size-4 shrink-0" />
       <span className="min-w-0 truncate">
