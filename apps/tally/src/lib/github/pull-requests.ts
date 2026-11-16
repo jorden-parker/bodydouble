@@ -33,7 +33,7 @@ export type ReviewablePullRequest = OpenItem & { headRefName: string; author: st
 const SEARCH_LIMIT = "100";
 
 const MERGED_QUERY = `query($search: String!, $after: String) {
-  search(query: $search, type: ISSUE, first: 50, after: $after) {
+  search(query: $search, type: ISSUE, first: 100, after: $after) {
     pageInfo { hasNextPage endCursor }
     nodes {
       ... on PullRequest {
@@ -51,7 +51,7 @@ const MERGED_QUERY = `query($search: String!, $after: String) {
 }`;
 
 const OPEN_QUERY = `query($search: String!, $login: String!, $after: String) {
-  search(query: $search, type: ISSUE, first: 50, after: $after) {
+  search(query: $search, type: ISSUE, first: 100, after: $after) {
     pageInfo { hasNextPage endCursor }
     nodes {
       ... on PullRequest {

@@ -7,7 +7,13 @@ import { replaceOpenItems } from "@/lib/store/open-items";
 import { loadSettings, saveSettings } from "@/lib/store/settings";
 import { replaceTickets } from "@/lib/store/tickets";
 import { upsertWorkDetails, type WorkItem } from "@/lib/store/work";
-import { createServices, InvalidSettingsError, parseDayRange, type Services } from "./services";
+import {
+  createServices,
+  InvalidSettingsError,
+  parseDayRange,
+  SYNC_COOLDOWN_MS,
+  type Services,
+} from "./services";
 import type { ShortcutGet } from "@/lib/shortcut/client";
 
 const NOW = new Date("2026-10-30T12:00:00Z");
@@ -189,6 +195,50 @@ describe("services", () => {
 
     expect(result.errors).toEqual({});
     expect(loadSettings(db).lastSyncedAt).toBe(NOW.toISOString());
+  });
+
+  describe("sync throttling", () => {
+    function createCountingServices(clock: { time: number }) {
+      let syncCount = 0;
+      const shortcut: ShortcutGet = async <T>(path: string) => {
+        if (path.endsWith("/member")) syncCount += 1;
+        return emptyShortcut<T>(path);
+      };
+      const throttled = createServices({
+        db,
+        run: async () => {
+          throw new Error("gh must not run in this test");
+        },
+        shortcut,
+        now: () => new Date(clock.time),
+      });
+      return { throttled, syncCount: () => syncCount };
+    }
+
+    beforeEach(() => saveSettings(db, { allowList: [] }));
+
+    it("shares one sync between overlapping requests", async () => {
+      const { throttled, syncCount } = createCountingServices({ time: NOW.getTime() });
+
+      const [first, second] = await Promise.all([throttled.sync(), throttled.sync()]);
+
+      expect(second).toBe(first);
+      expect(syncCount()).toBe(1);
+    });
+
+    it("reuses the last result until the cooldown passes", async () => {
+      const clock = { time: NOW.getTime() };
+      const { throttled, syncCount } = createCountingServices(clock);
+
+      const first = await throttled.sync();
+      clock.time += SYNC_COOLDOWN_MS - 1;
+      expect(await throttled.sync()).toBe(first);
+      expect(syncCount()).toBe(1);
+
+      clock.time += 1;
+      await throttled.sync();
+      expect(syncCount()).toBe(2);
+    });
   });
 
   it("saves valid settings, trimming and dropping blank allow-list entries", () => {

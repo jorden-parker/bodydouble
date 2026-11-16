@@ -68,6 +68,10 @@ caches them on `globalThis`. Route handlers in `src/app/api` stay thin and call
   names repos whose reviews the allow-list dropped; those events are never
   stored.
 - GitHub sync is skipped while the allow-list is empty.
+- To protect the GitHub rate limit, `createServices` shares one in-flight sync
+  and returns the last result for `SYNC_COOLDOWN_MS` (2 minutes) after a sync
+  starts. `fetchLogin` asks `gh api user` once per `Runner`, and `searchAll`
+  reads at most `MAX_SEARCH_PAGES` pages of 100.
 - Merged PRs come from a paged GraphQL search (`src/lib/github/search.ts`),
   because `gh search prs` can't return PR size. Open PRs use the same search to
   get `reviewDecision`, review counts and the branch name; my own open PRs and

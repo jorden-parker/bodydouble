@@ -57,10 +57,23 @@ function startOfDay(day: string): string {
   return `${day}T00:00:00Z`;
 }
 
+export const SYNC_COOLDOWN_MS = 2 * 60 * 1000;
+
+function createThrottledSync(dependencies: SyncDependencies): () => Promise<SyncResult> {
+  let latest: { startedAt: number; result: Promise<SyncResult> } | null = null;
+  return () => {
+    const startedAt = dependencies.now().getTime();
+    if (latest && startedAt - latest.startedAt < SYNC_COOLDOWN_MS) return latest.result;
+    latest = { startedAt, result: syncAll(dependencies) };
+    return latest.result;
+  };
+}
+
 export function createServices(dependencies: SyncDependencies): Services {
   const { db, now } = dependencies;
 
   const settings = (): Settings => loadSettings(db);
+  const sync = createThrottledSync(dependencies);
 
   return {
     summary: (range) => {
@@ -89,7 +102,7 @@ export function createServices(dependencies: SyncDependencies): Services {
         period,
       }),
     assignedStories: () => loadAssignedStories(db),
-    sync: () => syncAll(dependencies),
+    sync,
     settings,
     updateSettings: (input) => {
       const parsed = settingsChanges.safeParse(input);

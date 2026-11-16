@@ -12,7 +12,7 @@ type PullRequestNode = {
 };
 
 const QUERY = `query($search: String!, $login: String!, $after: String) {
-  search(query: $search, type: ISSUE, first: 50, after: $after) {
+  search(query: $search, type: ISSUE, first: 100, after: $after) {
     pageInfo { hasNextPage endCursor }
     nodes {
       ... on PullRequest {
