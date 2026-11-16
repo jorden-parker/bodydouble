@@ -2,7 +2,7 @@ import type { Runner } from "@/lib/exec";
 import { conditionalGet, type EtagCache } from "./conditional-get";
 import { githubRun } from "./github-guard";
 import type { PullRequestRef } from "@/lib/types";
-import { parsePullRequestRef } from "@/lib/pr-ref";
+import { parsePullRequestRef, prKey } from "@/lib/pr-ref";
 
 export type ReviewRequest = {
   ref: PullRequestRef;
@@ -219,6 +219,28 @@ export async function listLinkedIssues(
     }
   ).data.repository.pullRequest.closingIssuesReferences;
   return nodes.flatMap((issue) => (issue ? linkedIssueFromClosing(issue) : []));
+}
+
+function mergedFieldQuery(ref: PullRequestRef, index: number): string {
+  const repository = `repository(owner: ${JSON.stringify(ref.owner)}, name: ${JSON.stringify(ref.repo)})`;
+  return `pr${index}: ${repository} { pullRequest(number: ${ref.number}) { merged } }`;
+}
+
+export async function listMergedPullRequestKeys(
+  refs: PullRequestRef[],
+  run: Runner = githubRun,
+): Promise<string[]> {
+  if (refs.length === 0) return [];
+  const query = `query { ${refs.map(mergedFieldQuery).join(" ")} }`;
+  const output = await run("gh", ["api", "graphql", "-f", `query=${query}`]);
+  const results = (
+    JSON.parse(output) as {
+      data: Record<string, { pullRequest: { merged: boolean } | null } | null>;
+    }
+  ).data;
+  return refs
+    .filter((_ref, index) => results[`pr${index}`]?.pullRequest?.merged === true)
+    .map(prKey);
 }
 
 export async function viewerLogin(run: Runner = githubRun): Promise<string> {

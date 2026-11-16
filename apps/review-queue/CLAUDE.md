@@ -223,9 +223,11 @@ The chords `g h` (Hotspots pane) and `g g` (GitHub pane) are rows of that table.
 lists open PRs from the repositories picked in Settings
 (`lib/settings/repository-settings.ts`), and `/dependabot` and `/smartling` show
 the Dependabot and Smartling ones on their own. Drafts are never listed
-(`--draft=false`), and `?repository=owner/name` filters each list
-(`repository-filter.tsx`). `openPullRequests` in `services.ts` makes one
-`gh search prs` call per view for all repositories, cached for 60 s.
+(`--draft=false`), merged PRs are dropped from the in-progress, archived and
+posted lists (`listMergedPullRequestKeys`, one GraphQL call), and
+`?repository=owner/name` filters each list (`repository-filter.tsx`).
+`openPullRequests` in `services.ts` makes one `gh search prs` call per view for
+all repositories, cached for 60 s.
 
 **UI** (`src/components/ui/`) holds shadcn/ui primitives (Radix base); add more
 with `bunx shadcn@latest add <name>` and delete exports nothing uses so Fallow

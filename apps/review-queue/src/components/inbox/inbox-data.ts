@@ -1,8 +1,13 @@
 import { connection } from "next/server";
 import { cache } from "react";
 import type { ReviewRequest } from "@/lib/github/gh";
-import { prKey } from "@/lib/pr-ref";
-import { openPullRequests, reviewRequests, sessionStore } from "@/lib/review/services";
+import { parsePullRequestRef, prKey } from "@/lib/pr-ref";
+import {
+  mergedPullRequestKeys,
+  openPullRequests,
+  reviewRequests,
+  sessionStore,
+} from "@/lib/review/services";
 import { savedRepositories } from "@/lib/settings/repository-settings";
 import type { InProgressSession, ProgressSummary, RecentSubmission } from "@/lib/session/store";
 import { POSTED_REVIEW_LIMIT } from "./posted-list";
@@ -29,6 +34,16 @@ export function isPondClear(inbox: Pick<Inbox, "requests" | "requestsError">): b
   return inbox.requests.length === 0 && inbox.requestsError === null;
 }
 
+async function mergedKeysAmong(entries: { key: string }[]): Promise<Set<string>> {
+  const keys = [...new Set(entries.map((entry) => entry.key))];
+  const refs = keys.flatMap((key) => parsePullRequestRef(key) ?? []);
+  try {
+    return new Set(await mergedPullRequestKeys(refs));
+  } catch {
+    return new Set();
+  }
+}
+
 export const loadInbox = cache(async (): Promise<Inbox> => {
   await connection();
   const store = sessionStore();
@@ -48,6 +63,11 @@ export const loadInbox = cache(async (): Promise<Inbox> => {
     ...waitingKeys,
     ...repositoryRequests.map((request) => prKey(request.ref)),
   ]);
+  const inProgress = store.inProgress().filter((session) => !listedKeys.has(session.key));
+  const archived = store.archived().filter((session) => !listedKeys.has(session.key));
+  const posted = store.recentSubmissions(POSTED_REVIEW_LIMIT);
+  const mergedKeys = await mergedKeysAmong([...inProgress, ...archived, ...posted]);
+  const isNotMerged = (entry: { key: string }) => !mergedKeys.has(entry.key);
   return {
     requests,
     requestsError: waiting.status === "rejected" ? failureMessage(waiting.reason) : null,
@@ -58,8 +78,8 @@ export const loadInbox = cache(async (): Promise<Inbox> => {
     smartlingCount: smartling.status === "fulfilled" ? smartling.value.length : null,
     hasRepositories: savedRepositories(store).length > 0,
     progress: store.progressSummaries([...listedKeys]),
-    inProgress: store.inProgress().filter((session) => !listedKeys.has(session.key)),
-    archived: store.archived().filter((session) => !listedKeys.has(session.key)),
-    posted: store.recentSubmissions(POSTED_REVIEW_LIMIT),
+    inProgress: inProgress.filter(isNotMerged),
+    archived: archived.filter(isNotMerged),
+    posted: posted.filter(isNotMerged),
   };
 });

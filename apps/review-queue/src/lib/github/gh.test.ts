@@ -6,6 +6,7 @@ import {
   listOpenPullRequests,
   listReviewRequests,
   listLinkedIssues,
+  listMergedPullRequestKeys,
   listReviews,
   postReplyToReviewComment,
   submitReview,
@@ -448,5 +449,35 @@ describe("listLinkedIssues", () => {
     const { run, calls } = fakeRunner(closingResponse([]));
     await listLinkedIssues(REF, run);
     expect(calls[0].args.join(" ")).toContain("closingIssuesReferences(first: 3)");
+  });
+});
+
+describe("listMergedPullRequestKeys", () => {
+  it("returns the keys of merged PRs in one GraphQL call", async () => {
+    const { run, calls } = fakeRunner(
+      JSON.stringify({
+        data: {
+          pr0: { pullRequest: { merged: true } },
+          pr1: { pullRequest: { merged: false } },
+          pr2: null,
+        },
+      }),
+    );
+    const keys = await listMergedPullRequestKeys(
+      [REF, { owner: "acme", repo: "web", number: 3 }, { owner: "gone", repo: "x", number: 1 }],
+      run,
+    );
+    expect(keys).toEqual(["acme/app#7"]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].args.slice(0, 3)).toEqual(["api", "graphql", "-f"]);
+    expect(calls[0].args[3]).toContain(
+      'pr0: repository(owner: "acme", name: "app") { pullRequest(number: 7) { merged } }',
+    );
+  });
+
+  it("skips the call when there are no PRs", async () => {
+    const { run, calls } = fakeRunner("");
+    expect(await listMergedPullRequestKeys([], run)).toEqual([]);
+    expect(calls).toHaveLength(0);
   });
 });

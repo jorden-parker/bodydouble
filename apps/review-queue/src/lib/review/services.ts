@@ -7,6 +7,7 @@ import {
   getPullRequest,
   type LinkedIssue,
   listLinkedIssues,
+  listMergedPullRequestKeys,
   listOpenPullRequests,
   listReviewRequests,
   type PullRequestAuthorship,
@@ -47,6 +48,13 @@ function githubCache(): TtlCache {
 
 export function reviewRequests(): Promise<ReviewRequest[]> {
   return githubCache().get("review-requests", REVIEW_REQUESTS_TTL_MS, () => listReviewRequests());
+}
+
+export function mergedPullRequestKeys(refs: PullRequestRef[]): Promise<string[]> {
+  const keys = refs.map(prKey).sort();
+  return githubCache().get(`merged:${keys.join(",")}`, REVIEW_REQUESTS_TTL_MS, () =>
+    listMergedPullRequestKeys(refs),
+  );
 }
 
 export function openPullRequests(authorship: PullRequestAuthorship): Promise<ReviewRequest[]> {
