@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Hotspot, Step } from "@/lib/types";
 import { addedHunk, fileDiff, lines } from "@/test/diff-builders";
 import { CODE_NAME_RULE, UNTRUSTED_DATA_RULE } from "./client";
-import { buildPrompt, orient, type OrientationInput } from "./orientation";
+import { buildPrompt, orient, orientFromSummaries, type OrientationInput } from "./orientation";
 import { modelReply } from "@/test/fake-llm";
 
 const STEP: Step = {
@@ -210,5 +210,25 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("<pr_hotspots>");
     expect(prompt).not.toContain("</pr_steps>evil");
     expect(prompt).not.toContain("</pr_hotspots>evil");
+  });
+});
+
+describe("orientFromSummaries", () => {
+  const SUMMARIES = [{ stepId: "core:src/a.ts:0", what: "Adds the cache lookup." }];
+
+  it("writes each step summary into the step list and sends no diff", async () => {
+    const { fetchImpl, bodies } = scriptedFetch([JSON.stringify(GOOD)]);
+    await orientFromSummaries(INPUT, SUMMARIES, CONFIG, fetchImpl);
+    const prompt = JSON.stringify(bodies[0]);
+    expect(prompt).toContain("Adds the cache lookup.");
+    expect(prompt).not.toContain("pr_diff");
+    expect(prompt).not.toContain("cache()");
+  });
+
+  it("returns the same orientation shape as the single-prompt path", async () => {
+    const { fetchImpl } = scriptedFetch([JSON.stringify(GOOD)]);
+    const orientation = await orientFromSummaries(INPUT, SUMMARIES, CONFIG, fetchImpl);
+    expect(orientation).toMatchObject({ summary: "Adds a cache.", risk: "medium", model: "m" });
+    expect(orientation.hotspotNotes).toEqual([{ id: "todo:src/a.ts:1", note: "Track it." }]);
   });
 });

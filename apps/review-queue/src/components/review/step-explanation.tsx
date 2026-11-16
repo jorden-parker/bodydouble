@@ -1,15 +1,14 @@
 "use client";
 
 import { MessageCircleQuestion, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { InlineMarkdown, Markdown } from "@/components/common/markdown-text";
 import { Button } from "@/components/ui/button";
 import type { StepExplanation } from "@/lib/llm/step-explanation";
 import type { ExplanationResult } from "@/lib/review/explanation-service";
 import type { PullRequestRef } from "@/lib/types";
 import { fetchStepExplanation } from "./api";
-
-type ExplanationState = ExplanationResult | { status: "loading" };
+import { ModelUnavailable, useModelResult } from "./model-result";
 
 type StepExplanationProps = {
   pullRequest: PullRequestRef;
@@ -58,37 +57,12 @@ function ExplanationPanel({
   );
 }
 
-function ExplanationError({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="flex flex-col items-start gap-2 text-sm text-muted-foreground">
-      <p role="status">Local model unavailable ({message}).</p>
-      <Button variant="outline" size="sm" onClick={onRetry}>
-        Try again
-      </Button>
-    </div>
-  );
-}
-
 function useStepExplanation({ pullRequest, headSha, stepId }: StepExplanationProps) {
-  const [state, setState] = useState<ExplanationState>({ status: "loading" });
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    let current = true;
-    fetchStepExplanation(pullRequest, headSha, stepId)
-      .then((result) => current && setState(result))
-      .catch((error: Error) => current && setState({ status: "error", message: error.message }));
-    return () => {
-      current = false;
-    };
-  }, [pullRequest, headSha, stepId, attempt]);
-
-  const retry = useCallback(() => {
-    setState({ status: "loading" });
-    setAttempt((count) => count + 1);
-  }, []);
-
-  return { state, retry };
+  const load = useCallback(
+    () => fetchStepExplanation(pullRequest, headSha, stepId),
+    [pullRequest, headSha, stepId],
+  );
+  return useModelResult<ExplanationResult>(load);
 }
 
 export function StepExplanation(props: StepExplanationProps) {
@@ -96,7 +70,7 @@ export function StepExplanation(props: StepExplanationProps) {
   if (state.status === "disabled") return null;
   if (state.status === "ready")
     return <ExplanationPanel explanation={state.explanation} onAskMore={props.onAskMore} />;
-  if (state.status === "error") return <ExplanationError message={state.message} onRetry={retry} />;
+  if (state.status === "error") return <ModelUnavailable message={state.message} onRetry={retry} />;
   return (
     <p role="status" className="text-sm text-muted-foreground">
       Local model is reading this step…

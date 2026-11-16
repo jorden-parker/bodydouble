@@ -95,7 +95,7 @@ function ReplyConfirmDialog({
     <AppDialog title="Post this reply to GitHub?" onClose={onNotYet}>
       <p className="text-sm text-muted-foreground">{targetLine(target)}</p>
       <p className="text-sm font-medium text-muted-foreground">Preview</p>
-      <Markdown text={body} className="wrap-anywhere" />
+      <Markdown text={body} className="text-pretty" />
       {failure && (
         <p role="alert" className="text-sm text-destructive">
           {failure}

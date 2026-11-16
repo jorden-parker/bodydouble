@@ -1,113 +1,158 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { AssistAction, AssistTarget, AssistThread } from "@/lib/assist-protocol";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type {
+  AssistAction,
+  AssistFailureKind,
+  AssistPhase,
+  AssistTarget,
+  AssistThread,
+} from "@/lib/assist-protocol";
 import type { PullRequestRef } from "@/lib/types";
 import type { ParsedAssistStream } from "./assist-stream";
 import { streamAssist } from "./api";
 import {
-  askedThread,
-  awaitsQuestion,
-  awaitsReply,
   canFollowUp,
-  hasModelReply,
   openThread,
+  type RunOptions,
   threadRequest,
-  withFollowUp,
   withEnding,
+  withFollowUp,
   withModelText,
+  withoutLastModelTurn,
 } from "./assist-thread";
+
+type AssistFailure = { kind: AssistFailureKind; message: string };
+
+export type LiveExchange = {
+  thread: AssistThread;
+  phase: AssistPhase | null;
+  failure: AssistFailure | null;
+  isStreaming: boolean;
+  isStopped: boolean;
+};
+
+type ExchangeStore = {
+  save: (thread: AssistThread) => void;
+  remove: (id: string) => void;
+};
+
+function failureOf(error: Error, kind: AssistFailureKind | null): AssistFailure {
+  return { kind: kind ?? "failed", message: error.message };
+}
 
 export function useAssist(
   ref: PullRequestRef,
   headSha: string,
-  onSave: (thread: AssistThread) => void,
+  saved: AssistThread[],
+  store: ExchangeStore,
 ) {
-  const [thread, setThread] = useState<AssistThread | null>(null);
-  const [streaming, setStreaming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [live, setLive] = useState<LiveExchange | null>(null);
   const controller = useRef<AbortController | null>(null);
 
   const stop = useCallback(() => {
     controller.current?.abort();
-    controller.current = null;
-    setStreaming(false);
   }, []);
 
-  useEffect(() => stop, [stop]);
+  useEffect(() => () => controller.current?.abort(), []);
 
   const run = useCallback(
-    (next: AssistThread) => {
+    (next: AssistThread, options: RunOptions) => {
       controller.current?.abort();
       const abort = new AbortController();
       controller.current = abort;
       let latest = next;
-      setThread(next);
-      setStreaming(true);
-      setError(null);
-      const onUpdate = ({ text, lookups }: ParsedAssistStream) => {
+      let failure: AssistFailure | null = null;
+      let failureKind: AssistFailureKind | null = null;
+      setLive({ thread: next, phase: null, failure: null, isStreaming: true, isStopped: false });
+      const onUpdate = (parsed: ParsedAssistStream) => {
         if (abort.signal.aborted) return;
-        latest = withModelText(latest, text, lookups);
-        setThread((current) => (current?.id === latest.id ? latest : current));
+        failureKind = parsed.failureKind ?? failureKind;
+        if (parsed.text || parsed.lookups.length > 0)
+          latest = withModelText(latest, parsed.text, {
+            lookups: parsed.lookups,
+            hasBudgetEnded: parsed.hasBudgetEnded,
+            isFromClaude: options.shouldEscalate,
+          });
+        setLive({
+          thread: latest,
+          phase: parsed.phase ?? null,
+          failure: null,
+          isStreaming: true,
+          isStopped: false,
+        });
       };
-      streamAssist(ref, headSha, threadRequest(next), onUpdate, abort.signal)
-        .catch((failure: Error) => {
-          latest = withEnding(latest, abort.signal.aborted ? "stopped" : "failed");
-          if (!abort.signal.aborted) setError(failure.message);
+      streamAssist(ref, headSha, threadRequest(next, options), onUpdate, abort.signal)
+        .catch((error: Error) => {
+          if (abort.signal.aborted) return;
+          failure = failureOf(error, failureKind);
         })
         .finally(() => {
-          if (controller.current === abort) setStreaming(false);
-          if (hasModelReply(latest)) {
-            setThread((current) => (current?.id === latest.id ? latest : current));
-            onSave(latest);
+          latest = withEnding(latest, abort.signal.aborted ? "stopped" : failure ? "failed" : null);
+          store.save(latest);
+          if (controller.current === abort) {
+            controller.current = null;
+            setLive({
+              thread: latest,
+              phase: null,
+              failure,
+              isStreaming: false,
+              isStopped: abort.signal.aborted,
+            });
           }
         });
     },
-    [ref, headSha, onSave],
+    [ref, headSha, store],
   );
 
-  const open = useCallback(
-    (target: AssistTarget, action: AssistAction, opener?: string) => {
-      const next = openThread(target, action, headSha, opener);
-      if (!awaitsQuestion(next)) return run(next);
-      stop();
-      setError(null);
-      setThread(next);
+  const start = useCallback(
+    (target: AssistTarget, action: AssistAction, question: string | null = null) => {
+      run(openThread(target, action, headSha, question), {});
     },
-    [run, stop, headSha],
+    [run, headSha],
   );
 
-  const reopen = useCallback(
-    (saved: AssistThread) => {
-      stop();
-      setError(null);
-      setThread(saved);
+  const followUp = useCallback(
+    (exchange: AssistThread, question: string) => {
+      if (exchange.headSha !== headSha || !canFollowUp(exchange)) return;
+      run(withFollowUp(exchange, question), {});
     },
-    [stop],
+    [run, headSha],
   );
 
-  const readOnly = thread !== null && thread.headSha !== headSha;
-
-  const send = useCallback(
-    (text: string) => {
-      if (!thread || readOnly) return;
-      if (awaitsQuestion(thread)) run(askedThread(thread, text));
-      else if (canFollowUp(thread)) run(withFollowUp(thread, text));
+  const rerun = useCallback(
+    (exchange: AssistThread, options: RunOptions) => {
+      if (exchange.headSha !== headSha) return;
+      run(withoutLastModelTurn(exchange), options);
     },
-    [run, thread, readOnly],
+    [run, headSha],
   );
 
-  const retry = useCallback(() => {
-    if (!thread || readOnly || !awaitsReply(thread)) return;
-    run(thread);
-  }, [run, thread, readOnly]);
+  const remove = useCallback(
+    (id: string) => {
+      if (live?.thread.id === id) controller.current?.abort();
+      if (live?.thread.id === id) setLive(null);
+      store.remove(id);
+    },
+    [live, store],
+  );
 
-  const close = useCallback(() => {
-    stop();
-    setThread(null);
-  }, [stop]);
+  const exchanges = useMemo(() => {
+    if (!live) return saved;
+    const isSaved = saved.some((exchange) => exchange.id === live.thread.id);
+    return isSaved
+      ? saved.map((exchange) => (exchange.id === live.thread.id ? live.thread : exchange))
+      : [...saved, live.thread];
+  }, [saved, live]);
 
-  return { thread, streaming, error, readOnly, open, reopen, send, retry, stop, close };
+  return {
+    exchanges,
+    live,
+    streaming: live?.isStreaming ?? false,
+    start,
+    followUp,
+    rerun,
+    stop,
+    remove,
+  };
 }
-
-export type Assist = ReturnType<typeof useAssist>;

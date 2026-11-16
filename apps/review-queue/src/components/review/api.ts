@@ -1,10 +1,12 @@
 import type { ConversationView } from "@/lib/github/conversation";
+import type { ModelStatus } from "@/lib/llm/model-status";
 import type { LinkedIssue, ReviewEvent } from "@/lib/github/gh";
 import { json, postJson } from "@/lib/json-response";
 import { prPath } from "@/lib/pr-ref";
 import type { AssistRequest } from "@/lib/review/assist-request";
 import type { ChangePartsResult } from "@/lib/review/change-parts-service";
-import type { ExplanationResult } from "@/lib/review/explanation-service";
+import type { ChangesSummaryResult } from "@/lib/review/changes-summary-service";
+import type { ExplanationProgress, ExplanationResult } from "@/lib/review/explanation-service";
 import type { FileLines } from "@/lib/review/file-lines";
 import type { Interdiff } from "@/lib/review/interdiff";
 import type { OrientationResult } from "@/lib/review/orientation-service";
@@ -40,6 +42,10 @@ export function fetchOrientation(ref: PullRequestRef, sha: string): Promise<Orie
   return fetch(apiPath(ref, `/orientation${query({ sha })}`)).then(json<OrientationResult>);
 }
 
+export function fetchModelStatus(): Promise<ModelStatus> {
+  return fetch("/api/model").then(json<ModelStatus>);
+}
+
 export function fetchHead(ref: PullRequestRef): Promise<{ headSha: string }> {
   return fetch(apiPath(ref, "/head")).then(json<{ headSha: string }>);
 }
@@ -56,6 +62,13 @@ export function fetchChanges(ref: PullRequestRef, sha: string): Promise<Interdif
   return fetch(apiPath(ref, `/changes${query({ sha })}`)).then(json<Interdiff>);
 }
 
+export function fetchChangesSummary(
+  ref: PullRequestRef,
+  sha: string,
+): Promise<ChangesSummaryResult> {
+  return fetch(apiPath(ref, `/changes-summary${query({ sha })}`)).then(json<ChangesSummaryResult>);
+}
+
 export function fetchStepExplanation(
   ref: PullRequestRef,
   sha: string,
@@ -63,6 +76,15 @@ export function fetchStepExplanation(
 ): Promise<ExplanationResult> {
   return fetch(apiPath(ref, `/explanation${query({ sha, step: stepId })}`)).then(
     json<ExplanationResult>,
+  );
+}
+
+export function fetchExplanationProgress(
+  ref: PullRequestRef,
+  sha: string,
+): Promise<ExplanationProgress> {
+  return fetch(apiPath(ref, `/explanation-progress${query({ sha })}`)).then(
+    json<ExplanationProgress>,
   );
 }
 

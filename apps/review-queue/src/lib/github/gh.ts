@@ -221,26 +221,76 @@ export async function listLinkedIssues(
   return nodes.flatMap((issue) => (issue ? linkedIssueFromClosing(issue) : []));
 }
 
-function mergedFieldQuery(ref: PullRequestRef, index: number): string {
+export type ChecksState = "passing" | "running" | "failing" | "none";
+
+export type PullRequestFacts = {
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  headSha: string;
+  reviewDecision: string | null;
+  checks: ChecksState;
+  createdAt: string;
+  isMerged: boolean;
+};
+
+type RawFacts = {
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  headRefOid: string;
+  reviewDecision: string | null;
+  createdAt: string;
+  merged: boolean;
+  commits: { nodes: { commit: { statusCheckRollup: { state: string } | null } }[] };
+};
+
+const FACTS_FIELDS = `additions deletions changedFiles headRefOid reviewDecision createdAt merged
+  commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }`;
+
+const CHECK_STATES: Record<string, ChecksState> = {
+  SUCCESS: "passing",
+  PENDING: "running",
+  EXPECTED: "running",
+  FAILURE: "failing",
+  ERROR: "failing",
+};
+
+function buildFactsField(ref: PullRequestRef, index: number): string {
   const repository = `repository(owner: ${JSON.stringify(ref.owner)}, name: ${JSON.stringify(ref.repo)})`;
-  return `pr${index}: ${repository} { pullRequest(number: ${ref.number}) { merged } }`;
+  return `pr${index}: ${repository} { pullRequest(number: ${ref.number}) { ${FACTS_FIELDS} } }`;
 }
 
-export async function listMergedPullRequestKeys(
+function factsFromRaw(raw: RawFacts): PullRequestFacts {
+  const state = raw.commits.nodes[0]?.commit.statusCheckRollup?.state;
+  return {
+    additions: raw.additions,
+    deletions: raw.deletions,
+    changedFiles: raw.changedFiles,
+    headSha: raw.headRefOid,
+    reviewDecision: raw.reviewDecision,
+    checks: state ? (CHECK_STATES[state] ?? "none") : "none",
+    createdAt: raw.createdAt,
+    isMerged: raw.merged,
+  };
+}
+
+export async function listPullRequestFacts(
   refs: PullRequestRef[],
   run: Runner = githubRun,
-): Promise<string[]> {
-  if (refs.length === 0) return [];
-  const query = `query { ${refs.map(mergedFieldQuery).join(" ")} }`;
+): Promise<Record<string, PullRequestFacts>> {
+  if (refs.length === 0) return {};
+  const query = `query { ${refs.map(buildFactsField).join(" ")} }`;
   const output = await run("gh", ["api", "graphql", "-f", `query=${query}`]);
-  const results = (
-    JSON.parse(output) as {
-      data: Record<string, { pullRequest: { merged: boolean } | null } | null>;
-    }
+  const factsByAlias = (
+    JSON.parse(output) as { data: Record<string, { pullRequest: RawFacts } | null> }
   ).data;
-  return refs
-    .filter((_ref, index) => results[`pr${index}`]?.pullRequest?.merged === true)
-    .map(prKey);
+  const facts: Record<string, PullRequestFacts> = {};
+  refs.forEach((ref, index) => {
+    const raw = factsByAlias[`pr${index}`]?.pullRequest;
+    if (raw) facts[prKey(ref)] = factsFromRaw(raw);
+  });
+  return facts;
 }
 
 export async function viewerLogin(run: Runner = githubRun): Promise<string> {

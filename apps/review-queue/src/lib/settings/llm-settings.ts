@@ -1,13 +1,18 @@
 import { z } from "zod";
-import { CLAUDE_MODELS, LLM_BACKENDS } from "@/lib/llm/backends";
+import { CLAUDE_MODELS, LLM_BACKENDS, THINKING_SETTINGS } from "@/lib/llm/backends";
 import { claudeModelFromEnv, llmConfigFromEnv } from "@/lib/llm/client";
 import { parsedJson } from "@/lib/json";
 import type { SessionStore } from "@/lib/session/store";
 
+const ThinkingSchema = z.preprocess(
+  (value) => (typeof value === "boolean" ? (value ? "on" : "off") : value),
+  z.enum(THINKING_SETTINGS),
+);
+
 export const LlmSettingsSchema = z.object({
   enabled: z.boolean(),
   model: z.string().trim().min(1).max(200).nullable(),
-  thinking: z.boolean(),
+  thinking: ThinkingSchema,
   timeoutMs: z.number().int().min(1_000).max(3_600_000),
   backend: z.enum(LLM_BACKENDS).default("local"),
   claudeModel: z.enum(CLAUDE_MODELS).default("haiku"),

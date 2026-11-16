@@ -123,7 +123,7 @@ function NoteRow({
     <PaneRow className="group">
       <NoteKindBadge tag={note} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-sm">
-        <Markdown text={note.body} className="flex flex-col gap-1.5 wrap-anywhere" />
+        <Markdown text={note.body} className="flex flex-col gap-1.5 text-pretty" />
         {note.path && (
           <button onClick={() => onOpen(note)} className="self-start text-left">
             <PathLabel path={note.path} line={note.line} startLine={note.startLine} />

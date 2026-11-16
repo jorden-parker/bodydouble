@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveShortcut } from "./shortcut-keys";
+import { resolveShortcut, SHORTCUT_ROWS } from "./shortcut-keys";
 
 describe("resolveShortcut", () => {
   it("maps single keys", () => {
@@ -26,6 +26,7 @@ describe("resolveShortcut", () => {
     expect(resolveShortcut("g", "f")).toBe("open-files");
     expect(resolveShortcut("g", "m")).toBe("open-map");
     expect(resolveShortcut("g", "h")).toBe("open-hotspots");
+    expect(resolveShortcut("g", "o")).toBe("open-outline");
     expect(resolveShortcut("g", "g")).toBe("open-github");
   });
 
@@ -39,5 +40,14 @@ describe("resolveShortcut", () => {
     expect(resolveShortcut("g", "z")).toBeNull();
     expect(resolveShortcut(null, "q")).toBeNull();
     expect(resolveShortcut(null, "h")).toBeNull();
+  });
+
+  it("resolves every bound row of the help table to its action", () => {
+    for (const row of SHORTCUT_ROWS) {
+      if (!row.action) continue;
+      const [first, second] = row.keys;
+      const resolved = second ? resolveShortcut(first, second) : resolveShortcut(null, first);
+      expect(resolved, row.label).toBe(row.action);
+    }
   });
 });

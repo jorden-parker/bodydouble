@@ -9,6 +9,7 @@ export const HEAD_SHA = "5".repeat(40);
 export function emptySession(overrides: Partial<Session> = {}): Session {
   return {
     currentStepId: null,
+    stepOrder: null,
     lastHeadSha: HEAD_SHA,
     baselineHeadSha: null,
     updatedAt: null,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SessionStore } from "@/lib/session/store";
 import { savedLlmSettings } from "./llm-settings";
+import { savedPreparationSetting } from "./preparation-settings";
 import { savedRepositories } from "./repository-settings";
 import { clearCacheResponse, settingsView, updateSettings } from "./settings-service";
 
@@ -8,7 +9,7 @@ const ENV = { PATH: "/nowhere", REVIEW_QUEUE_LLM_TIMEOUT_MS: "8000" };
 const SETTINGS = {
   enabled: true,
   model: "b",
-  thinking: false,
+  thinking: "off",
   timeoutMs: 20_000,
   backend: "local",
   claudeModel: "haiku",
@@ -22,28 +23,36 @@ const unreachable = (async () => {
   throw new Error("connection refused");
 }) as typeof fetch;
 
-describe("settingsView", () => {
-  it("shows the environment's settings and the installed models until settings are saved", async () => {
+describe("next-PR preparation", () => {
+  it("is off until the reader switches it on, and the switch is saved", async () => {
     const store = new SessionStore(":memory:");
-    expect(await settingsView(store, ENV, ollamaWith(["a:latest", "b"]))).toEqual({
-      llm: {
-        enabled: true,
-        model: null,
-        thinking: true,
-        timeoutMs: 8000,
-        backend: "local",
-        claudeModel: "haiku",
-      },
-      models: ["a", "b"],
-      autoModel: null,
-      repositories: [],
+    expect((await settingsView(store, ENV, unreachable)).prepareNext).toBe(false);
+    const saved = await updateSettings(store, { prepareNext: true }, ENV, unreachable);
+    expect(await saved.json()).toMatchObject({ prepareNext: true });
+    expect(savedPreparationSetting(store)).toBe(true);
+  });
+});
+
+describe("settingsView", () => {
+  it("shows the environment's settings and what the model choice found until settings are saved", async () => {
+    const store = new SessionStore(":memory:");
+    const view = await settingsView(store, ENV, ollamaWith(["a:latest", "b"]));
+    expect(view.llm).toEqual({
+      enabled: true,
+      model: null,
+      thinking: "model",
+      timeoutMs: 8000,
+      backend: "local",
+      claudeModel: "haiku",
     });
+    expect(view.choice).toMatchObject({ server: "ollama", served: ["a", "b"], isUsable: false });
+    expect(view.repositories).toEqual([]);
   });
 
   it("still loads when Ollama is unreachable", async () => {
     const store = new SessionStore(":memory:");
     const view = await settingsView(store, ENV, unreachable);
-    expect(view).toMatchObject({ models: [], autoModel: null });
+    expect(view.choice).toMatchObject({ served: null, isUsable: false });
   });
 });
 
@@ -52,7 +61,7 @@ describe("updateSettings", () => {
     const store = new SessionStore(":memory:");
     const response = await updateSettings(store, { llm: SETTINGS }, ENV, ollamaWith(["b"]));
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ llm: SETTINGS, models: ["b"] });
+    expect(await response.json()).toMatchObject({ llm: SETTINGS, choice: { served: ["b"] } });
     expect(savedLlmSettings(store)).toEqual(SETTINGS);
   });
 

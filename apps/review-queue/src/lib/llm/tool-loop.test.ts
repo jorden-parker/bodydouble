@@ -133,10 +133,28 @@ function toolBox(run?: (name: string, input: unknown) => Promise<ToolOutcome>): 
   };
 }
 
-async function drain(stream: AsyncIterable<LoopChunk>): Promise<LoopChunk[]> {
+const TIMING_PHASES: string[] = ["queued", "reading", "writing"];
+
+function isTimingChunk(chunk: LoopChunk): boolean {
+  return chunk.kind === "phase" && TIMING_PHASES.includes(chunk.phase.phase);
+}
+
+function isLookupChunk(chunk: LoopChunk | undefined): boolean {
+  return chunk?.kind === "phase" && chunk.phase.phase === "looking-up";
+}
+
+async function drainAll(stream: AsyncIterable<LoopChunk>): Promise<LoopChunk[]> {
   const chunks: LoopChunk[] = [];
   for await (const chunk of stream) chunks.push(chunk);
   return chunks;
+}
+
+async function drain(stream: AsyncIterable<LoopChunk>): Promise<LoopChunk[]> {
+  return (await drainAll(stream)).filter((chunk) => !isTimingChunk(chunk));
+}
+
+function lookupChunk(round: number, lookup: AssistLookup): LoopChunk {
+  return { kind: "phase", phase: { phase: "looking-up", round, budget: 4, ...lookup } };
 }
 
 function textOf(chunks: LoopChunk[]): string {
@@ -158,7 +176,7 @@ describe("toolLoop", () => {
     const chunks = await drain(toolLoop(client(fetchImpl), REQUEST, toolBox(run)));
 
     expect(chunks).toEqual([
-      { kind: "lookup", lookup: lookupFor("loadReview") },
+      lookupChunk(1, lookupFor("loadReview")),
       { kind: "text", text: "Only one caller." },
     ]);
     expect(run).toHaveBeenCalledWith("find_references", { name: "loadReview" });
@@ -179,18 +197,67 @@ describe("toolLoop", () => {
     ]);
   });
 
-  it("keeps looking up until the model answers, however many rounds that takes", async () => {
-    const lookupRounds = 8;
-    const answers = Array.from({ length: lookupRounds }, (_, index) =>
+  it("runs at most four rounds of lookups by default, then answers without tools", async () => {
+    const answers = Array.from({ length: 4 }, (_, index) =>
       toolRound(`t${index}`, { name: "loadReview" }),
     );
-    const { fetchImpl, calls } = scriptedFetch([...answers, textRound("Found it.")]);
+    const { fetchImpl, requests, calls } = scriptedFetch([...answers, textRound("Found it.")]);
     const run = vi.fn(toolBox().run);
     const chunks = await drain(toolLoop(client(fetchImpl), REQUEST, toolBox(run)));
 
-    expect(calls()).toBe(lookupRounds + 1);
-    expect(run).toHaveBeenCalledTimes(lookupRounds);
+    expect(calls()).toBe(5);
+    expect(run).toHaveBeenCalledTimes(4);
+    expect(requests[4]).not.toHaveProperty("tools");
+    expect(
+      chunks.filter((chunk) => chunk.kind === "phase" && chunk.phase.phase === "budget-ended"),
+    ).toEqual([{ kind: "phase", phase: { phase: "budget-ended", budget: 4 } }]);
     expect(textOf(chunks)).toBe("Found it.");
+  });
+
+  it("does not run a lookup the model asks for after the budget is spent", async () => {
+    const { fetchImpl, requests } = scriptedFetch([
+      toolRound("t1", { name: "a" }),
+      toolRound("t2", { name: "b" }),
+      toolRound("t3", { name: "c" }),
+    ]);
+    const run = vi.fn(toolBox().run);
+    await drain(toolLoop(client(fetchImpl), REQUEST, toolBox(run), undefined, 2));
+
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(requests).toHaveLength(3);
+  });
+
+  it("uses the lookup budget it is given", async () => {
+    const answers = Array.from({ length: 2 }, (_, index) =>
+      toolRound(`t${index}`, { name: "loadReview" }),
+    );
+    const { fetchImpl, calls } = scriptedFetch([...answers, textRound("Found it.")]);
+    const chunks = await drain(toolLoop(client(fetchImpl), REQUEST, toolBox(), undefined, 2));
+
+    expect(calls()).toBe(3);
+    expect(chunks).toContainEqual({ kind: "phase", phase: { phase: "budget-ended", budget: 2 } });
+  });
+
+  it("reports the reading estimate and the writing speed around the first answer", async () => {
+    const { fetchImpl } = scriptedFetch([textRound("Found it.")]);
+    const chunks = await drainAll(toolLoop(client(fetchImpl), REQUEST, toolBox()));
+    const phases = chunks.flatMap((chunk) => (chunk.kind === "phase" ? [chunk.phase] : []));
+
+    expect(phases[0]).toMatchObject({ phase: "reading", isEstimate: true });
+    expect(phases[0]).toHaveProperty("promptTokens");
+    expect(phases.map((phase) => phase.phase)).toEqual(["reading", "writing"]);
+  });
+
+  it("replaces the estimated prompt size with the real one when the model reports it", async () => {
+    const answer =
+      sse("message_start", { message: { usage: { input_tokens: 1234 } } }) + textRound("Ok.");
+    const { fetchImpl } = scriptedFetch([answer]);
+    const chunks = await drainAll(toolLoop(client(fetchImpl), REQUEST, toolBox()));
+
+    expect(chunks).toContainEqual({
+      kind: "phase",
+      phase: expect.objectContaining({ phase: "reading", promptTokens: 1234, isEstimate: false }),
+    } as LoopChunk);
   });
 
   it("returns an error to the model as a failed tool_result and carries on", async () => {
@@ -274,7 +341,7 @@ describe("toolLoop", () => {
     const chunks = await drain(toolLoop(client(fetchImpl), REQUEST, toolBox(run)));
 
     expect(run).toHaveBeenCalledTimes(count);
-    expect(chunks.filter((chunk) => chunk.kind === "lookup")).toHaveLength(count);
+    expect(chunks.filter(isLookupChunk)).toHaveLength(count);
     const results = requests[1]?.messages.at(-1)?.content;
     expect(Array.isArray(results) && results.every((result) => !("is_error" in result))).toBe(true);
   });
@@ -285,10 +352,10 @@ describe("toolLoop", () => {
       textRound("Never sent."),
     ]);
     const loop = toolLoop(client(fetchImpl), REQUEST, toolBox());
-    const first = await loop.next();
+    let next = await loop.next();
+    while (!isLookupChunk(next.value)) next = await loop.next();
     await loop.return(undefined);
 
-    expect(first.value).toMatchObject({ kind: "lookup" });
     expect(calls()).toBe(1);
   });
 
@@ -305,7 +372,7 @@ describe("toolLoop", () => {
 
     expect(run).toHaveBeenCalledTimes(1);
     expect(calls()).toBe(1);
-    expect(chunks).toEqual([{ kind: "lookup", lookup: lookupFor("loadReview") }]);
+    expect(chunks).toEqual([lookupChunk(1, lookupFor("loadReview"))]);
   });
 
   it("makes no model request when the signal is already aborted", async () => {

@@ -9,7 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CARD_CLASS } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { CLAUDE_MODELS, type ClaudeModel, type LlmBackend } from "@/lib/llm/backends";
+import {
+  CLAUDE_MODELS,
+  type ClaudeModel,
+  type LlmBackend,
+  type ThinkingSetting,
+} from "@/lib/llm/backends";
+import type { ModelChoice } from "@/lib/llm/model-choice";
 import type { LlmSettings } from "@/lib/settings/llm-settings";
 import { REPOSITORY_LIMIT } from "@/lib/settings/repository-settings";
 import type { SettingsView } from "@/lib/settings/settings-service";
@@ -27,8 +33,29 @@ const BACKEND_OPTIONS: { value: LlmBackend; label: string }[] = [
   { value: "claude-code", label: "Claude Code" },
 ];
 
+const THINKING_OPTIONS: { value: ThinkingSetting; label: string }[] = [
+  { value: "model", label: "Follow the model" },
+  { value: "on", label: "On" },
+  { value: "off", label: "Off" },
+];
+
 function modelChoices(view: SettingsView, chosen: string | null): string[] {
-  return chosen && !view.models.includes(chosen) ? [chosen, ...view.models] : view.models;
+  const served = view.choice.served ?? [];
+  return chosen && !served.includes(chosen) ? [chosen, ...served] : served;
+}
+
+function ModelReason({ choice }: { choice: ModelChoice }) {
+  const tooBig = choice.sizes.filter((size) => !size.isFitting);
+  return (
+    <span className="grid gap-1">
+      <span>{choice.reason}</span>
+      {tooBig.length > 0 && (
+        <span>
+          {`Does not fit this machine: ${tooBig.map((size) => `${size.name} (${size.memoryGb}\u00a0GB)`).join(", ")}.`}
+        </span>
+      )}
+    </span>
+  );
 }
 
 const SELECT_CLASS =
@@ -41,6 +68,7 @@ export function SettingsScreen({ initial }: { initial: SettingsView }) {
   const [settings, setSettings] = useState(initial.llm);
   const [seconds, setSeconds] = useState(String(initial.llm.timeoutMs / 1000));
   const [repositories, setRepositories] = useState(initial.repositories);
+  const [isPrepareNextOn, setPrepareNextOn] = useState(initial.prepareNext);
   const [status, setStatus] = useState<string | null>(null);
 
   function change(patch: Partial<LlmSettings>) {
@@ -59,11 +87,16 @@ export function SettingsScreen({ initial }: { initial: SettingsView }) {
   function save(event: FormEvent) {
     event.preventDefault();
     setStatus(null);
-    saveSettings({ llm: { ...settings, timeoutMs: Number(seconds) * 1000 }, repositories })
+    saveSettings({
+      llm: { ...settings, timeoutMs: Number(seconds) * 1000 },
+      repositories,
+      prepareNext: isPrepareNextOn,
+    })
       .then((next) => {
         setView(next);
         setSettings(next.llm);
         setRepositories(next.repositories);
+        setPrepareNextOn(next.prepareNext);
         setStatus("Saved.");
       })
       .catch((failure: Error) => setStatus(failure.message));
@@ -155,7 +188,7 @@ export function SettingsScreen({ initial }: { initial: SettingsView }) {
                 Model
               </label>
             }
-            hint="Auto uses the first suitable installed model."
+            hint={<ModelReason choice={view.choice} />}
             control={
               <div className="relative w-full min-w-0 sm:w-64">
                 <select
@@ -164,7 +197,9 @@ export function SettingsScreen({ initial }: { initial: SettingsView }) {
                   onChange={(event) => change({ model: event.target.value || null })}
                   className={SELECT_CLASS}
                 >
-                  <option value="">{view.autoModel ? `Auto (${view.autoModel})` : "Auto"}</option>
+                  <option value="">
+                    {view.choice.model ? `Auto (${view.choice.model})` : "Auto"}
+                  </option>
                   {modelChoices(view, settings.model).map((model) => (
                     <option key={model} value={model}>
                       {model}
@@ -178,15 +213,17 @@ export function SettingsScreen({ initial }: { initial: SettingsView }) {
         )}
         <SettingRow
           label={
-            <label htmlFor="thinking" className="font-medium">
-              Let the Model Think Before Answering
-            </label>
+            <span id="thinking-label" className="font-medium">
+              Thinking Before Answering
+            </span>
           }
-          hint="Turn off only for models that answer directly. Qwen models repeat themselves without it."
+          hint="Follow the model uses the chosen size's default. Thinking adds up to 2048 tokens, which can take minutes on a small machine."
           control={
-            <ToggleSwitch
-              id="thinking"
-              checked={settings.thinking}
+            <SegmentedPicker<ThinkingSetting>
+              name="thinking"
+              labelId="thinking-label"
+              options={THINKING_OPTIONS}
+              value={settings.thinking}
               onChange={(thinking) => change({ thinking })}
             />
           }
@@ -235,6 +272,19 @@ export function SettingsScreen({ initial }: { initial: SettingsView }) {
             onRemove={removeRepository}
           />
         </div>
+        <SettingRow
+          label={
+            <label htmlFor="prepare-next" className="font-medium">
+              Prepare the next PR while I&apos;m idle
+            </label>
+          }
+          hint={
+            "Off by default. When on, the Queue prepares its Up next PR once you have been idle for a while: the repository is cloned in the background and about 6\u00a0GB of model stays in memory."
+          }
+          control={
+            <ToggleSwitch id="prepare-next" checked={isPrepareNextOn} onChange={setPrepareNextOn} />
+          }
+        />
       </section>
 
       <section aria-label="Clear the Cache" className={cn(CARD_CLASS, "border-ink-coral/50")}>

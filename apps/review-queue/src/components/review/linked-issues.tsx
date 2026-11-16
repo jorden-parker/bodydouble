@@ -25,7 +25,7 @@ function LinkedIssueRow({ issue }: { issue: LinkedIssue }) {
         >
           {issueLabel(issue)}
         </a>
-        <span className="min-w-0 wrap-anywhere">{issue.title}</span>
+        <span className="min-w-0 text-pretty">{issue.title}</span>
         {issue.state === "closed" && <Badge variant="secondary">Closed</Badge>}
         {hasBody && (
           <Button variant="link" size="xs" aria-expanded={shown} onClick={() => setShown(!shown)}>

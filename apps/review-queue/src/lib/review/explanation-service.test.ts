@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PullRequest } from "@/lib/github/gh";
 import { SessionStore } from "@/lib/session/store";
-import { explanationFor, storedExplanation } from "./explanation-service";
+import { explanationFor, explanationProgress, storedExplanation } from "./explanation-service";
 import type { ReviewData } from "./prepare";
 import { modelReply } from "@/test/fake-llm";
 
@@ -104,5 +104,15 @@ describe("storedExplanation", () => {
     const { fetchImpl } = countingFetch();
     await explanationFor(DATA, STEP.id, store, CONFIG, fetchImpl);
     expect(storedExplanation(DATA, STEP.id, store, { ...CONFIG, model: "other" })).toBeNull();
+  });
+});
+
+describe("explanationProgress", () => {
+  it("counts the steps whose explanation is already cached for this head", async () => {
+    const store = new SessionStore(":memory:");
+    const data = { ...DATA, steps: [STEP, { ...STEP, id: "core:src/b.ts:0" }] };
+    expect(explanationProgress(data, store, CONFIG)).toEqual({ explained: 0, total: 2 });
+    await explanationFor(data, STEP.id, store, CONFIG, countingFetch().fetchImpl);
+    expect(explanationProgress(data, store, CONFIG)).toEqual({ explained: 1, total: 2 });
   });
 });

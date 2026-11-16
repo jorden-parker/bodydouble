@@ -69,7 +69,7 @@ function SymbolRow({
         className="flex min-w-0 flex-1 flex-wrap items-start gap-1.5 text-left text-sm"
       >
         <Icon className="size-3.5 shrink-0 text-primary" aria-hidden />
-        <span className={cn("wrap-anywhere font-mono", row.changed && "font-medium text-primary")}>
+        <span className={cn("truncate font-mono", row.changed && "font-medium text-primary")}>
           {row.symbol.name}
         </span>
         <span className="text-sm text-muted-foreground">{row.symbol.kind}</span>

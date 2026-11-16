@@ -4,6 +4,7 @@ import type { Session, SessionStore } from "@/lib/session/store";
 import { AssistTargetSchema } from "./assist-request";
 import { NOTE_DECORATIONS, NOTE_LABELS, SYMBOL_KINDS } from "@/lib/types";
 import { hasConsistentDecorations } from "./conventional-comment";
+import { tomorrowMidnight } from "@/lib/session/snooze";
 
 const MAX_STORED_LOOKUPS = 500;
 
@@ -40,6 +41,8 @@ const AssistTurnSchema = z.object({
   text: z.string().max(16_000),
   lookups: z.array(AssistLookupSchema).max(MAX_STORED_LOOKUPS).optional(),
   ended: z.enum(["stopped", "failed"]).optional(),
+  hasBudgetEnded: z.boolean().optional(),
+  isFromClaude: z.boolean().optional(),
 });
 
 const AssistThreadSchema = z.object({
@@ -54,6 +57,10 @@ const AssistThreadSchema = z.object({
 export const SessionActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("current-step"), stepId: z.string(), headSha: CommitShaSchema }),
   z.object({ type: z.literal("step-done"), stepId: z.string(), done: z.boolean() }),
+  z.object({
+    type: z.literal("step-order"),
+    stepIds: z.array(z.string()).max(500).nullable(),
+  }),
   z.object({ type: z.literal("hotspot-checked"), hotspotId: z.string(), checked: z.boolean() }),
   z
     .object({
@@ -96,6 +103,14 @@ export const SessionActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("symbol-pin"), symbol: SymbolSchema, pinned: z.boolean() }),
   z.object({ type: z.literal("start-over"), keepNotes: z.boolean() }),
   z.object({ type: z.literal("catch-up") }),
+  z.object({
+    type: z.literal("snooze"),
+    until: z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("tomorrow") }),
+      z.object({ kind: z.literal("new-commits"), headSha: CommitShaSchema }),
+    ]),
+  }),
+  z.object({ type: z.literal("wake") }),
   z.object({ type: z.literal("archive") }),
   z.object({ type: z.literal("unarchive") }),
   z.object({ type: z.literal("assist-save"), thread: AssistThreadSchema }),
@@ -112,6 +127,7 @@ type Handlers = {
 
 const HANDLERS: Handlers = {
   "current-step": (store, key, action) => store.setCurrentStep(key, action.stepId),
+  "step-order": (store, key, action) => store.setStepOrder(key, action.stepIds),
   "step-done": (store, key, action) => store.setStepDone(key, action.stepId, action.done),
   "hotspot-checked": (store, key, action) =>
     store.setHotspotChecked(key, action.hotspotId, action.checked),
@@ -131,6 +147,14 @@ const HANDLERS: Handlers = {
   "symbol-pin": (store, key, action) => store.setSymbolPinned(key, action.symbol, action.pinned),
   "start-over": (store, key, action) => store.startOver(key, action.keepNotes),
   "catch-up": (store, key) => store.catchUp(key),
+  snooze: (store, key, action) =>
+    store.snooze(
+      key,
+      action.until.kind === "tomorrow"
+        ? { at: tomorrowMidnight(new Date()) }
+        : { headSha: action.until.headSha },
+    ),
+  wake: (store, key) => store.wake(key),
   archive: (store, key) => store.archive(key),
   unarchive: (store, key) => store.unarchive(key),
   "assist-save": (store, key, action) => store.saveAssistThread(key, action.thread),

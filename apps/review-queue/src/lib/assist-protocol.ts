@@ -6,9 +6,25 @@ export type AssistAction = (typeof ASSIST_ACTIONS)[number];
 
 export const ASSIST_ERROR_MARKER = "\u0000";
 
-export const ASSIST_LOOKUP_MARKER = "\u0001";
+export const ASSIST_RECORD_MARKER = "\u0001";
 
 export type AssistLookup = { tool: string; label: string; paths: string[] };
+
+export type AssistFailureKind = "unavailable" | "ended-early" | "failed";
+
+export type AssistPhase =
+  | { phase: "queued"; ahead: number }
+  | { phase: "reading"; promptTokens: number; seconds: number; isEstimate: boolean }
+  | ({ phase: "looking-up"; round: number; budget: number } & AssistLookup)
+  | { phase: "writing"; tokensPerSecond: number; isMeasured: boolean; maxSeconds: number }
+  | { phase: "budget-ended"; budget: number };
+
+export type AssistRecord =
+  ({ type: "phase" } & AssistPhase) | { type: "failure"; kind: AssistFailureKind };
+
+export const DEFAULT_LOOKUP_BUDGET = 4;
+
+export const MAX_LOOKUP_BUDGET = 12;
 
 export const MAX_HISTORY_TURNS = 10;
 
@@ -26,6 +42,8 @@ export type AssistTurn = {
   text: string;
   lookups?: AssistLookup[];
   ended?: "stopped" | "failed";
+  hasBudgetEnded?: boolean;
+  isFromClaude?: boolean;
 };
 
 export type AssistThread = {
@@ -64,16 +82,8 @@ export function linesInRange(hunks: Hunk[], from: LinePosition, to: LinePosition
   });
 }
 
-function lineNumber(line: DiffLine | undefined): number | null {
+export function lineNumber(line: DiffLine | undefined): number | null {
   return line ? (line.newLine ?? line.oldLine) : null;
-}
-
-function rangeLabel(hunks: Hunk[], range: LineRange): string {
-  const lines = linesInRange(hunks, range.from, range.to);
-  const first = lineNumber(lines[0]);
-  const last = lineNumber(lines.at(-1));
-  const span = first === last ? `L${first}` : `L${first}–L${last}`;
-  return `${range.path} ${span}`;
 }
 
 function commentLine(hunks: Hunk[], from: LinePosition, to: LinePosition): number | null {
@@ -85,21 +95,6 @@ export function targetPath(target: AssistTarget): string {
   return target.kind === "lines" ? target.range.path : target.path;
 }
 
-function shortLabel(target: Exclude<AssistTarget, { kind: "lines" }>): string {
-  return target.kind === "file"
-    ? `${target.path} (whole file)`
-    : `${target.path} (step check ${target.check + 1})`;
-}
-
-export function targetLabel(hunks: Hunk[], target: AssistTarget): string {
-  return target.kind === "lines" ? rangeLabel(hunks, target.range) : shortLabel(target);
-}
-
 export function targetCommentLine(hunks: Hunk[], target: AssistTarget): number | null {
   return target.kind === "lines" ? commentLine(hunks, target.range.from, target.range.to) : null;
-}
-
-export function targetFirstLine(hunks: Hunk[], target: AssistTarget): number {
-  const first = target.kind === "lines" ? target.range.from : { hunk: 0, line: 0 };
-  return lineNumber(hunks[first.hunk]?.lines[first.line]) ?? 1;
 }

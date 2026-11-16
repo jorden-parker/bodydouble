@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { relativeTime } from "@/components/inbox/in-progress-list";
+import { relativeTime } from "@/components/inbox/time";
 import { EmptyState } from "@/components/common/empty-state";
 import { Markdown } from "@/components/common/markdown-text";
 import { Badge } from "@/components/ui/badge";
@@ -246,7 +246,7 @@ function ReviewRow({ review }: { review: PostedReview }) {
     <article className="flex flex-col gap-1.5 rounded-md border p-3">
       <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
         <span className="font-medium text-foreground">{review.author}</span>
-        <Badge variant="outline" className="h-auto whitespace-normal wrap-anywhere">
+        <Badge variant="outline" className="h-auto whitespace-nowrap">
           {REVIEW_STATE_LABELS[review.state]}
         </Badge>
         {review.submittedAt && <span>{relativeTime(review.submittedAt)}</span>}
@@ -254,7 +254,7 @@ function ReviewRow({ review }: { review: PostedReview }) {
           View
         </a>
       </div>
-      {review.body && <Markdown text={review.body} className="wrap-anywhere" />}
+      {review.body && <Markdown text={review.body} className="text-pretty" />}
     </article>
   );
 }
@@ -286,7 +286,7 @@ function ThreadRow({
           <span>· {relativeTime(root.createdAt)}</span>
           {thread.outdated && <Badge variant="outline">Outdated</Badge>}
         </div>
-        <Markdown text={root.body} className="wrap-anywhere" />
+        <Markdown text={root.body} className="text-pretty" />
         {replies.map((answer) => (
           <ReplyItem
             key={answer.id}
@@ -362,7 +362,7 @@ function ReplyItem({
         <span className="font-medium text-foreground">{reply.author}</span>
         <span>{relativeTime(reply.createdAt)}</span>
       </div>
-      <Markdown text={reply.body} className="wrap-anywhere" />
+      <Markdown text={reply.body} className="text-pretty" />
     </div>
   );
 }

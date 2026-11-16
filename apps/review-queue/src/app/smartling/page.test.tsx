@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import SmartlingPage from "./page";
 
-vi.mock("@/components/inbox/dependabot-list", () => ({ SmartlingList: () => null }));
+vi.mock("@/components/inbox/bot-pull-request-list", () => ({ SmartlingList: () => null }));
 
 describe("SmartlingPage", () => {
   it("titles the page Smartling", () => {

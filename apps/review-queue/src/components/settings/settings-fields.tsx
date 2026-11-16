@@ -27,7 +27,7 @@ export function SettingRow({
   control,
 }: {
   label: ReactNode;
-  hint: string;
+  hint: ReactNode;
   control: ReactNode;
 }) {
   return (
@@ -139,7 +139,7 @@ export function TokenInput({
           key={value}
           className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm border border-line-soft bg-surface-2 pl-2 font-mono text-label"
         >
-          <span className="min-w-0 wrap-anywhere">{value}</span>
+          <span className="min-w-0 truncate">{value}</span>
           <button
             type="button"
             aria-label={`Remove ${value}`}

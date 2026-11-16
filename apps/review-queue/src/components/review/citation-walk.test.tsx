@@ -50,7 +50,7 @@ describe("CitationChip", () => {
   it("reads as a path with its line range, whatever form the model wrote", () => {
     const ranged = { ...FIRST, code: "src/a.ts#L10-L12", endLine: 12 };
     render(<CitationChip citation={ranged} active={false} onShow={vi.fn()} />);
-    expect(screen.getByRole("button").textContent).toBe("src/a.ts:10-12");
+    expect(screen.getByRole("button").textContent).toBe("src/a.ts:10–12");
   });
 
   it("marks the chip being walked as pressed", () => {

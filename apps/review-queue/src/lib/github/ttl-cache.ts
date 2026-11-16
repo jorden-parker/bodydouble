@@ -20,4 +20,8 @@ export class TtlCache {
   forget(key: string): void {
     this.entries.delete(key);
   }
+
+  clear(): void {
+    this.entries.clear();
+  }
 }

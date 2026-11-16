@@ -34,7 +34,7 @@ export function PageHeader({ title, lede, action, backHref, backLabel }: PageHea
           </Button>
         )}
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="min-w-0 text-title text-balance wrap-anywhere">{title}</h1>
+          <h1 className="min-w-0 text-title text-balance">{title}</h1>
           {action}
         </div>
         {lede && <p className="max-w-prose text-sm text-fg-muted">{lede}</p>}

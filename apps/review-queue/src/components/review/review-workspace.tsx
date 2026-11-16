@@ -1,95 +1,33 @@
 "use client";
 
-import {
-  ArrowLeft,
-  ArrowRight,
-  CircleHelp,
-  Coffee,
-  Compass,
-  Ellipsis,
-  ExternalLink,
-  Flame,
-  GitPullRequest,
-  Layers,
-  FolderTree,
-  ListTree,
-  type LucideIcon,
-  MapPin,
-  MessagesSquare,
-  Network,
-  RotateCcw,
-  Route,
-  Send,
-  Shapes,
-  Sparkles,
-  StickyNote,
-} from "lucide-react";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { Callout } from "@/components/common/callout";
-import { Otter } from "@/components/neon/otter";
-import { LinkedIssueChip } from "./linked-issue-chip";
-import { Stream } from "@/components/neon/stream";
-import { EmptyState } from "@/components/common/empty-state";
-import { splitPath } from "@/components/common/path-label";
-import { HintButton } from "@/components/common/hint-button";
-import { InlineMarkdown } from "@/components/common/markdown-text";
-import { Button } from "@/components/ui/button";
-import { Kbd } from "@/components/ui/kbd";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  type AssistTarget,
-  type AssistTurn,
-  targetCommentLine,
-  targetFirstLine,
-  targetLabel,
-  targetPath,
-} from "@/lib/assist-protocol";
-import { prKey } from "@/lib/pr-ref";
-import type { ChangePartsResult } from "@/lib/review/change-parts-service";
+import { type ReactNode, type RefObject, useEffect, useMemo, useRef } from "react";
+import { cn } from "cn";
 import type { PreparedFile, ReviewPayload } from "@/lib/review/prepare";
 import type { Session } from "@/lib/session/store";
 import type { PullRequestRef, Step } from "@/lib/types";
-import { AssistPanel } from "./assist-panel";
-import { citationsInText, parseCitation } from "./citations";
-import { ChangesView } from "./changes-view";
-import { FileBrowserPane } from "./file-browser-pane";
-import { FileView } from "./file-view";
-import { FinishReview } from "./finish-review";
-import { FocusTimer } from "./focus-timer";
-import { fetchChangeParts } from "./api";
-import { ChangeMapList } from "./change-map-list";
-import { ContextList } from "./context-list";
-import { contextCount } from "./context-symbols";
-import { HotspotList } from "./hotspot-list";
+import { CentreBody } from "./centre";
+import { Companion } from "./companion";
+import { CommandPalette, usePaletteHotkey } from "./command-palette";
 import { JumpTrail } from "./jump-trail";
-import { ConversationPanel } from "./conversation-panel";
-import { newReplyCount } from "./your-threads";
-import { NotesPanel } from "./notes-panel";
-import { OrientationCard } from "./orientation-card";
-import { PauseDialog } from "./pause-dialog";
-import { PeekPanel } from "./peek-panel";
-import { PostedToast } from "./posted-toast";
-import { mapSections } from "./map-rows";
-import { ORDERING_MESSAGE, ReadingPath } from "./reading-path";
-import { ResumeCard } from "./resume-card";
-import { ShortcutHelp } from "./shortcut-help";
-import { StartOverDialog } from "./start-over-dialog";
-import { occurrencesOf } from "./occurrences";
-import { orderedSteps, stepReasons } from "./step-order";
-import { SavedChatsPanel } from "./saved-chats-panel";
+import { NoticeSlot, noticesOf } from "./notice-slot";
 import { noteAnchorOf } from "./note-range";
+import { occurrencesOf } from "./occurrences";
+import { PanelResizeHandle } from "./panel-resize-handle";
+import { PathRail } from "./path-rail";
+import { PauseDialog } from "./pause-dialog";
+import { PostedToast } from "./posted-toast";
+import { ResumeCard } from "./resume-card";
 import { SelectionToolbar } from "./selection-toolbar";
-import type { LoadFile } from "./use-file-lines";
+import { ShortcutHelp } from "./shortcut-help";
+import { WorkspaceTopBar } from "./workspace-top-bar";
+import { orderedSteps } from "./step-order";
+import { StartOverDialog } from "./start-over-dialog";
+import type { StepViewContext } from "./step-view";
+import { usePanelSizings, usePanelWidth } from "./use-panel-width";
+import type { OrientationState, useReview } from "./use-review";
 import { useReferenceCounts } from "./use-file-symbols";
-import { WorkspaceOutline } from "./workspace-outline";
-import { StepSummary } from "./step-summary";
-import { StepView, type StepViewContext } from "./step-view";
-import { useReview, type OrientationState } from "./use-review";
 import { useWorkspace, type Workspace } from "./use-workspace";
-import { PANE_SIDES, type PaneId, type PanelSide } from "./pane-layout";
-import { type PaneContent, type PaneEntry, ReviewPanel, type SideControls } from "./review-panel";
-import { usePanelSizings } from "./use-panel-width";
+import type { PanelSide } from "./panel-width";
 
 type WorkspaceProps = {
   pullRequest: PullRequestRef;
@@ -99,639 +37,65 @@ type WorkspaceProps = {
   controls: ReturnType<typeof useReview>;
 };
 
-const PANES: { id: PaneId; label: string; icon: LucideIcon }[] = [
-  { id: "about", label: "About", icon: Compass },
-  { id: "step", label: "Step", icon: MapPin },
-  { id: "path", label: "Path", icon: Route },
-  { id: "map", label: "Map", icon: Network },
-  { id: "hotspots", label: "Hotspots", icon: Flame },
-  { id: "notes", label: "Notes", icon: StickyNote },
-  { id: "github", label: "GitHub", icon: GitPullRequest },
-  { id: "chat", label: "Chat", icon: Sparkles },
-  { id: "chats", label: "Chats", icon: MessagesSquare },
-  { id: "context", label: "Context", icon: Shapes },
-  { id: "outline", label: "Outline", icon: ListTree },
-  { id: "files", label: "Files", icon: FolderTree },
-];
+type Sizing = ReturnType<typeof usePanelWidth>;
 
-const REVIEW_PATH = [
-  { label: "Orient" },
-  { label: "Walk the changes" },
-  { label: "Conversation" },
-  { label: "Submit" },
-];
-
-const PATH_ORIENT = 0;
-const PATH_WALK = 1;
-const PATH_CONVERSATION = 2;
-const PATH_SUBMIT = 3;
-
-function reviewStage(workspace: Workspace, orientation: OrientationState): number {
-  if (workspace.dialog === "finish") return PATH_SUBMIT;
-  if (orientation.status === "loading") return PATH_ORIENT;
-  const isConversationOpen = [...workspace.panes.left, ...workspace.panes.right].includes("github");
-  return isConversationOpen ? PATH_CONVERSATION : PATH_WALK;
+function navigablePaths(steps: Step[], files: ReadonlyMap<string, PreparedFile>): string[] {
+  const paths = steps.flatMap((step) => step.files.map((stepFile) => stepFile.path));
+  return [...new Set(paths)].filter((path) => files.get(path)?.navigable);
 }
 
-function BreakPill({ workspace }: { workspace: Workspace }) {
-  return (
-    <Callout
-      role="status"
-      className="animate-step-enter flex flex-wrap items-center justify-between gap-3"
-    >
-      <span className="flex min-w-0 items-center gap-2">
-        <Otter size="small" />
-        25 min in. Otter says stretch.
-      </span>
-      <span className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" onClick={() => workspace.setDialog("pause")}>
-          Pause with a note
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => workspace.setBreakDue(false)}>
-          Keep going
-        </Button>
-      </span>
-    </Callout>
-  );
-}
-
-function TopBar({
-  review,
-  workspace,
-  orientation,
-}: {
-  review: ReviewPayload;
-  workspace: Workspace;
-  orientation: OrientationState;
-}) {
-  return (
-    <header className="relative flex min-w-0 flex-col gap-4 border-b border-line-soft bg-background px-4 pt-5 pb-4 sm:px-6">
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-dot-grid" />
-      <div className="relative flex min-w-0 flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <div className="flex min-w-0 flex-1 basis-72 items-start gap-2">
-          <HintButton
-            variant="ghost"
-            size="icon"
-            hint="Back to inbox"
-            aria-label="Back to inbox"
-            asChild
-          >
-            <Link href="/">
-              <ArrowLeft />
-            </Link>
-          </HintButton>
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <p className="flex min-w-0 flex-wrap gap-x-3 text-eyebrow">
-              <span className="wrap-anywhere">{prKey(review.pr.ref)}</span>
-              <span>{review.headSha.slice(0, 7)}</span>
-            </p>
-            <h1 className="line-clamp-2 text-xl font-semibold tracking-tight text-balance wrap-anywhere sm:text-2xl">
-              <InlineMarkdown text={review.pr.title} />
-            </h1>
-            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-label text-fg-muted">
-              <span className="wrap-anywhere">by {review.pr.author}</span>
-              <a
-                href={review.pr.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`Open ${prKey(review.pr.ref)} on GitHub`}
-                className="control-target inline-flex items-center gap-1 text-fg underline underline-offset-4"
-              >
-                Open on GitHub
-                <ExternalLink aria-hidden className="size-3.5" />
-              </a>
-              <LinkedIssueChip issues={workspace.linkedIssues.issues} />
-            </div>
-          </div>
-        </div>
-        <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
-          <FocusTimer onFinished={() => workspace.setBreakDue(true)} />
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="More actions">
-                <Ellipsis />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="flex w-52 flex-col gap-0.5 p-1">
-              <Button
-                variant="ghost"
-                className="justify-start"
-                onClick={() => workspace.setDialog("start-over")}
-              >
-                <RotateCcw /> Start over
-              </Button>
-              <Button
-                variant="ghost"
-                className="justify-start"
-                onClick={() => workspace.setDialog("help")}
-              >
-                <CircleHelp /> Keyboard shortcuts <Kbd className="ml-auto">?</Kbd>
-              </Button>
-            </PopoverContent>
-          </Popover>
-          <HintButton
-            variant="ghost"
-            size="icon"
-            hint="Pause with a note"
-            shortcut="."
-            onClick={() => workspace.setDialog("pause")}
-          >
-            <Coffee />
-            <span className="sr-only">Pause</span>
-          </HintButton>
-          <Button onClick={() => workspace.setDialog("finish")}>
-            <Send /> Finish
-          </Button>
-        </div>
-      </div>
-      {workspace.breakDue && <BreakPill workspace={workspace} />}
-      <div className="relative px-8">
-        <Stream
-          steps={REVIEW_PATH}
-          currentIndex={reviewStage(workspace, orientation)}
-          label="Review path"
-        />
-      </div>
-    </header>
-  );
-}
-
-type PaneProps = {
-  review: ReviewPayload;
-  session: Session;
-  workspace: Workspace;
-  orientation: OrientationState;
-  fresh: boolean;
-};
-
-function paneEntries({ session, workspace }: PaneProps, side: PanelSide): PaneEntry[] {
-  const openHotspots = workspace.hotspots.filter(
-    (hotspot) => !session.checkedHotspots.includes(hotspot.id),
-  ).length;
-  const counts: Record<PaneId, number | null> = {
-    about: null,
-    step: null,
-    path: null,
-    map: null,
-    hotspots: openHotspots,
-    notes: session.notes.length,
-    github: newReplyCount(workspace.threads, workspace.conversation.viewer),
-    chat: null,
-    chats: session.assistThreads.length,
-    context: contextCount(session.contextSymbols, workspace.currentStep?.id ?? null),
-    outline: null,
-    files: null,
-  };
-  return PANES.filter(
-    (pane) => PANE_SIDES[pane.id] === side && (workspace.aiEnabled || pane.id !== "chat"),
-  ).map((pane) => ({ ...pane, count: counts[pane.id] }));
-}
-
-function sideControls(workspace: Workspace, side: PanelSide): SideControls {
-  return {
-    togglePanel: () => workspace.togglePanel(side),
-    pickPane: workspace.pickPane,
-    splitPane: workspace.splitPane,
-    closePane: workspace.closePane,
-    dropPane: workspace.dropPane,
-  };
-}
-
-function WorkspacePanel({
-  side,
-  sizing,
-  ...props
-}: PaneProps & { side: PanelSide; sizing: ReturnType<typeof usePanelSizings>["left"] }) {
-  return (
-    <ReviewPanel
-      side={side}
-      entries={paneEntries(props, side)}
-      panes={props.workspace.panes[side]}
-      controls={sideControls(props.workspace, side)}
-      sizing={sizing}
-      renderPane={(id) => PANE_CONTENT[id](props)}
-    />
-  );
-}
-
-function PathPane({ review, session, workspace, orientation }: PaneProps) {
-  return (
-    <ReadingPath
-      steps={review.steps}
-      startStepId={workspace.startStepId}
-      currentStepId={workspace.currentStep?.id ?? null}
-      doneSteps={session.doneSteps}
-      reopenedStepIds={review.reopenedStepIds}
-      reasons={stepReasons(orientation)}
-      ordering={orientation.status === "loading"}
-      fallback={orientation.status === "error"}
-      onSelect={(stepId) => workspace.selectStep(stepId)}
-      onToggleDone={(stepId) => workspace.setStepDone(stepId, !session.doneSteps.includes(stepId))}
-    />
-  );
-}
-
-function HotspotsPane({ session, workspace }: PaneProps) {
-  return (
-    <HotspotList
-      hotspots={workspace.hotspots}
-      checked={session.checkedHotspots}
-      onOpen={(hotspot) => workspace.goTo({ path: hotspot.path, line: hotspot.line ?? 1 })}
-      onToggleChecked={workspace.toggleHotspot}
-    />
-  );
-}
-
-type ChangePartsState = { status: "loading" } | ChangePartsResult;
-
-function useChangeParts(review: ReviewPayload, enabled: boolean): ChangePartsState {
-  const [state, setState] = useState<ChangePartsState>({ status: "loading" });
+function useRegionFocus(
+  isOpen: boolean,
+  regionRef: RefObject<HTMLElement | null>,
+  fallbackRef: RefObject<HTMLElement | null>,
+) {
+  const wasOpen = useRef(isOpen);
   useEffect(() => {
-    if (!enabled) return;
-    let live = true;
-    const load = async () => {
-      try {
-        const result = await fetchChangeParts(review.pr.ref, review.headSha);
-        if (live) setState(result);
-      } catch (error) {
-        if (live) setState({ status: "error", message: String(error) });
-      }
-    };
-    void load();
-    return () => {
-      live = false;
-    };
-  }, [review.pr.ref, review.headSha, enabled]);
-  return state;
+    if (wasOpen.current === isOpen) return;
+    wasOpen.current = isOpen;
+    if (isOpen) {
+      regionRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    const hasLostFocus = !document.activeElement || document.activeElement === document.body;
+    if (hasLostFocus) fallbackRef.current?.focus({ preventScroll: true });
+  }, [isOpen, regionRef, fallbackRef]);
 }
 
-function partsByNode(
-  state: ChangePartsState,
-): ReadonlyMap<string, { part: string; weight: string }> | undefined {
-  if (state.status !== "ready") return undefined;
-  return new Map(state.parts.parts.map((item) => [item.id, item]));
-}
-
-function PartsStatus({ state, enabled }: { state: ChangePartsState; enabled: boolean }) {
-  if (state.status === "ready") {
-    return (
-      <span className="block text-sm text-muted-foreground">
-        The model&apos;s guess, unverified. The PR author can sway it.
-      </span>
-    );
-  }
-  if (state.status === "loading" && enabled) {
-    return (
-      <p role="status" className="text-sm text-muted-foreground">
-        Asking the model how the changes fit…
-      </p>
-    );
-  }
-  return null;
-}
-
-function MapPane({ review, session, workspace }: PaneProps) {
-  const parts = useChangeParts(review, workspace.aiEnabled);
-  const sections = useMemo(
-    () => mapSections(review.changeMap, session.doneSteps, workspace.activeHunkId),
-    [review.changeMap, session.doneSteps, workspace.activeHunkId],
-  );
-  const partsOfNode = useMemo(() => partsByNode(parts), [parts]);
-  return (
-    <>
-      <PartsStatus state={parts} enabled={workspace.aiEnabled} />
-      <ChangeMapList
-        sections={sections}
-        onOpen={(node) => workspace.goTo({ path: node.path, line: node.line })}
-        parts={partsOfNode}
-        listRef={workspace.mapList}
-      />
-    </>
-  );
-}
-
-function NotesPane({ session, workspace }: PaneProps) {
-  return (
-    <NotesPanel
-      notes={session.notes}
-      parkingRef={workspace.parkingInput}
-      onPark={(body) => workspace.saveNote(null, { kind: "parked", decorations: [] }, body)}
-      onOpen={(note) => note.path && workspace.goTo({ path: note.path, line: note.line ?? 1 })}
-      onEdit={workspace.editNote}
-      onDelete={workspace.deleteNote}
-    />
-  );
-}
-
-function latestReceiptUrl(session: Session): string | null {
-  return session.submissions[0]?.url ?? null;
-}
-
-function ConversationPane({ session, workspace }: PaneProps) {
-  return (
-    <ConversationPanel
-      conversation={workspace.conversation}
-      error={workspace.conversationError}
-      threads={workspace.threads}
-      receipts={session.submissions}
-      replyReceipts={session.replyReceipts}
-      onOpen={workspace.goTo}
-      onReply={workspace.replyToThread}
-    />
-  );
-}
-
-function chatPane({ workspace }: PaneProps): PaneContent {
-  if (workspace.assist.thread) {
-    return { body: <WorkspaceAssist workspace={workspace} />, ownHeader: true };
-  }
-  return {
-    body: (
-      <EmptyState>
-        No chat open. Select lines and press <Kbd>i</Kbd>, or open a saved chat.
-      </EmptyState>
-    ),
-  };
-}
-
-function ChatsPane({ review, session, workspace }: PaneProps) {
-  return (
-    <SavedChatsPanel
-      chats={session.assistThreads}
-      headSha={review.headSha}
-      labelOf={(chat) => labelFor(workspace, chat.target)}
-      onOpen={workspace.assist.reopen}
-      onDelete={(chatId) => {
-        if (workspace.assist.thread?.id === chatId) workspace.assist.close();
-        workspace.deleteSavedChat(chatId);
-      }}
-    />
-  );
-}
-
-function ContextPane({ session, workspace }: PaneProps) {
-  if (workspace.peek.peek) return <WorkspacePeek workspace={workspace} />;
-  return (
-    <ContextList
-      symbols={session.contextSymbols}
-      stepId={workspace.currentStep?.id ?? null}
-      jumps={session.jumps}
-      onOpen={(symbol) => workspace.peekName(symbol.origin)}
-      onTogglePin={(symbol) => workspace.setSymbolPinned(symbol, !symbol.pinned)}
-      onBack={workspace.back}
-      onClearTrail={workspace.clearJumps}
-    />
-  );
-}
-
-function OutlinePane({ review, workspace }: PaneProps) {
-  return (
-    <WorkspaceOutline
-      pullRequest={workspace.pullRequest}
-      headSha={review.headSha}
-      step={workspace.currentStep ?? null}
-      files={workspace.files}
-      onGoTo={workspace.goTo}
-      onPeek={workspace.peekName}
-    />
-  );
-}
-
-function FilesPane({ review, workspace }: PaneProps) {
-  return (
-    <FileBrowserPane
-      pullRequest={workspace.pullRequest}
-      headSha={review.headSha}
-      inPullRequest={(path) => workspace.files.has(path)}
-      onOpen={workspace.openLocation}
-    />
-  );
-}
-
-const PANE_CONTENT: Record<PaneId, (props: PaneProps) => PaneContent> = {
-  about: (props) => ({
-    body: (
-      <OrientationCard
-        key={props.fresh ? "fresh" : "started"}
-        {...props}
-        linkedIssues={props.workspace.linkedIssues.issues}
-      />
-    ),
-  }),
-  step: (props) => ({ body: <StepSummary {...props} /> }),
-  path: (props) => ({ body: <PathPane {...props} /> }),
-  map: (props) => ({ body: <MapPane {...props} /> }),
-  hotspots: (props) => ({ body: <HotspotsPane {...props} /> }),
-  notes: (props) => ({ body: <NotesPane {...props} /> }),
-  github: (props) => ({ body: <ConversationPane {...props} /> }),
-  chat: chatPane,
-  chats: (props) => ({ body: <ChatsPane {...props} /> }),
-  context: (props) => ({ body: <ContextPane {...props} /> }),
-  outline: (props) => ({ body: <OutlinePane {...props} /> }),
-  files: (props) => ({ body: <FilesPane {...props} /> }),
-};
-
-function stepBarTitle(workspace: Workspace, step: Step): string {
-  if (workspace.openFile) return splitPath(workspace.openFile.path).name;
-  if (workspace.showChanges) return "What changed";
-  return workspace.showAll ? "Whole PR" : step.title;
-}
-
-function StepBar({ review, workspace }: { review: ReviewPayload; workspace: Workspace }) {
-  const step = workspace.currentStep;
-  if (!step) return null;
-  const isLast = workspace.currentIndex >= review.steps.length - 1;
-  return (
-    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
-      <div className="flex min-w-0 flex-1 basis-56 flex-col gap-1">
-        <span className="text-eyebrow tabular-nums">
-          {workspace.currentIndex + 1} of {review.steps.length}
-        </span>
-        <h2 className="text-heading wrap-anywhere">{stepBarTitle(workspace, step)}</h2>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {workspace.showChanges ? (
-          <Button variant="ghost" onClick={() => workspace.setShowChanges(false)}>
-            <ArrowLeft />
-            Back to the path
-          </Button>
-        ) : (
-          <HintButton
-            variant="ghost"
-            hint={workspace.showAll ? "Back to one step at a time" : "Show whole PR"}
-            shortcut="a"
-            onClick={() => workspace.setShowAll(!workspace.showAll)}
-          >
-            <Layers />
-            {workspace.showAll ? "Back to one step at a time" : "Show whole PR"}
-          </HintButton>
-        )}
-        {!workspace.showAll && !workspace.showChanges && (
-          <>
-            <HintButton
-              variant="ghost"
-              hint="Previous step"
-              shortcut="p"
-              onClick={() => workspace.moveStep(-1)}
-              disabled={workspace.currentIndex <= 0}
-            >
-              <ArrowLeft /> Previous
-            </HintButton>
-            <HintButton hint="Mark done and go on" shortcut="x" onClick={workspace.doneAndNext}>
-              {isLast ? "Done with this step" : "Next part"} <ArrowRight />
-            </HintButton>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PushNotice({ headSha, onDismiss }: { headSha: string; onDismiss: () => void }) {
-  return (
-    <Callout role="status" className="flex flex-wrap items-center justify-between gap-3">
-      <span className="min-w-0">
-        New commits were pushed ({headSha.slice(0, 7)}). Reload to re-check what changed.
-      </span>
-      <span className="flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => location.reload()}>
-          Reload
-        </Button>
-        <Button size="sm" variant="ghost" onClick={onDismiss}>
-          Dismiss
-        </Button>
-      </span>
-    </Callout>
-  );
-}
-
-const CLOSED_NOTICES = {
-  merged: "This PR is already merged. Anything you post now is a comment on shipped code.",
-  closed: "This PR was closed without merging. Check with the author before you spend time on it.",
-};
-
-function ClosedNotice({ state }: { state: ReviewPayload["pr"]["state"] }) {
-  if (state === "open") return null;
-  return <Callout>{CLOSED_NOTICES[state]}</Callout>;
-}
-
-function Dialogs({
-  review,
-  session,
-  workspace,
+function RegionFrame({
+  side,
+  open,
+  sizing,
+  regionRef,
+  label,
+  children,
 }: {
-  review: ReviewPayload;
-  session: Session;
-  workspace: Workspace;
+  side: PanelSide;
+  open: boolean;
+  sizing: Sizing;
+  regionRef: RefObject<HTMLDivElement | null>;
+  label: string;
+  children: ReactNode;
 }) {
-  const close = () => workspace.setDialog(null);
-  switch (workspace.dialog) {
-    case "resume":
-      return (
-        <ResumeCard
-          session={session}
-          steps={review.steps}
-          nextStep={workspace.nextStep}
-          reopenedCount={review.reopenedStepIds.length}
-          onContinue={workspace.resume}
-          onShowChanges={workspace.showChangesFromResume}
-        />
-      );
-    case "pause":
-      return <PauseDialog onPause={workspace.pause} onCancel={close} />;
-    case "finish":
-      return (
-        <FinishReview
-          notes={session.notes}
-          stepsLeft={review.steps.length - session.doneSteps.length}
-          hotspotsLeft={
-            workspace.hotspots.filter((hotspot) => !session.checkedHotspots.includes(hotspot.id))
-              .length
-          }
-          headSha={review.headSha}
-          files={review.files}
-          onSubmit={workspace.submit}
-          onDraftSummary={workspace.aiEnabled ? workspace.draftSummary : undefined}
-          onCancel={close}
-        />
-      );
-    case "help":
-      return <ShortcutHelp onClose={close} />;
-    case "start-over":
-      return (
-        <StartOverDialog
-          noteCount={session.notes.length}
-          onStartOver={workspace.startOver}
-          onCancel={close}
-        />
-      );
-    default:
-      return null;
-  }
-}
-
-function WorkspacePeek({ workspace }: Pick<PaneProps, "workspace">) {
-  const { peek } = workspace.peek;
-  if (!peek) return null;
+  const isLeft = side === "left";
   return (
-    <PeekPanel
-      peek={peek}
-      inPullRequest={(path) => workspace.files.has(path)}
-      onIdentifier={workspace.peekName}
-      onGoTo={workspace.goToFromPeek}
-      pinned={workspace.peekPinned}
-      onTogglePin={workspace.togglePeekPin}
-      onTab={(tab) => {
-        if (tab === "references") workspace.peek.showReferences(peek.position);
-        else workspace.peek.showDefinitions(peek.position);
-      }}
-      onClose={workspace.peek.close}
-      loadFile={workspace.loadFile}
-    />
-  );
-}
-
-function hunksOf(workspace: Workspace, target: AssistTarget) {
-  return workspace.files.get(targetPath(target))?.hunks ?? [];
-}
-
-function labelFor(workspace: Workspace, target: AssistTarget): string {
-  return targetLabel(hunksOf(workspace, target), target);
-}
-
-function WorkspaceAssist({ workspace }: { workspace: Workspace }) {
-  const { thread } = workspace.assist;
-  if (!thread) return null;
-  const { target } = thread;
-  const path = targetPath(target);
-  const hunks = hunksOf(workspace, target);
-  const citationsOf = (turn: AssistTurn) => {
-    const lookupPaths = (turn.lookups ?? []).flatMap((lookup) => lookup.paths);
-    const knownPaths = [...workspace.files.keys(), ...lookupPaths];
-    return citationsInText(turn.text, (code) =>
-      parseCitation(code, knownPaths, path, [...workspace.files.values()]),
-    );
-  };
-  return (
-    <AssistPanel
-      key={thread.id}
-      assist={workspace.assist}
-      thread={thread}
-      label={targetLabel(hunks, target)}
-      commentLine={targetCommentLine(hunks, target)}
-      citationsOf={citationsOf}
-      onSaveNote={(line, tag, body) =>
-        workspace.saveNote(line === null ? null : { path, line }, tag, body)
-      }
-      onShowLines={() => workspace.goTo({ path, line: targetFirstLine(hunks, target) })}
-      onShowCitation={(citation) =>
-        workspace.openLocation({
-          path: citation.path,
-          line: citation.line,
-          endLine: citation.endLine,
-        })
-      }
-    />
+    <div
+      ref={regionRef}
+      tabIndex={-1}
+      role={isLeft ? undefined : "complementary"}
+      aria-label={isLeft ? undefined : label}
+      style={{ width: sizing.width }}
+      className={cn(
+        "relative min-h-0 min-w-0 flex-col bg-surface p-3 focus-visible:outline-none max-lg:absolute max-lg:inset-y-0 max-lg:z-30 max-lg:max-w-panel-overlay",
+        open ? "flex" : "hidden",
+        isLeft
+          ? "col-start-1 row-start-1 border-r border-line-soft max-lg:left-0"
+          : "col-start-3 row-start-1 border-l border-line-soft max-lg:right-0",
+      )}
+    >
+      <PanelResizeHandle sizing={sizing} side={side} />
+      {children}
+    </div>
   );
 }
 
@@ -758,100 +122,60 @@ function WorkspaceSelectionToolbar({ workspace }: { workspace: Workspace }) {
               })
           : null
       }
-      onAction={(action) =>
-        workspace.assist.open({ kind: "lines", range: selection.range }, action)
-      }
+      onAction={(action) => workspace.startAsk({ kind: "lines", range: selection.range }, action)}
+      onAsk={(question) => workspace.askAbout({ kind: "lines", range: selection.range }, question)}
     />
   );
 }
 
-function NoSteps({
+function Dialogs({
   review,
-  orientation,
-}: {
-  review: ReviewPayload;
-  orientation: OrientationState;
-}) {
-  if (review.steps.length === 0) {
-    return <EmptyState>This PR has no file changes.</EmptyState>;
-  }
-  if (orientation.status !== "loading") return null;
-  return <EmptyState>{ORDERING_MESSAGE}</EmptyState>;
-}
-
-function navigablePaths(steps: Step[], files: ReadonlyMap<string, PreparedFile>): string[] {
-  const paths = steps.flatMap((step) => step.files.map((stepFile) => stepFile.path));
-  return [...new Set(paths)].filter((path) => files.get(path)?.navigable);
-}
-
-function CentreBody({
-  workspace,
-  review,
-  context,
-  loadFile,
-}: {
-  workspace: Workspace;
-  review: ReviewPayload;
-  context: StepViewContext;
-  loadFile: LoadFile;
-}) {
-  if (workspace.openFile) {
-    return (
-      <FileView
-        key={workspace.openFile.path}
-        target={workspace.openFile}
-        loadFile={loadFile}
-        onIdentifier={workspace.peekName}
-        onClose={workspace.closeFile}
-      />
-    );
-  }
-  if (workspace.showChanges) {
-    return (
-      <ChangesView
-        pullRequest={workspace.pullRequest}
-        headSha={review.headSha}
-        context={context}
-        onCaughtUp={workspace.catchUp}
-      />
-    );
-  }
-  return (
-    <div
-      key={workspace.showAll ? "all" : workspace.currentStep?.id}
-      className="flex animate-step-enter flex-col gap-8"
-    >
-      {workspace.visibleSteps.map((step) => (
-        <div key={step.id} className="flex flex-col gap-3">
-          {workspace.showAll && <h3 className="text-heading">{step.title}</h3>}
-          <StepView step={step} context={context} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export function ReviewWorkspace({
-  pullRequest,
-  review: payload,
   session,
-  orientation,
-  controls,
-}: WorkspaceProps) {
-  const review = useMemo(() => {
-    const steps = orderedSteps(payload.steps, orientation);
-    return { ...payload, steps, startStepId: steps[0]?.id ?? null };
-  }, [payload, orientation]);
-  const workspace = useWorkspace(pullRequest, review, session, orientation, controls);
-  const sizings = usePanelSizings(workspace.panes);
-  const fresh = session.doneSteps.length === 0 && workspace.currentIndex <= 0;
-  const referenceCounts = useReferenceCounts(
-    pullRequest,
-    review.headSha,
-    navigablePaths(workspace.visibleSteps, workspace.files),
-  );
-  const { setComposer, showPane } = workspace;
-  const { open: openAssist } = workspace.assist;
+  workspace,
+}: {
+  review: ReviewPayload;
+  session: Session;
+  workspace: Workspace;
+}) {
+  const close = () => workspace.setDialog(null);
+  switch (workspace.dialog) {
+    case "resume":
+      return (
+        <ResumeCard
+          session={session}
+          steps={review.steps}
+          nextStep={workspace.nextStep}
+          reopenedCount={review.reopenedStepIds.length}
+          pullRequest={review.pr.ref}
+          headSha={review.headSha}
+          onContinue={workspace.resume}
+          onShowChanges={workspace.showChangesFromResume}
+        />
+      );
+    case "pause":
+      return <PauseDialog onPause={workspace.pause} onCancel={close} />;
+    case "help":
+      return <ShortcutHelp onClose={close} />;
+    case "start-over":
+      return (
+        <StartOverDialog
+          noteCount={session.notes.length}
+          onStartOver={workspace.startOver}
+          onCancel={close}
+        />
+      );
+    default:
+      return null;
+  }
+}
+
+function useStepContext(
+  session: Session,
+  workspace: Workspace,
+  referenceCounts: ReturnType<typeof useReferenceCounts>,
+): StepViewContext {
+  const { setComposer, showContextView } = workspace;
+  const openAssist = workspace.startAsk;
   const handlers: StepViewContext["handlers"] = useMemo(
     () => ({
       onIdentifier: workspace.peekName,
@@ -865,7 +189,7 @@ export function ReviewWorkspace({
       onSaveNote: workspace.saveNote,
       onCancelNote: () => setComposer(null),
       onShowReferences: workspace.peek.showReferences,
-      onOpenConversation: () => showPane("github"),
+      onOpenConversation: () => showContextView("github"),
     }),
     [
       workspace.peekName,
@@ -877,10 +201,10 @@ export function ReviewWorkspace({
       workspace.saveNote,
       openAssist,
       workspace.peek.showReferences,
-      showPane,
+      showContextView,
     ],
   );
-  const context: StepViewContext = useMemo(
+  return useMemo(
     () => ({
       files: workspace.files,
       hotspots: workspace.hotspots,
@@ -893,9 +217,7 @@ export function ReviewWorkspace({
       activeHunkId: workspace.activeHunkId,
       referenceCounts,
       loadFile: workspace.loadFile,
-      onAskFile: workspace.aiEnabled
-        ? (path, action) => openAssist({ kind: "file", path }, action)
-        : null,
+      onAskFile: workspace.aiEnabled ? workspace.askFile : null,
       handlers,
     }),
     [
@@ -907,7 +229,7 @@ export function ReviewWorkspace({
       workspace.activeHunkId,
       workspace.aiEnabled,
       workspace.peek.peek,
-      openAssist,
+      workspace.askFile,
       workspace.loadFile,
       session.notes,
       session.checkedHotspots,
@@ -915,50 +237,71 @@ export function ReviewWorkspace({
       handlers,
     ],
   );
+}
+
+export function ReviewWorkspace({
+  pullRequest,
+  review: payload,
+  session,
+  orientation,
+  controls,
+}: WorkspaceProps) {
+  const review = useMemo(() => {
+    const steps = orderedSteps(payload.steps, session.stepOrder);
+    return { ...payload, steps, startStepId: steps[0]?.id ?? null };
+  }, [payload, session.stepOrder]);
+  const workspace = useWorkspace(pullRequest, review, session, orientation, controls);
+  const sizings = usePanelSizings(workspace.regionOpen);
+  const referenceCounts = useReferenceCounts(
+    pullRequest,
+    review.headSha,
+    navigablePaths(workspace.visibleSteps, workspace.files),
+  );
+  const context = useStepContext(session, workspace, referenceCounts);
+  const railRef = useRef<HTMLDivElement>(null);
+  const companionRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  useRegionFocus(workspace.regionOpen.left, railRef, mainRef);
+  useRegionFocus(workspace.regionOpen.right, companionRef, mainRef);
+  usePaletteHotkey(workspace.openPalette);
+  const notices = noticesOf({
+    actionError: controls.actionError,
+    workspace,
+    state: review.pr.state,
+  });
 
   return (
-    <div className="grid min-h-0 grid-cols-shell grid-rows-shell">
-      <TopBar review={review} workspace={workspace} orientation={orientation} />
-      <div className="grid min-h-0 grid-cols-workspace">
-        <WorkspacePanel
+    <div className="grid min-h-0 flex-1 grid-rows-shell">
+      <WorkspaceTopBar review={review} session={session} workspace={workspace} />
+      <div className="relative grid min-h-0 grid-cols-workspace">
+        <RegionFrame
           side="left"
+          open={workspace.regionOpen.left}
           sizing={sizings.left}
-          review={review}
-          session={session}
-          workspace={workspace}
-          orientation={orientation}
-          fresh={fresh}
-        />
-        <div className="relative flex min-h-0 min-w-0 flex-col bg-canvas-deep">
-          <div className="shrink-0 px-4 pt-6 pb-4 sm:px-8">
-            <div className="mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-4">
-              <StepBar review={review} workspace={workspace} />
-              <ClosedNotice state={review.pr.state} />
-              {controls.actionError && (
-                <Callout tone="error" role="alert">
-                  Couldn&apos;t save: {controls.actionError}
-                </Callout>
-              )}
-              {workspace.newHead && (
-                <PushNotice
-                  headSha={workspace.newHead}
-                  onDismiss={() => workspace.setNewHead(null)}
-                />
-              )}
-            </div>
-          </div>
-          <main id="main" className="min-h-0 flex-1 overflow-y-auto px-4 pb-24 sm:px-8">
-            <div
-              id="step-top"
-              className="mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-8 pt-2"
-            >
+          regionRef={railRef}
+          label="Review path"
+        >
+          <PathRail review={review} session={session} workspace={workspace} />
+        </RegionFrame>
+        <div className="relative col-start-2 row-start-1 flex min-h-0 min-w-0 flex-col bg-canvas-deep">
+          <main
+            id="main"
+            ref={mainRef}
+            tabIndex={-1}
+            className="min-h-0 flex-1 overflow-y-auto px-4 pt-6 pb-24 focus-visible:outline-none sm:px-8"
+          >
+            <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-6">
+              <NoticeSlot notices={notices} />
               <CentreBody
-                workspace={workspace}
+                payload={payload}
                 review={review}
+                session={session}
+                workspace={workspace}
+                orientation={orientation}
                 context={context}
                 loadFile={workspace.loadFile}
+                onRetryOrientation={controls.retryOrientation}
               />
-              <NoSteps review={payload} orientation={orientation} />
             </div>
           </main>
           <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center px-4">
@@ -969,20 +312,24 @@ export function ReviewWorkspace({
             />
           </div>
         </div>
-        <WorkspacePanel
+        <RegionFrame
           side="right"
+          open={workspace.regionOpen.right}
           sizing={sizings.right}
-          review={review}
-          session={session}
-          workspace={workspace}
-          orientation={orientation}
-          fresh={fresh}
-        />
+          regionRef={companionRef}
+          label="Companion"
+        >
+          <Companion review={review} session={session} workspace={workspace} />
+        </RegionFrame>
       </div>
       <WorkspaceSelectionToolbar workspace={workspace} />
       <Dialogs review={review} session={session} workspace={workspace} />
+      {workspace.isPaletteOpen && <CommandPalette review={review} workspace={workspace} />}
       {workspace.posted && (
-        <PostedToast url={latestReceiptUrl(session)} onDismiss={() => workspace.setPosted(false)} />
+        <PostedToast
+          url={session.submissions[0]?.url ?? null}
+          onDismiss={() => workspace.setPosted(false)}
+        />
       )}
     </div>
   );

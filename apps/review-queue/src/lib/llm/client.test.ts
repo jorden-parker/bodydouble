@@ -1,8 +1,18 @@
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ClaudeLauncher, ClaudeProcess } from "./claude-code";
-import { askModel, fencedTitle, llmConfigFromEnv, streamModel, streamTurn } from "./client";
+import {
+  askModel,
+  fencedTitle,
+  llmConfigFromEnv,
+  LlmFailure,
+  type Message,
+  streamModel,
+  streamTurn,
+  type TurnEvent,
+} from "./client";
+import { COLD_LOAD_SECONDS, readMeasuredSpeeds } from "./speeds";
 
 const CONFIG = {
   baseURL: "http://llm.test",
@@ -11,6 +21,7 @@ const CONFIG = {
   backend: "local" as const,
   thinking: true,
   timeoutMs: 1000,
+  problem: null,
 };
 
 function recordingFetch() {
@@ -26,19 +37,21 @@ function recordingFetch() {
 }
 
 describe("llmConfigFromEnv", () => {
-  it("defaults to local Ollama and can be switched off", () => {
+  it("defaults to local Ollama with no model chosen, and can be switched off", () => {
     expect(llmConfigFromEnv({})).toMatchObject({
       baseURL: "http://localhost:11434",
-      model: "qwen3.8-27b-cc",
+      model: "",
       enabled: true,
       backend: "local" as const,
-      thinking: true,
+      thinking: "model",
     });
     expect(llmConfigFromEnv({ REVIEW_QUEUE_LLM: "off" }).enabled).toBe(false);
   });
 
-  it("lets thinking be switched off", () => {
-    expect(llmConfigFromEnv({ REVIEW_QUEUE_LLM_THINKING: "off" }).thinking).toBe(false);
+  it("lets thinking follow the model, or be switched on or off", () => {
+    expect(llmConfigFromEnv({ REVIEW_QUEUE_LLM_THINKING: "off" }).thinking).toBe("off");
+    expect(llmConfigFromEnv({ REVIEW_QUEUE_LLM_THINKING: "on" }).thinking).toBe("on");
+    expect(llmConfigFromEnv({ REVIEW_QUEUE_LLM_THINKING: "maybe" }).thinking).toBe("model");
   });
 });
 
@@ -105,6 +118,64 @@ describe("askModel", () => {
     expect(await Promise.all([first, third])).toEqual(["ab", "ab"]);
   });
 
+  it("sends a background call again after an interactive call preempted it", async () => {
+    const systems: string[] = [];
+    const fetchImpl = (async (_url: unknown, init?: RequestInit) => {
+      const system = JSON.parse(String(init?.body)).system as string;
+      systems.push(system);
+      if (system === "background" && systems.length === 1) {
+        return new Promise<Response>((_resolve, reject) =>
+          init?.signal?.addEventListener("abort", () => reject(init.signal?.reason)),
+        );
+      }
+      return new Response(
+        sseEvent("content_block_delta", { delta: { type: "text_delta", text: system } }) +
+          sseEvent("message_stop", {}),
+      );
+    }) as typeof fetch;
+    const background = askModel(
+      { config: CONFIG, fetchImpl },
+      { ...REQUEST, system: "background" },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const interactive = askModel(
+      { config: CONFIG, fetchImpl },
+      { ...REQUEST, system: "interactive" },
+      undefined,
+      "interactive",
+    );
+    expect(await interactive).toBe("interactive");
+    expect(await background).toBe("background");
+    expect(systems).toEqual(["background", "interactive", "background"]);
+  });
+
+  it("refuses a turn whose config names a problem, without sending anything", async () => {
+    const fetchImpl = (async () => {
+      throw new Error("must not be sent");
+    }) as typeof fetch;
+    const config = { ...CONFIG, problem: "Start one with `cl serve 9b`." };
+    await expect(askModel({ config, fetchImpl }, REQUEST)).rejects.toThrow("cl serve 9b");
+  });
+
+  it("records the speed of a real turn from its usage events", async () => {
+    const { fetchImpl } = streamingFetch([
+      sseEvent("message_start", { message: { usage: { input_tokens: 500 } } }),
+      sseEvent("content_block_start", { content_block: { type: "text" } }),
+      sseEvent("message_delta", { usage: { output_tokens: 20 } }),
+      sseEvent("message_stop", {}),
+    ]);
+    await askModel(
+      { config: CONFIG, fetchImpl },
+      { ...REQUEST, messages: [{ role: "user", content: "warm the model up" }] },
+    );
+    await askModel(
+      { config: CONFIG, fetchImpl },
+      { ...REQUEST, messages: [{ role: "user", content: "a turn no earlier test sent" }] },
+    );
+    expect(readMeasuredSpeeds().reading.isMeasured).toBe(true);
+    expect(readMeasuredSpeeds().writing.isMeasured).toBe(true);
+  });
+
   it("fails when the stream ends before message_stop", async () => {
     const { fetchImpl } = streamingFetch([
       sseEvent("content_block_delta", { delta: { type: "text_delta", text: "half" } }),
@@ -115,6 +186,13 @@ describe("askModel", () => {
 
 function sseEvent(type: string, data: object): string {
   return `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
+}
+
+function textAnswer(text: string): string {
+  return (
+    sseEvent("content_block_delta", { delta: { type: "text_delta", text } }) +
+    sseEvent("message_stop", {})
+  );
 }
 
 function streamingFetch(chunks: string[]) {
@@ -202,6 +280,10 @@ async function collect<T>(stream: AsyncIterable<T>): Promise<T[]> {
   return parts;
 }
 
+async function collectTurn(stream: AsyncIterable<TurnEvent>): Promise<TurnEvent[]> {
+  return (await collect(stream)).filter((event) => event.type !== "phase");
+}
+
 const REQUEST = {
   system: "sys",
   maxTokens: 10,
@@ -267,6 +349,100 @@ describe("streamModel", () => {
 });
 
 describe("streamTurn", () => {
+  it("reports a turn that waits for the lane as queued, with how many turns are ahead", async () => {
+    const { fetchImpl } = streamingFetch([textAnswer("first")]);
+    const first = streamTurn({ config: CONFIG, fetchImpl }, REQUEST, undefined, "background");
+    const second = streamTurn({ config: CONFIG, fetchImpl }, REQUEST, undefined, "background");
+    try {
+      expect(await first.next()).toMatchObject({
+        value: { type: "phase", phase: { phase: "reading" } },
+      });
+      expect(await second.next()).toEqual({
+        done: false,
+        value: { type: "phase", phase: { phase: "queued", ahead: 1 } },
+      });
+    } finally {
+      await first.return(undefined);
+      await second.return(undefined);
+    }
+  });
+
+  it("adds the model load to the reading time when no turn has run for five minutes", async () => {
+    const idleSince = Date.now() + 10 * 60_000;
+    vi.spyOn(Date, "now").mockReturnValue(idleSince);
+    try {
+      const { fetchImpl } = streamingFetch([textAnswer("asleep")]);
+      const phases = await collect(
+        streamTurn({ config: CONFIG, fetchImpl }, { ...REQUEST, system: "cold system" }),
+      );
+      const reading = phases.find(
+        (event) => event.type === "phase" && event.phase.phase === "reading",
+      );
+      expect(reading).toMatchObject({
+        phase: { phase: "reading", seconds: expect.any(Number) },
+      });
+      expect(
+        reading?.type === "phase" && reading.phase.phase === "reading" && reading.phase.seconds,
+      ).toBeGreaterThanOrEqual(COLD_LOAD_SECONDS);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("estimates a follow-up from the part of its prompt the server has not seen", async () => {
+    const earlier = { role: "user" as const, content: "x".repeat(40_000) };
+    const readingSeconds = async (messages: Message[]) => {
+      const { fetchImpl } = streamingFetch([textAnswer("ok")]);
+      const phases = await collect(
+        streamTurn(
+          { config: { ...CONFIG, baseURL: "http://reuse.test" }, fetchImpl },
+          { ...REQUEST, system: "reuse system", messages },
+        ),
+      );
+      return phases.flatMap((event) =>
+        event.type === "phase" && event.phase.phase === "reading" ? [event.phase.seconds] : [],
+      )[0];
+    };
+    const first = await readingSeconds([earlier]);
+    const followUp = await readingSeconds([
+      earlier,
+      { role: "assistant", content: "ok" },
+      { role: "user", content: "and why?" },
+    ]);
+    expect(followUp).toBeLessThan(first);
+  });
+
+  it("refuses to send when the server is not usable, saying why", async () => {
+    const fetchImpl = (async () => {
+      throw new Error("fetch must not be called");
+    }) as typeof fetch;
+    const config = { ...CONFIG, problem: "Start one with `cl serve 9b`" };
+    const failure = collect(streamTurn({ config, fetchImpl }, REQUEST));
+    await expect(failure).rejects.toMatchObject({
+      kind: "unavailable",
+      message: "Start one with `cl serve 9b`",
+    });
+  });
+
+  it("says the server is not answering when the connection is refused", async () => {
+    const fetchImpl = (async () => {
+      throw new TypeError("fetch failed");
+    }) as unknown as typeof fetch;
+    const failure = collect(streamTurn({ config: CONFIG, fetchImpl }, REQUEST));
+    await expect(failure).rejects.toThrow("The model server at http://llm.test is not answering");
+    await expect(
+      collect(streamTurn({ config: CONFIG, fetchImpl }, REQUEST)),
+    ).rejects.toBeInstanceOf(LlmFailure);
+  });
+
+  it("tags a stream that ends before message_stop as ended early", async () => {
+    const { fetchImpl } = streamingFetch([
+      sseEvent("content_block_delta", { delta: { type: "text_delta", text: "Half" } }),
+    ]);
+    const failure = collect(streamTurn({ config: CONFIG, fetchImpl }, REQUEST));
+    await expect(failure).rejects.toMatchObject({ kind: "ended-early" });
+  });
+
   it("yields a tool_use block whose input arrives in split JSON chunks", async () => {
     const events =
       sseEvent("content_block_start", {
@@ -284,7 +460,7 @@ describe("streamTurn", () => {
       sseEvent("content_block_stop", { index: 0 }) +
       sseEvent("message_stop", {});
     const { fetchImpl } = streamingFetch([events]);
-    const turn = await collect(streamTurn({ config: CONFIG, fetchImpl }, REQUEST));
+    const turn = await collectTurn(streamTurn({ config: CONFIG, fetchImpl }, REQUEST));
     expect(turn).toEqual([
       { type: "tool_use", id: "t1", name: "find_references", input: { name: "loadReview" } },
     ]);
@@ -309,7 +485,7 @@ describe("streamTurn", () => {
       sseEvent("content_block_stop", { index: 1 }) +
       sseEvent("message_stop", {});
     const { fetchImpl } = streamingFetch([events]);
-    const turn = await collect(streamTurn({ config: CONFIG, fetchImpl }, REQUEST));
+    const turn = await collectTurn(streamTurn({ config: CONFIG, fetchImpl }, REQUEST));
     expect(turn).toEqual([
       { type: "text", text: "Let me look." },
       { type: "tool_use", id: "t2", name: "read_file", input: { path: "src/a.ts" } },
@@ -327,7 +503,7 @@ describe("streamTurn", () => {
       sseEvent("content_block_delta", { index: 1, delta: { type: "text_delta", text: "Answer" } }) +
       sseEvent("message_stop", {});
     const { fetchImpl } = streamingFetch([events]);
-    const turn = await collect(streamTurn({ config: CONFIG, fetchImpl }, REQUEST));
+    const turn = await collectTurn(streamTurn({ config: CONFIG, fetchImpl }, REQUEST));
     expect(turn).toEqual([{ type: "text", text: "Answer" }]);
   });
 
@@ -346,7 +522,7 @@ describe("streamTurn", () => {
     expect(withTools.bodies[0]).toMatchObject({ tools });
 
     const withoutTools = streamingFetch([sseEvent("message_stop", {})]);
-    await collect(streamTurn({ config: CONFIG, fetchImpl: withoutTools.fetchImpl }, REQUEST));
+    await collectTurn(streamTurn({ config: CONFIG, fetchImpl: withoutTools.fetchImpl }, REQUEST));
     expect(withoutTools.bodies[0]).not.toHaveProperty("tools");
   });
 
@@ -363,7 +539,7 @@ describe("streamTurn", () => {
       sseEvent("content_block_stop", { index: 0 }) +
       sseEvent("message_stop", {});
     const { fetchImpl } = streamingFetch([events]);
-    const turn = await collect(streamTurn({ config: CONFIG, fetchImpl }, REQUEST));
+    const turn = await collectTurn(streamTurn({ config: CONFIG, fetchImpl }, REQUEST));
     expect(turn).toEqual([
       {
         type: "tool_use",

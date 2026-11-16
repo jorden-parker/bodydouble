@@ -2,10 +2,12 @@ import { z } from "zod";
 import {
   ASSIST_ACTIONS,
   type AssistAction,
+  DEFAULT_LOOKUP_BUDGET,
   isBefore,
   type LinePosition,
   linesInRange,
   MAX_HISTORY_TURNS,
+  MAX_LOOKUP_BUDGET,
   targetPath,
 } from "@/lib/assist-protocol";
 import { checksFor } from "@/lib/hotspots/checks";
@@ -61,6 +63,9 @@ export const AssistRequestSchema = z.object({
   target: AssistTargetSchema,
   question: z.string().trim().min(1).max(2_000).nullable(),
   history: HistorySchema,
+  hasMoreDetail: z.boolean().optional(),
+  lookupBudget: z.number().int().min(1).max(MAX_LOOKUP_BUDGET).optional(),
+  shouldEscalate: z.boolean().optional(),
 });
 
 export type AssistRequest = z.infer<typeof AssistRequestSchema>;
@@ -202,6 +207,8 @@ export function assistInputFrom(source: AssistSource, request: AssistRequest): A
       action: request.action,
       question: request.question,
       flags,
+      hasMoreDetail: request.hasMoreDetail ?? false,
+      lookupBudget: request.lookupBudget ?? DEFAULT_LOOKUP_BUDGET,
       ...result.content,
     },
   };

@@ -1,5 +1,12 @@
 import { Readable } from "node:stream";
-import { CLAUDE_MODELS, type ClaudeModel, type LlmBackend } from "./backends";
+import {
+  CLAUDE_MODELS,
+  type ClaudeModel,
+  type LlmBackend,
+  THINKING_SETTINGS,
+  type ThinkingSetting,
+} from "./backends";
+import type { AssistFailureKind, AssistPhase } from "@/lib/assist-protocol";
 import type { FileDiff } from "@/lib/types";
 import {
   type ClaudeLauncher,
@@ -7,14 +14,38 @@ import {
   claudeCodeFrame,
   launchClaudeCode,
 } from "./claude-code";
+import { type Lane, readLaneStatus, takeLane, TurnPreempted } from "./lanes";
+import {
+  COLD_LOAD_SECONDS,
+  isModelAwake,
+  type SpeedMeter,
+  readMeasuredSpeeds,
+  startSpeedMeter,
+} from "./speeds";
+import { recordPrompt } from "./prompt-reuse";
 
-export type LlmConfig = {
+export class LlmFailure extends Error {
+  readonly kind: AssistFailureKind;
+
+  constructor(kind: AssistFailureKind, message: string) {
+    super(message);
+    this.name = "LlmFailure";
+    this.kind = kind;
+  }
+}
+
+export type LlmEnvConfig = {
   backend: LlmBackend;
   baseURL: string;
   model: string;
   enabled: boolean;
-  thinking: boolean;
+  thinking: ThinkingSetting;
   timeoutMs: number;
+};
+
+export type LlmConfig = Omit<LlmEnvConfig, "thinking"> & {
+  thinking: boolean;
+  problem?: string | null;
 };
 
 export type LlmClient = {
@@ -47,7 +78,10 @@ export type ModelRequest = {
   tools?: ToolSpec[];
 };
 
-export type TurnEvent = { type: "text"; text: string } | ToolUseBlock;
+type TurnPhase = Extract<AssistPhase, { phase: "queued" | "reading" | "writing" }>;
+
+export type TurnEvent =
+  { type: "text"; text: string } | ToolUseBlock | { type: "phase"; phase: TurnPhase };
 
 const THINKING_TOKENS = 2048;
 
@@ -63,17 +97,23 @@ function llmBackendFromEnv(env: Record<string, string | undefined>): LlmBackend 
   return env.REVIEW_QUEUE_LLM_BACKEND === "claude-code" ? "claude-code" : "local";
 }
 
+function thinkingSettingFromEnv(env: Record<string, string | undefined>): ThinkingSetting {
+  return THINKING_SETTINGS.find((setting) => setting === env.REVIEW_QUEUE_LLM_THINKING) ?? "model";
+}
+
 export function claudeModelFromEnv(env: Record<string, string | undefined>): ClaudeModel {
   return CLAUDE_MODELS.find((model) => model === env.REVIEW_QUEUE_CLAUDE_MODEL) ?? "haiku";
 }
 
-export function llmConfigFromEnv(env: Record<string, string | undefined> = process.env): LlmConfig {
+export function llmConfigFromEnv(
+  env: Record<string, string | undefined> = process.env,
+): LlmEnvConfig {
   return {
     backend: llmBackendFromEnv(env),
     baseURL: env.REVIEW_QUEUE_LLM_URL ?? env.OLLAMA_HOST ?? "http://localhost:11434",
-    model: env.REVIEW_QUEUE_LLM_MODEL ?? "qwen3.8-27b-cc",
+    model: env.REVIEW_QUEUE_LLM_MODEL ?? "",
     enabled: env.REVIEW_QUEUE_LLM !== "off",
-    thinking: env.REVIEW_QUEUE_LLM_THINKING !== "off",
+    thinking: thinkingSettingFromEnv(env),
     timeoutMs: Number(env.REVIEW_QUEUE_LLM_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS),
   };
 }
@@ -108,11 +148,41 @@ export function fencedTitle(title: string): string {
   return fenced("pr_title", title.slice(0, TITLE_LIMIT));
 }
 
+const JSON_CLOSERS: Record<string, string> = { "{": "}", "[": "]" };
+const OUTSIDE_STRING_CHARACTER = /[\s:,\-+.\dA-Za-z]/;
+
+function repairJsonObject(body: string): string {
+  const openClosers: string[] = [];
+  let repaired = "";
+  let isInString = false;
+  let isEscaped = false;
+  for (const character of body) {
+    if (isInString) {
+      repaired += character;
+      isInString = isEscaped || character !== '"';
+      isEscaped = !isEscaped && character === "\\";
+      continue;
+    }
+    if (character === '"') isInString = true;
+    else if (character in JSON_CLOSERS) openClosers.push(JSON_CLOSERS[character]);
+    else if (character === openClosers.at(-1)) openClosers.pop();
+    else if (!OUTSIDE_STRING_CHARACTER.test(character)) continue;
+    repaired += character;
+    if (openClosers.length === 0) return repaired;
+  }
+  const closedString = isInString ? `${repaired}"` : repaired.replace(/,\s*$/, "");
+  return closedString + openClosers.reverse().join("");
+}
+
 export function jsonObjectIn(text: string): unknown {
   const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start === -1 || end <= start) throw new Error("No JSON object in reply");
-  return JSON.parse(text.slice(start, end + 1));
+  if (start === -1) throw new Error("No JSON object in reply");
+  const body = text.slice(start);
+  try {
+    return JSON.parse(body.slice(0, body.lastIndexOf("}") + 1));
+  } catch {
+    return JSON.parse(repairJsonObject(body));
+  }
 }
 
 async function serverMessage(response: Response): Promise<string> {
@@ -147,6 +217,14 @@ function thinkingFields(config: LlmConfig, maxTokens: number) {
     : { max_tokens: maxTokens, thinking: { type: "disabled" } };
 }
 
+function toUnreachableFailure(error: unknown, baseURL: string): unknown {
+  if (!(error instanceof TypeError)) return error;
+  return new LlmFailure(
+    "unavailable",
+    `The model server at ${baseURL} is not answering; start it or choose another model in Settings`,
+  );
+}
+
 async function postMessages(
   client: LlmClient,
   request: ModelRequest,
@@ -173,8 +251,14 @@ async function postMessages(
       }),
       signal: signal ? AbortSignal.any([deadline.signal, signal]) : deadline.signal,
     })
+    .catch((error: unknown) => {
+      throw toUnreachableFailure(error, client.config.baseURL);
+    })
     .finally(deadline.release);
-  if (!response.ok) throw new Error(await failureMessage(response, client.config.model));
+  if (!response.ok) {
+    const kind = response.status === 404 ? "unavailable" : "failed";
+    throw new LlmFailure(kind, await failureMessage(response, client.config.model));
+  }
   return response;
 }
 
@@ -182,15 +266,24 @@ export async function askModel(
   client: LlmClient,
   request: ModelRequest,
   signal?: AbortSignal,
+  lane: Lane = "background",
 ): Promise<string> {
-  let reply = "";
-  for await (const text of streamModel(client, request, signal)) reply += text;
-  return reply;
+  for (;;) {
+    try {
+      let reply = "";
+      for await (const text of streamModel(client, request, signal, lane)) reply += text;
+      return reply;
+    } catch (error) {
+      if (lane === "interactive" || !(error instanceof TurnPreempted)) throw error;
+    }
+  }
 }
 
 export type StreamEvent = {
   type?: string;
   index?: number;
+  message?: { usage?: { input_tokens?: number } };
+  usage?: { output_tokens?: number };
   content_block?: { type?: string; id?: string; name?: string };
   delta?: { type?: string; text?: string; partial_json?: string };
   error?: { message?: string };
@@ -264,7 +357,7 @@ async function* streamEvents(
     stopped ||= event.type === "message_stop";
     yield event;
   }
-  if (!stopped) throw new Error(ENDED_EARLY_MESSAGE);
+  if (!stopped) throw new LlmFailure("ended-early", ENDED_EARLY_MESSAGE);
 }
 
 async function* rawStreamEvents(
@@ -324,10 +417,59 @@ function textEventOf(event: StreamEvent): TurnEvent | null {
   return event.delta.text ? { type: "text", text: event.delta.text } : null;
 }
 
+type ReadingPlan = { promptTokens: number; processedTokens: number; isCold: boolean };
+
+function promptTextOf(request: ModelRequest): string {
+  return JSON.stringify([request.tools ?? [], request.system, request.messages]);
+}
+
+function readingPlanOf(client: LlmClient, request: ModelRequest): ReadingPlan {
+  const prompt = promptTextOf(request);
+  const promptTokens = Math.ceil(prompt.length / 4);
+  if (client.config.backend === "claude-code")
+    return { promptTokens, processedTokens: promptTokens, isCold: false };
+  const reusedChars = recordPrompt(`${client.config.baseURL} ${client.config.model}`, prompt);
+  return {
+    promptTokens,
+    processedTokens: Math.ceil((prompt.length - reusedChars) / 4),
+    isCold: !isModelAwake(),
+  };
+}
+
+function startReadingPhase(
+  plan: ReadingPlan,
+  promptTokens: number,
+  isEstimate: boolean,
+): TurnPhase {
+  const { reading } = readMeasuredSpeeds();
+  const load = plan.isCold ? COLD_LOAD_SECONDS : 0;
+  return {
+    phase: "reading",
+    promptTokens,
+    seconds: plan.processedTokens / reading.tokensPerSecond + load,
+    isEstimate,
+  };
+}
+
+function startWritingPhase(maxTokens: number): TurnPhase {
+  const { writing } = readMeasuredSpeeds();
+  return {
+    phase: "writing",
+    tokensPerSecond: writing.tokensPerSecond,
+    isMeasured: writing.isMeasured,
+    maxSeconds: maxTokens / writing.tokensPerSecond,
+  };
+}
+
 function turnEventOf(
   event: StreamEvent,
   toolBlocks: Map<number, PendingToolUse>,
+  plan: ReadingPlan,
 ): TurnEvent | null {
+  const promptTokens = event.message?.usage?.input_tokens;
+  if (event.type === "message_start" && promptTokens !== undefined) {
+    return { type: "phase", phase: startReadingPhase(plan, promptTokens, false) };
+  }
   if (event.type === "content_block_start") startToolBlock(event, toolBlocks);
   if (event.type === "content_block_stop") return finishToolBlock(event, toolBlocks);
   if (event.type === "content_block_delta" && event.delta?.type === "input_json_delta") {
@@ -337,17 +479,38 @@ function turnEventOf(
   return textEventOf(event);
 }
 
-async function* turnEvents(events: AsyncIterable<StreamEvent>): AsyncGenerator<TurnEvent> {
+async function* turnEvents(
+  events: AsyncIterable<StreamEvent>,
+  plan: ReadingPlan,
+): AsyncGenerator<TurnEvent> {
   const toolBlocks = new Map<number, PendingToolUse>();
   for await (const event of events) {
-    const turnEvent = turnEventOf(event, toolBlocks);
+    const turnEvent = turnEventOf(event, toolBlocks, plan);
     if (turnEvent) yield turnEvent;
   }
 }
 
-async function* responseEvents(response: Response, timeoutMs: number): AsyncGenerator<TurnEvent> {
+async function* meteredEvents(
+  events: AsyncIterable<StreamEvent>,
+  meter: SpeedMeter,
+): AsyncGenerator<StreamEvent> {
+  for await (const event of events) {
+    meter.observe(event);
+    yield event;
+  }
+}
+
+async function* responseEvents(
+  response: Response,
+  timeoutMs: number,
+  meter: SpeedMeter,
+  plan: ReadingPlan,
+): AsyncGenerator<TurnEvent> {
   if (!response.body) return;
-  yield* turnEvents(streamEvents(response.body, timeoutMs, SERVER_SENT_EVENTS));
+  yield* turnEvents(
+    meteredEvents(streamEvents(response.body, timeoutMs, SERVER_SENT_EVENTS), meter),
+    plan,
+  );
 }
 
 const MAX_STDERR_CHARS = 4_000;
@@ -391,6 +554,7 @@ async function* claudeCodeEvents(
   client: LlmClient,
   request: ModelRequest,
   signal: AbortSignal | undefined,
+  plan: ReadingPlan,
 ): AsyncGenerator<TurnEvent> {
   const { config } = client;
   const outputRequest = {
@@ -413,7 +577,7 @@ async function* claudeCodeEvents(
   };
   signal?.addEventListener("abort", stop, { once: true });
   try {
-    yield* turnEvents(streamEvents(stdoutBody(child), config.timeoutMs, CLAUDE_CODE_LINES));
+    yield* turnEvents(streamEvents(stdoutBody(child), config.timeoutMs, CLAUDE_CODE_LINES), plan);
   } catch (error) {
     if (signal?.aborted) throw signal.reason;
     if (error instanceof Error && error.message === ENDED_EARLY_MESSAGE) {
@@ -426,42 +590,68 @@ async function* claudeCodeEvents(
   }
 }
 
-const globals = globalThis as { reviewQueueModelTurn?: Promise<void> };
-
-function abortedBy(signal: AbortSignal | undefined): Promise<never> {
-  return new Promise((_resolve, reject) => {
-    if (signal?.aborted) reject(signal.reason);
-    signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
-  });
+function countTurnsAhead(lane: Lane): number {
+  const status = readLaneStatus();
+  const queued =
+    lane === "interactive"
+      ? status.queued.interactive
+      : status.queued.interactive + status.queued.background;
+  return (status.running ? 1 : 0) + queued;
 }
 
-async function takeTurn(signal?: AbortSignal): Promise<() => void> {
-  const previous = globals.reviewQueueModelTurn ?? Promise.resolve();
-  let release = () => {};
-  globals.reviewQueueModelTurn = new Promise<void>((resolve) => (release = resolve));
-  try {
-    await Promise.race([abortedBy(signal), previous]);
-  } catch (reason) {
-    void previous.then(release);
-    throw reason;
+async function* streamTurnEvents(
+  client: LlmClient,
+  request: ModelRequest,
+  signal: AbortSignal,
+  plan: ReadingPlan,
+): AsyncGenerator<TurnEvent> {
+  if (client.config.backend === "claude-code") {
+    yield* claudeCodeEvents(client, request, signal, plan);
+    return;
   }
-  return release;
+  const meter = startSpeedMeter(plan.processedTokens, plan.isCold);
+  yield* responseEvents(
+    await postMessages(client, request, signal),
+    client.config.timeoutMs,
+    meter,
+    plan,
+  );
+}
+
+async function* addWritingPhase(
+  events: AsyncIterable<TurnEvent>,
+  maxTokens: number,
+): AsyncGenerator<TurnEvent> {
+  let isWriting = false;
+  for await (const event of events) {
+    if (!isWriting && event.type !== "phase") {
+      isWriting = true;
+      yield { type: "phase", phase: startWritingPhase(maxTokens) };
+    }
+    yield event;
+  }
 }
 
 export async function* streamTurn(
   client: LlmClient,
   request: ModelRequest,
   signal?: AbortSignal,
+  lane: Lane = "background",
 ): AsyncGenerator<TurnEvent> {
-  const release = await takeTurn(signal);
+  if (client.config.problem) throw new LlmFailure("unavailable", client.config.problem);
+  const ahead = countTurnsAhead(lane);
+  if (ahead > 0) yield { type: "phase", phase: { phase: "queued", ahead } };
+  const turn = await takeLane(lane, signal);
+  const turnSignal = signal ? AbortSignal.any([signal, turn.signal]) : turn.signal;
   try {
-    if (client.config.backend === "claude-code") {
-      yield* claudeCodeEvents(client, request, signal);
-    } else {
-      yield* responseEvents(await postMessages(client, request, signal), client.config.timeoutMs);
-    }
+    const plan = readingPlanOf(client, request);
+    yield { type: "phase", phase: startReadingPhase(plan, plan.promptTokens, true) };
+    yield* addWritingPhase(
+      streamTurnEvents(client, request, turnSignal, plan),
+      thinkingFields(client.config, request.maxTokens).max_tokens,
+    );
   } finally {
-    release();
+    turn.release();
   }
 }
 
@@ -469,8 +659,9 @@ export async function* streamModel(
   client: LlmClient,
   request: ModelRequest,
   signal?: AbortSignal,
+  lane: Lane = "background",
 ): AsyncGenerator<string> {
-  for await (const event of streamTurn(client, request, signal)) {
+  for await (const event of streamTurn(client, request, signal, lane)) {
     if (event.type === "text") yield event.text;
   }
 }
@@ -480,8 +671,9 @@ export async function askForJson<T>(
   request: ModelRequest,
   parse: (text: string) => T,
   signal?: AbortSignal,
+  lane: Lane = "background",
 ): Promise<T> {
-  const first = await askModel(client, request, signal);
+  const first = await askModel(client, request, signal, lane);
   try {
     return parse(first);
   } catch (error) {
@@ -499,6 +691,7 @@ export async function askForJson<T>(
         ],
       },
       signal,
+      lane,
     );
     return parse(retry);
   }

@@ -20,6 +20,8 @@ const INPUT: AssistInput = {
   fileText: null,
   flags: [],
   stepCheck: null,
+  hasMoreDetail: false,
+  lookupBudget: 4,
 };
 
 const FILE_INPUT: AssistInput = {
@@ -95,7 +97,7 @@ describe("buildAssistPrompt for a whole file", () => {
 
   it("says when the file is gone at the PR head", () => {
     const prompt = buildAssistPrompt({ ...FILE_INPUT, fileText: null });
-    expect(prompt).not.toContain("<pr_file>");
+    expect(prompt).not.toMatch(/<pr_file>\n/);
     expect(prompt).toContain("deleted");
   });
 
@@ -108,8 +110,8 @@ describe("buildAssistPrompt for a whole file", () => {
 
 describe("assistRequest", () => {
   it("tells the model when the selection is a whole file", () => {
-    expect(assistRequest(FILE_INPUT, []).system).toContain("whole file");
-    expect(assistRequest(INPUT, []).system).not.toContain("whole file");
+    expect(buildAssistPrompt(FILE_INPUT)).toContain("whole file");
+    expect(buildAssistPrompt(INPUT)).not.toContain("whole file");
   });
 
   it("tells the model that PR text is data through the shared rule", () => {
@@ -131,9 +133,9 @@ describe("assistRequest", () => {
     expect(system).toContain("Investigate before you answer");
     expect(system).toContain("Decide for yourself what the change touches");
     expect(system).toContain("the rest of the file the change sits in");
-    expect(system).toContain("every caller");
+    expect(system).toContain("the callers that matter most");
     expect(system).toContain("read the parent that renders it");
-    expect(system).toContain("every callee");
+    expect(system).toContain("the callees that matter most");
     expect(system).toContain("related code");
     expect(system).not.toContain("pr_usages");
   });
@@ -149,13 +151,13 @@ describe("assistRequest", () => {
   });
 
   it("asks a review to check callers and redundant code", () => {
-    const system = assistRequest({ ...INPUT, action: "review" }, []).system;
+    const system = buildAssistPrompt({ ...INPUT, action: "review" });
     expect(system).toContain("callers");
     expect(system).toContain("duplicated or unused code");
   });
 
   it("asks simplify to reuse an existing helper", () => {
-    expect(assistRequest({ ...INPUT, action: "simplify" }, []).system).toContain("existing helper");
+    expect(buildAssistPrompt({ ...INPUT, action: "simplify" })).toContain("existing helper");
   });
 
   it("asks for markdown with code names in backticks for every action", () => {
@@ -164,22 +166,75 @@ describe("assistRequest", () => {
     }
   });
 
-  it("uses a different system prompt for each action", () => {
-    const systems = (["explain", "simplify", "comment", "ask", "review"] as const).map(
-      (action) => assistRequest({ ...INPUT, action }, []).system,
-    );
-    expect(new Set(systems).size).toBe(5);
+  it("sends the same system prompt for every action and scope", () => {
+    const requests = [
+      ...(["explain", "simplify", "comment", "ask", "review", "check"] as const).map((action) =>
+        assistRequest({ ...INPUT, action }, []),
+      ),
+      assistRequest(FILE_INPUT, []),
+      assistRequest(CHECK_INPUT, []),
+    ];
+    expect(new Set(requests.map((request) => request.system)).size).toBe(1);
+  });
+
+  it("shares the leading message with every action on the same target, up to its task", () => {
+    const leadingText = (action: AssistInput["action"]) => {
+      const content = assistRequest({ ...INPUT, action }, []).messages[0]?.content;
+      const text = typeof content === "string" ? content : "";
+      expect(text).toContain("\n## Task\n");
+      return text.slice(0, text.indexOf("## Task"));
+    };
+    expect(leadingText("review")).not.toBe("");
+    expect(leadingText("review")).toBe(leadingText("explain"));
+    expect(leadingText("comment")).toBe(leadingText("explain"));
+  });
+
+  it("puts the PR material before the task and the reviewer's question after it", () => {
+    const prompt = buildAssistPrompt({ ...INPUT, action: "ask", question: "Why 2?" });
+    expect(prompt.indexOf("<pr_selection>")).toBeLessThan(prompt.indexOf("## Task"));
+    expect(prompt.indexOf("## Task")).toBeLessThan(prompt.indexOf("<pr_reviewer_question>"));
+  });
+
+  it("keeps the answer short by default and allows more detail on request", () => {
+    expect(assistRequest(INPUT, []).maxTokens).toBe(300);
+    expect(assistRequest({ ...INPUT, hasMoreDetail: true }, []).maxTokens).toBe(800);
+  });
+
+  it("asks for a direct first line, at most three short bullets, then what was not checked", () => {
+    const system = assistRequest(INPUT, []).system;
+    expect(system).toContain("first line");
+    expect(system).toContain("at most three short bullets");
+    expect(system).toContain("name what was not checked");
+  });
+
+  it("tells the model its lookup budget in the task and asks it to spend lookups on what matters", () => {
+    const prompt = assistRequest({ ...INPUT, lookupBudget: 4 }, []).messages[0]?.content;
+    expect(prompt).toContain("at most 4 rounds of lookups");
+    expect(assistRequest(INPUT, []).system).toContain("Spend your lookups on what matters most");
+  });
+
+  it("leaves the budget out of the request when the model cannot look up", () => {
+    const content = assistRequest(INPUT, [], false).messages[0]?.content;
+    expect(content).not.toContain("rounds of lookups");
+  });
+
+  it("sends at most the last two exchanges of history", () => {
+    const history = Array.from({ length: 8 }, (_, index) => ({
+      role: index % 2 === 0 ? ("assistant" as const) : ("user" as const),
+      content: `turn ${index}`,
+    }));
+    expect(assistRequest(INPUT, history).messages.slice(1)).toEqual(history.slice(-4));
   });
 
   it("asks for a design review for every action that judges code", () => {
     for (const action of ["explain", "comment", "ask", "check", "review"] as const) {
-      expect(assistRequest({ ...INPUT, action }, []).system).toContain("YAGNI");
+      expect(buildAssistPrompt({ ...INPUT, action })).toContain("YAGNI");
     }
-    expect(assistRequest({ ...INPUT, action: "simplify" }, []).system).not.toContain("YAGNI");
+    expect(buildAssistPrompt({ ...INPUT, action: "simplify" })).not.toContain("YAGNI");
   });
 
   it("asks a review to list only real problems with their lines and say when the file is fine", () => {
-    const system = assistRequest({ ...FILE_INPUT, action: "review" }, []).system;
+    const system = buildAssistPrompt({ ...FILE_INPUT, action: "review" });
     expect(system).toContain("Review the selection");
     expect(system).toContain("line numbers");
     expect(system).toContain("looks good");
@@ -187,25 +242,25 @@ describe("assistRequest", () => {
 
   it("adds the React rules only when the selection is in a component file", () => {
     const comment = { ...INPUT, action: "comment" } as const;
-    expect(assistRequest(comment, []).system).not.toContain("React:");
-    expect(assistRequest({ ...comment, path: "src/view.tsx" }, []).system).toContain("React:");
+    expect(buildAssistPrompt(comment)).not.toContain("React:");
+    expect(buildAssistPrompt({ ...comment, path: "src/view.tsx" })).toContain("React:");
   });
 
   it("asks a comment to name the principle it rests on and to block only on real problems", () => {
-    const system = assistRequest({ ...INPUT, action: "comment" }, []).system;
+    const system = buildAssistPrompt({ ...INPUT, action: "comment" });
     expect(system).toContain("name the principle");
     expect(system).toContain("(blocking)");
   });
 
   it("asks a comment to open with one Conventional Comments label", () => {
-    const system = assistRequest({ ...INPUT, action: "comment" }, []).system;
+    const system = buildAssistPrompt({ ...INPUT, action: "comment" });
     expect(system).toContain(`one of: ${NOTE_LABELS.join(", ")}`);
     expect(system).toContain("suggestion");
     expect(system).toContain("question");
   });
 
   it("asks for the comment label in plain text, not wrapped in backticks", () => {
-    const system = assistRequest({ ...INPUT, action: "comment" }, []).system;
+    const system = buildAssistPrompt({ ...INPUT, action: "comment" });
     expect(system).toContain("plain text");
     expect(system).not.toContain("`suggestion:");
   });
@@ -307,7 +362,9 @@ describe("assistStream on Claude Code", () => {
       launchClaude,
     ))
       chunks.push(chunk);
-    expect(chunks).toEqual([{ kind: "text", text: "It adds two constants." }]);
+    expect(chunks.filter((chunk) => chunk.kind === "text")).toEqual([
+      { kind: "text", text: "It adds two constants." },
+    ]);
     expect(prompts).toHaveLength(1);
     expect(prompts[0]).not.toContain("Investigate before you answer");
     expect(prompts[0]).not.toContain("tools");
@@ -333,7 +390,9 @@ describe("buildAssistPrompt for a step check", () => {
 
   it("explains in the system prompt what a check is and treats it as data", () => {
     const system = assistRequest(CHECK_INPUT, []).system;
-    expect(system).toContain("<pr_model_check> is one thing a model suggested");
+    expect(buildAssistPrompt(CHECK_INPUT)).toContain(
+      "<pr_model_check> is one thing a model suggested",
+    );
     expect(system).toContain("<pr_model_check> was written by a model that read the PR");
   });
 

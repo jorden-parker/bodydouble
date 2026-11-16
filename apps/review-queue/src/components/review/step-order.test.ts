@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { reviewPayload } from "@/test/review-fixture";
-import { orderedSteps, stepReasons } from "./step-order";
+import { orderedSteps, stepReasons, suggestedDifference, suggestedOrderIds } from "./step-order";
 import type { OrientationState } from "./use-review";
 
 const STEPS = reviewPayload().steps;
@@ -26,26 +26,44 @@ function readyWithOrder(ids: string[]): OrientationState {
 }
 
 describe("orderedSteps", () => {
-  it("holds back every step while the model is ordering them", () => {
-    expect(orderedSteps(STEPS, { status: "loading" })).toEqual([]);
+  it("keeps the built-in order when the reader has not chosen the model's", () => {
+    expect(orderedSteps(STEPS, null)).toBe(STEPS);
   });
 
-  it("keeps the heuristic order when the model is off or failed", () => {
-    expect(orderedSteps(STEPS, { status: "disabled" })).toBe(STEPS);
-    expect(orderedSteps(STEPS, { status: "error", message: "connection refused" })).toBe(STEPS);
-  });
-
-  it("uses the model's order when it is ready", () => {
+  it("uses the order the reader chose", () => {
     const order = [THIRD.id, FIRST.id, SECOND.id];
-    expect(orderedSteps(STEPS, readyWithOrder(order))).toEqual([THIRD, FIRST, SECOND]);
+    expect(orderedSteps(STEPS, order)).toEqual([THIRD, FIRST, SECOND]);
   });
 
-  it("keeps every step when the model's order is incomplete or invented", () => {
-    expect(orderedSteps(STEPS, readyWithOrder(["nope", SECOND.id]))).toEqual([
-      SECOND,
-      FIRST,
-      THIRD,
-    ]);
+  it("keeps every step when the chosen order is incomplete or invented", () => {
+    expect(orderedSteps(STEPS, ["nope", SECOND.id])).toEqual([SECOND, FIRST, THIRD]);
+  });
+});
+
+describe("suggestedOrderIds", () => {
+  it("reads the model's order only when it is ready", () => {
+    expect(suggestedOrderIds(readyWithOrder([THIRD.id, FIRST.id]))).toEqual([THIRD.id, FIRST.id]);
+    expect(suggestedOrderIds({ status: "loading" })).toBeNull();
+    expect(suggestedOrderIds({ status: "error", message: "down" })).toBeNull();
+  });
+});
+
+describe("suggestedDifference", () => {
+  it("names the first step where the model would read something else", () => {
+    const built = STEPS.map((step) => step.id);
+    expect(suggestedDifference(built, [SECOND.id, FIRST.id, THIRD.id])).toEqual({
+      suggested: SECOND.id,
+      builtIn: FIRST.id,
+    });
+  });
+
+  it("is null when the model agrees with the built-in order", () => {
+    expect(
+      suggestedDifference(
+        STEPS.map((step) => step.id),
+        STEPS.map((step) => step.id),
+      ),
+    ).toBeNull();
   });
 });
 

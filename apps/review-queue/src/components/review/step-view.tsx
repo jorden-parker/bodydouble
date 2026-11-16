@@ -136,11 +136,11 @@ function FileHeader({
       <span className="flex min-w-0 flex-1 basis-48 items-center gap-2">
         {file.status === "renamed" && file.oldPath && (
           <>
-            <PathLabel path={file.oldPath} truncate className="text-sm opacity-60" />
+            <PathLabel path={file.oldPath} className="text-sm opacity-60" />
             <span className="text-muted-foreground">→</span>
           </>
         )}
-        <PathLabel path={file.path} truncate className="text-sm" />
+        <PathLabel path={file.path} className="text-sm" />
       </span>
       <span className="flex min-w-0 max-w-full flex-wrap items-center gap-x-3 gap-y-1 text-label tabular-nums">
         {wholeFileToggle && <WholeFileButton toggle={wholeFileToggle} />}
@@ -197,7 +197,7 @@ function HunkBlock({
         active ? "border-primary" : "border-transparent",
       )}
     >
-      <div className="bg-muted px-4 py-1.5 text-muted-foreground wrap-anywhere">
+      <div className="bg-muted px-4 py-1.5 text-muted-foreground text-pretty">
         @@ {hunk.oldStart} → {hunk.newStart} {hunk.header}
       </div>
       {hunk.lines.map((line, lineIndex) => {

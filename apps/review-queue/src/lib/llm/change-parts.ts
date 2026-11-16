@@ -131,6 +131,7 @@ export async function describeChanges(
     request,
     parseChangeParts(refToNodeId(nodes)),
     signal,
+    "background",
   );
   return { ...result, model: config.model };
 }

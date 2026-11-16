@@ -10,6 +10,14 @@ import type { AssistRequest } from "@/lib/review/assist-request";
 
 type HistoryMessage = AssistRequest["history"][number];
 
+export type RunOptions = Pick<AssistRequest, "hasMoreDetail" | "lookupBudget" | "shouldEscalate">;
+
+type TurnDetails = {
+  lookups?: AssistLookup[];
+  hasBudgetEnded?: boolean;
+  isFromClaude?: boolean;
+};
+
 const SUBJECTS: Record<AssistTarget["kind"], string> = {
   lines: "these lines",
   file: "this file",
@@ -20,7 +28,7 @@ function subject(target: AssistTarget): string {
   return SUBJECTS[target.kind];
 }
 
-export function actionLabel(action: AssistAction, target: AssistTarget): string {
+function actionLabel(action: AssistAction, target: AssistTarget): string {
   const labels: Record<AssistAction, string> = {
     explain: `Explain ${subject(target)}`,
     simplify: `Simplify ${subject(target)}`,
@@ -32,83 +40,88 @@ export function actionLabel(action: AssistAction, target: AssistTarget): string 
   return labels[action];
 }
 
-export function questionPrompt(action: AssistAction, target: AssistTarget): string | null {
-  const prompts: Record<AssistAction, string | null> = {
-    explain: null,
-    simplify: null,
-    comment: `What worries you about ${subject(target)}?`,
-    ask: "What do you want to know?",
-    check: null,
-    review: null,
-  };
-  return prompts[action];
-}
-
 export function openThread(
   target: AssistTarget,
   action: AssistAction,
   headSha: string,
-  opener?: string,
+  question: string | null = null,
 ): AssistThread {
-  const turns: AssistTurn[] =
-    questionPrompt(action, target) === null
-      ? [{ role: "reviewer", text: opener ?? actionLabel(action, target) }]
-      : [];
-  return { id: crypto.randomUUID(), headSha, target, action, question: null, turns };
+  const text = question ?? actionLabel(action, target);
+  return {
+    id: crypto.randomUUID(),
+    headSha,
+    target,
+    action,
+    question,
+    turns: [{ role: "reviewer", text }],
+  };
 }
 
-export function awaitsQuestion(thread: AssistThread): boolean {
-  return thread.turns.length === 0;
+function targetKey(target: AssistTarget): string {
+  return JSON.stringify(target);
 }
 
-export function askedThread(thread: AssistThread, question: string): AssistThread {
-  return { ...thread, question, turns: [{ role: "reviewer", text: question }] };
+export function exchangeToContinue(
+  exchanges: AssistThread[],
+  target: AssistTarget,
+  headSha: string,
+): AssistThread | null {
+  const latest = exchanges.at(-1);
+  if (!latest || latest.headSha !== headSha || targetKey(latest.target) !== targetKey(target))
+    return null;
+  return canFollowUp(latest) ? latest : null;
 }
 
 export function withFollowUp(thread: AssistThread, question: string): AssistThread {
   return { ...thread, turns: [...thread.turns, { role: "reviewer", text: question }] };
 }
 
+function detailFields(details: TurnDetails): Partial<AssistTurn> {
+  return {
+    ...(details.lookups?.length ? { lookups: details.lookups } : {}),
+    ...(details.hasBudgetEnded ? { hasBudgetEnded: true } : {}),
+    ...(details.isFromClaude ? { isFromClaude: true } : {}),
+  };
+}
+
 export function withModelText(
   thread: AssistThread,
   text: string,
-  lookups: AssistLookup[] = [],
+  details: TurnDetails = {},
 ): AssistThread {
   const last = thread.turns.at(-1);
   const earlier = last?.role === "model" ? thread.turns.slice(0, -1) : thread.turns;
-  const turn: AssistTurn =
-    lookups.length > 0 ? { role: "model", text, lookups } : { role: "model", text };
+  const turn: AssistTurn = { role: "model", text, ...detailFields(details) };
   return { ...thread, turns: [...earlier, turn] };
 }
 
-export function withEnding(thread: AssistThread, ended: "stopped" | "failed"): AssistThread {
-  const last = thread.turns.at(-1);
-  if (last?.role !== "model") return thread;
-  return { ...thread, turns: [...thread.turns.slice(0, -1), { ...last, ended }] };
+export function withoutLastModelTurn(thread: AssistThread): AssistThread {
+  if (thread.turns.at(-1)?.role !== "model") return thread;
+  return { ...thread, turns: thread.turns.slice(0, -1) };
 }
 
-export function hasModelReply(thread: AssistThread): boolean {
+export function withEnding(thread: AssistThread, ended: "stopped" | "failed" | null): AssistThread {
   const last = thread.turns.at(-1);
-  return last?.role === "model" && last.text.trim() !== "";
+  if (last?.role !== "model") return thread;
+  if (last.text.trim() === "") return withoutLastModelTurn(thread);
+  if (ended === null) return thread;
+  return { ...thread, turns: [...thread.turns.slice(0, -1), { ...last, ended }] };
 }
 
 export function canFollowUp(thread: AssistThread): boolean {
   return thread.turns.at(-1)?.role === "model" && thread.turns.length <= MAX_HISTORY_TURNS;
 }
 
-export function awaitsReply(thread: AssistThread): boolean {
-  return thread.turns.at(-1)?.role === "reviewer";
-}
-
 function asMessage(turn: AssistTurn): HistoryMessage {
   return { role: turn.role === "model" ? "assistant" : "user", content: turn.text };
 }
 
-export function threadRequest(thread: AssistThread): AssistRequest {
+export function threadRequest(thread: AssistThread, options: RunOptions = {}): AssistRequest {
   return {
     action: thread.action,
     target: thread.target,
     question: thread.question,
     history: thread.turns.slice(1).map(asMessage),
+    ...options,
   };
 }

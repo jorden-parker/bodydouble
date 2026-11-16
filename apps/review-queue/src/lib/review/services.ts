@@ -7,16 +7,18 @@ import {
   getPullRequest,
   type LinkedIssue,
   listLinkedIssues,
-  listMergedPullRequestKeys,
   listOpenPullRequests,
+  listPullRequestFacts,
   listReviewRequests,
   type PullRequestAuthorship,
+  type PullRequestFacts,
   type ReviewRequest,
   viewerLogin,
 } from "@/lib/github/gh";
 import { TtlCache } from "@/lib/github/ttl-cache";
 import type { LlmConfig } from "@/lib/llm/client";
 import { llmConfig } from "@/lib/llm/model-choice";
+import { type ModelStatus, buildModelStatus } from "@/lib/llm/model-status";
 import { prKey } from "@/lib/pr-ref";
 import type { PullRequestRef } from "@/lib/types";
 import { defaultDatabasePath, SessionStore } from "@/lib/session/store";
@@ -50,11 +52,17 @@ export function reviewRequests(): Promise<ReviewRequest[]> {
   return githubCache().get("review-requests", REVIEW_REQUESTS_TTL_MS, () => listReviewRequests());
 }
 
-export function mergedPullRequestKeys(refs: PullRequestRef[]): Promise<string[]> {
+export function pullRequestFacts(
+  refs: PullRequestRef[],
+): Promise<Record<string, PullRequestFacts>> {
   const keys = refs.map(prKey).sort();
-  return githubCache().get(`merged:${keys.join(",")}`, REVIEW_REQUESTS_TTL_MS, () =>
-    listMergedPullRequestKeys(refs),
+  return githubCache().get(`facts:${keys.join(",")}`, REVIEW_REQUESTS_TTL_MS, () =>
+    listPullRequestFacts(refs),
   );
+}
+
+export function refreshGitHubCache(): void {
+  githubCache().clear();
 }
 
 export function openPullRequests(authorship: PullRequestAuthorship): Promise<ReviewRequest[]> {
@@ -109,4 +117,8 @@ export function reviewDeps(): ReviewDeps {
 
 export function currentLlmConfig(): Promise<LlmConfig> {
   return llmConfig(process.env, fetch, savedLlmSettings(sessionStore()));
+}
+
+export function currentModelStatus(): Promise<ModelStatus> {
+  return buildModelStatus(process.env, fetch, savedLlmSettings(sessionStore()));
 }

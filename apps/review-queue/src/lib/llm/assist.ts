@@ -9,7 +9,7 @@ import {
   type LlmConfig,
   type Message,
   type ModelRequest,
-  streamModel,
+  streamTurn,
   UNTRUSTED_DATA_RULE,
 } from "./client";
 import { reviewGuidance } from "./review-guidance";
@@ -30,12 +30,16 @@ export type AssistInput = {
   fileText: string | null;
   flags: AssistFlag[];
   stepCheck: StepCheckContent | null;
+  hasMoreDetail: boolean;
+  lookupBudget: number;
 };
 
 const CONTEXT_CHAR_BUDGET = 24_000;
 const SELECTION_CHAR_BUDGET = 8_000;
 const FILE_CHAR_BUDGET = 24_000;
-const MAX_TOKENS = 800;
+const SHORT_ANSWER_TOKENS = 300;
+const DETAILED_ANSWER_TOKENS = 800;
+const KEPT_HISTORY_MESSAGES = 4;
 
 const DATA_RULE = `${UNTRUSTED_DATA_RULE}
 <pr_flags> lists what the review tool flagged; names inside it come from the PR.
@@ -49,18 +53,20 @@ For a file outside the diff, always write the full path, like \`src/lib/a.ts:12\
 Keep each citation short and put it next to what you say about it.`;
 
 const INVESTIGATE_RULE = `Investigate before you answer. You see only the diff; the rest of the repo is in the pull request's head checkout, and the tools reach it.
-Decide for yourself what the change touches, then read it:
+Spend your lookups on what matters most. Decide for yourself what the change touches, then read it:
 - the rest of the file the change sits in;
-- every caller: find_references each changed or enclosing function, component, type or export, then read_file each calling file around the call. For a component, read the parent that renders it and the props it passes;
-- every callee: find_definition what the changed code calls or imports from the repo;
+- the callers that matter most: find_references each changed or enclosing function, component, type or export, then read_file each calling file around the call. For a component, read the parent that renders it and the props it passes;
+- the callees that matter most: find_definition what the changed code calls or imports from the repo;
 - related code: its tests, its types, and anything else doing the same job (search_code).
-Follow callers upward until you reach an entry point or code the change cannot affect.
+Follow callers upward while they matter to the change.
 A one-line reference is not enough; read the code around it.
 When the diff removes or renames a name, find_references the old name to check nothing still uses it.
 Before you call new logic novel, search_code for an existing helper that already does the same job.
 Never guess about code you have not read; say so when a lookup finds nothing.`;
 
 const ROLE = "You help a code reviewer with ADHD. Be brief, concrete and calm. Use plain words.";
+
+const ANSWER_SHAPE_RULE = `Unless the task says otherwise, answer in this shape: the first line is the direct answer; then at most three short bullets, each with a citation where it applies; then one line: name what was not checked.`;
 
 const COMMENT_LABEL_RULE = `Begin the reply with one Conventional Comments label in plain text, followed by a colon (one of: ${NOTE_LABELS.join(", ")}), for example: suggestion: rename this. Do not wrap the whole reply in backticks or a code block.`;
 
@@ -103,19 +109,29 @@ function designRules(input: AssistInput): string[] {
   return input.action === "simplify" ? [] : [reviewGuidance([input.path])];
 }
 
-function investigationRules(canLookUpCode: boolean): string[] {
-  return canLookUpCode ? [INVESTIGATE_RULE] : [];
+function buildBudgetRules(lookupBudget: number | null): string[] {
+  return lookupBudget === null
+    ? []
+    : [
+        `You may look up code in at most ${lookupBudget} rounds of lookups. After that you answer from what you have and say what you did not check.`,
+      ];
 }
 
-function systemPrompt(input: AssistInput, canLookUpCode: boolean): string {
+function buildDetailRules(input: AssistInput): string[] {
+  return input.hasMoreDetail
+    ? [
+        "The reviewer asked for more detail: you may use more bullets and examples, but keep the direct answer on the first line.",
+      ]
+    : [];
+}
+
+function systemPrompt(canLookUpCode: boolean): string {
   return [
     ROLE,
-    TASKS[input.action],
-    ...SCOPE_RULES[input.scope],
-    ...designRules(input),
+    ANSWER_SHAPE_RULE,
     CODE_NAME_RULE,
     CITE_RULE,
-    ...investigationRules(canLookUpCode),
+    ...(canLookUpCode ? [INVESTIGATE_RULE] : []),
     DATA_RULE,
   ].join("\n\n");
 }
@@ -183,7 +199,18 @@ function scopeSections(input: AssistInput): string[] {
   return selectionSections(input);
 }
 
-export function buildAssistPrompt(input: AssistInput): string {
+function buildTaskSections(input: AssistInput, lookupBudget: number | null): string[] {
+  const task = [
+    TASKS[input.action],
+    ...SCOPE_RULES[input.scope],
+    ...designRules(input),
+    ...buildBudgetRules(lookupBudget),
+    ...buildDetailRules(input),
+  ];
+  return ["## Task", task.join("\n\n")];
+}
+
+export function buildAssistPrompt(input: AssistInput, canLookUpCode = true): string {
   const sections = [
     fencedTitle(input.title),
     "## File",
@@ -192,6 +219,7 @@ export function buildAssistPrompt(input: AssistInput): string {
   ];
   if (input.flags.length > 0)
     sections.push(fenced("pr_flags", input.flags.map(flagText).join("\n")));
+  sections.push(...buildTaskSections(input, canLookUpCode ? input.lookupBudget : null));
   if (input.question) sections.push(fenced("pr_reviewer_question", input.question));
   return sections.join("\n");
 }
@@ -202,9 +230,12 @@ export function assistRequest(
   canLookUpCode = true,
 ): ModelRequest {
   return {
-    system: systemPrompt(input, canLookUpCode),
-    maxTokens: MAX_TOKENS,
-    messages: [{ role: "user", content: buildAssistPrompt(input) }, ...history],
+    system: systemPrompt(canLookUpCode),
+    maxTokens: input.hasMoreDetail ? DETAILED_ANSWER_TOKENS : SHORT_ANSWER_TOKENS,
+    messages: [
+      { role: "user", content: buildAssistPrompt(input, canLookUpCode) },
+      ...history.slice(-KEPT_HISTORY_MESSAGES),
+    ],
   };
 }
 
@@ -220,8 +251,11 @@ export async function* assistStream(
   const client = { config, fetchImpl, launchClaude };
   if (config.backend === "claude-code") {
     const request = assistRequest(input, history, false);
-    for await (const text of streamModel(client, request, signal)) yield { kind: "text", text };
+    for await (const event of streamTurn(client, request, signal, "interactive")) {
+      if (event.type === "text") yield { kind: "text", text: event.text };
+      if (event.type === "phase") yield { kind: "phase", phase: event.phase };
+    }
     return;
   }
-  yield* toolLoop(client, assistRequest(input, history), tools, signal);
+  yield* toolLoop(client, assistRequest(input, history), tools, signal, input.lookupBudget);
 }

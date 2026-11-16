@@ -249,7 +249,7 @@ function ThreadHeader({
               open && "rotate-90",
             )}
           />
-          <span className="wrap-anywhere">{section.title}</span>
+          <span className="text-pretty">{section.title}</span>
         </button>
       </h3>
       <span className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground tabular-nums">
@@ -455,7 +455,7 @@ function StopHeading({ row }: { row: MapRow }) {
         {row.node.name ?? "file changes"}
       </span>
       {row.showRole ? (
-        <Badge variant="outline" className="h-auto whitespace-normal wrap-anywhere">
+        <Badge variant="outline" className="h-auto whitespace-nowrap">
           {row.node.role}
         </Badge>
       ) : null}

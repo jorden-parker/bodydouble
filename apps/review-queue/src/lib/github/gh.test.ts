@@ -6,7 +6,7 @@ import {
   listOpenPullRequests,
   listReviewRequests,
   listLinkedIssues,
-  listMergedPullRequestKeys,
+  listPullRequestFacts,
   listReviews,
   postReplyToReviewComment,
   submitReview,
@@ -452,32 +452,83 @@ describe("listLinkedIssues", () => {
   });
 });
 
-describe("listMergedPullRequestKeys", () => {
-  it("returns the keys of merged PRs in one GraphQL call", async () => {
+describe("listPullRequestFacts", () => {
+  const rawFacts = (overrides: object = {}) => ({
+    additions: 212,
+    deletions: 48,
+    changedFiles: 9,
+    headRefOid: "f".repeat(40),
+    reviewDecision: "APPROVED",
+    createdAt: "2026-11-01T09:00:00Z",
+    merged: false,
+    commits: { nodes: [{ commit: { statusCheckRollup: { state: "SUCCESS" } } }] },
+    ...overrides,
+  });
+
+  it("returns the facts of each PR, keyed by PR, in one GraphQL call", async () => {
     const { run, calls } = fakeRunner(
       JSON.stringify({
         data: {
-          pr0: { pullRequest: { merged: true } },
-          pr1: { pullRequest: { merged: false } },
+          pr0: { pullRequest: rawFacts() },
+          pr1: { pullRequest: rawFacts({ merged: true, reviewDecision: null }) },
           pr2: null,
         },
       }),
     );
-    const keys = await listMergedPullRequestKeys(
+    const facts = await listPullRequestFacts(
       [REF, { owner: "acme", repo: "web", number: 3 }, { owner: "gone", repo: "x", number: 1 }],
       run,
     );
-    expect(keys).toEqual(["acme/app#7"]);
+    expect(facts).toEqual({
+      "acme/app#7": {
+        additions: 212,
+        deletions: 48,
+        changedFiles: 9,
+        headSha: "f".repeat(40),
+        reviewDecision: "APPROVED",
+        checks: "passing",
+        createdAt: "2026-11-01T09:00:00Z",
+        isMerged: false,
+      },
+      "acme/web#3": expect.objectContaining({ isMerged: true, reviewDecision: null }),
+    });
     expect(calls).toHaveLength(1);
     expect(calls[0].args.slice(0, 3)).toEqual(["api", "graphql", "-f"]);
     expect(calls[0].args[3]).toContain(
-      'pr0: repository(owner: "acme", name: "app") { pullRequest(number: 7) { merged } }',
+      'pr0: repository(owner: "acme", name: "app") { pullRequest(number: 7) {',
     );
+  });
+
+  it("maps the checks rollup to passing, running, failing or none", async () => {
+    const states: [string | null, string][] = [
+      ["SUCCESS", "passing"],
+      ["PENDING", "running"],
+      ["EXPECTED", "running"],
+      ["FAILURE", "failing"],
+      ["ERROR", "failing"],
+      [null, "none"],
+    ];
+    for (const [state, checks] of states) {
+      const rollup = state === null ? null : { state };
+      const { run } = fakeRunner(
+        JSON.stringify({
+          data: {
+            pr0: {
+              pullRequest: rawFacts({
+                commits: { nodes: [{ commit: { statusCheckRollup: rollup } }] },
+              }),
+            },
+          },
+        }),
+      );
+      const facts = await listPullRequestFacts([REF], run);
+      expect(facts["acme/app#7"]?.checks).toBe(checks);
+    }
   });
 
   it("skips the call when there are no PRs", async () => {
     const { run, calls } = fakeRunner("");
-    expect(await listMergedPullRequestKeys([], run)).toEqual([]);
+    expect(await listPullRequestFacts([], run)).toEqual({});
     expect(calls).toHaveLength(0);
   });
 });

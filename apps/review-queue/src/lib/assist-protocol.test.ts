@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addedHunk, removedHunk } from "@/test/diff-builders";
-import {
-  linesInRange,
-  orderedRange,
-  targetCommentLine,
-  targetFirstLine,
-  targetLabel,
-  targetPath,
-} from "./assist-protocol";
+import { linesInRange, orderedRange, targetCommentLine, targetPath } from "./assist-protocol";
 
 const HUNKS = [addedHunk(["a1", "a2", "a3"], 1), addedHunk(["b1", "b2"], 20)];
 
@@ -53,20 +46,6 @@ describe("targetPath", () => {
   });
 });
 
-describe("targetLabel", () => {
-  it("names the file and the first and last line numbers", () => {
-    expect(targetLabel(HUNKS, lines([0, 1], [1, 1]))).toBe("src/a.ts L2–L21");
-  });
-
-  it("names a single line once", () => {
-    expect(targetLabel(HUNKS, lines([0, 0], [0, 0]))).toBe("src/a.ts L1");
-  });
-
-  it("names a whole file", () => {
-    expect(targetLabel(HUNKS, WHOLE_FILE)).toBe("src/a.ts (whole file)");
-  });
-});
-
 describe("targetCommentLine", () => {
   it("is the last new-side line", () => {
     expect(targetCommentLine(HUNKS, lines([0, 0], [1, 1]))).toBe(21);
@@ -78,19 +57,5 @@ describe("targetCommentLine", () => {
 
   it("is null for a whole file", () => {
     expect(targetCommentLine(HUNKS, WHOLE_FILE)).toBeNull();
-  });
-});
-
-describe("targetFirstLine", () => {
-  it("is the number of the range's first line", () => {
-    expect(targetFirstLine(HUNKS, lines([1, 1], [1, 1]))).toBe(21);
-  });
-
-  it("is the first changed line of a whole file", () => {
-    expect(targetFirstLine(HUNKS, WHOLE_FILE)).toBe(1);
-  });
-
-  it("is line one for a file without hunks", () => {
-    expect(targetFirstLine([], WHOLE_FILE)).toBe(1);
   });
 });

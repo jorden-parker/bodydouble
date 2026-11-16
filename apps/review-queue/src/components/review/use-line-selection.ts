@@ -7,6 +7,8 @@ import { toolbarTop } from "./toolbar-position";
 
 export type { LineSelection } from "./line-selection-state";
 
+const SELECTION_TOOLBAR = '[role="toolbar"][aria-label="Work with the selected lines"]';
+
 function lineOf(node: Node | null) {
   const element = node instanceof Element ? node : node?.parentElement;
   const row = element?.closest<HTMLElement>("[data-line]");
@@ -36,6 +38,7 @@ export function useLineSelection(): LineSelection | null {
     let shown: LineSelection | null = null;
     const refresh = () => {
       frame = null;
+      if (document.activeElement?.closest(SELECTION_TOOLBAR)) return;
       const next = currentSelection();
       if (sameLineSelection(shown, next)) return;
       shown = next;

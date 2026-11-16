@@ -11,7 +11,5 @@ function badgeText(tag: NoteTag): string {
 
 export function NoteKindBadge({ tag }: { tag: NoteTag }) {
   const style = isBlocking(tag) ? NOTE_KIND_STYLES.issue : NOTE_KIND_STYLES[tag.kind];
-  return (
-    <Badge className={cn(style, "h-auto whitespace-normal wrap-anywhere")}>{badgeText(tag)}</Badge>
-  );
+  return <Badge className={cn(style, "h-auto whitespace-nowrap")}>{badgeText(tag)}</Badge>;
 }

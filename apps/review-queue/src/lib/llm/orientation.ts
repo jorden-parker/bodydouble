@@ -21,8 +21,11 @@ export type OrientationInput = {
   hotspots: Hotspot[];
 };
 
+export type StepSummary = { stepId: string; what: string };
+
 const PROMPT_CHAR_BUDGET = 48_000;
 const MAX_TOKENS = 3000;
+const SUMMARY_MAX_TOKENS = 900;
 const STEP_LIST_LIMIT = 80;
 const HOTSPOT_LIST_LIMIT = 40;
 
@@ -52,16 +55,26 @@ export const OrientationRecordSchema = OrientationSchema.extend({ model: z.strin
 
 export type Orientation = z.infer<typeof OrientationRecordSchema>;
 
-const BASE_PROMPT = `You help a reviewer with ADHD review a pull request. Be brief, concrete and calm.
-Reply with ONLY a JSON object, no prose and no code fences, matching:
-{"summary": "2-3 plain sentences on what the PR does",
+const JSON_SHAPE = `{"summary": "2-3 plain sentences on what the PR does",
  "intent": "one sentence: the problem it solves",
  "risk": "low" | "medium" | "high",
  "stepOrder": [{"id": "step id from the steps list", "why": "one short sentence: why read it at this point"}],
  "hotspotNotes": [{"id": "hotspot id from the list", "note": "one sentence: what specifically to check"}],
- "extraHotspots": [{"path": "file in the diff", "line": 12, "title": "short", "why": "one sentence"}]}
+ "extraHotspots": [{"path": "file in the diff", "line": 12, "title": "short", "why": "one sentence"}]}`;
+
+const BASE_PROMPT = `You help a reviewer with ADHD review a pull request. Be brief, concrete and calm.
+Reply with ONLY a JSON object, no prose and no code fences, matching:
+${JSON_SHAPE}
 List every step shown in stepOrder, in the order the reviewer should read them.
 Only add extraHotspots for things that look genuinely odd or risky, or clear design problems, and are not already listed. At most 5.
+${UNTRUSTED_DATA_RULE}
+${CODE_NAME_RULE}`;
+
+const SUMMARY_PROMPT = `You help a reviewer with ADHD review a pull request from short summaries of its steps. Be brief, concrete and calm.
+Reply with ONLY a JSON object, no prose and no code fences, matching:
+${JSON_SHAPE}
+List every step shown in stepOrder, in the order the reviewer should read them. Keep each "why" under 12 words.
+You see the step summaries and no code, so return an empty extraHotspots list.
 ${UNTRUSTED_DATA_RULE}
 ${CODE_NAME_RULE}`;
 
@@ -77,33 +90,47 @@ function firstOf<T>(items: T[], limit: number, noun: string, describe: (item: T)
   return hidden > 0 ? [...listed, `(${hidden} more ${noun} not listed)`] : listed;
 }
 
-export function buildPrompt(input: OrientationInput): string {
-  const steps = firstOf(
-    input.steps,
-    STEP_LIST_LIMIT,
-    "steps",
-    (step) => `${step.id} | ${step.title} | ${step.role} | ${step.changedLines} lines`,
-  );
-  const hotspots = firstOf(
-    input.hotspots,
-    HOTSPOT_LIST_LIMIT,
-    "hotspots",
-    (hotspot) => `${hotspot.id} | ${hotspot.title} | ${hotspot.path}:${hotspot.line ?? ""}`,
-  );
-  const header = [
+function stepLine(step: Step): string {
+  return `${step.id} | ${step.title} | ${step.role} | ${step.changedLines} lines`;
+}
+
+function hotspotLine(hotspot: Hotspot): string {
+  return `${hotspot.id} | ${hotspot.title} | ${hotspot.path}:${hotspot.line ?? ""}`;
+}
+
+function promptHeader(input: OrientationInput, stepsHeading: string, steps: string[]): string[] {
+  const hotspots = firstOf(input.hotspots, HOTSPOT_LIST_LIMIT, "hotspots", hotspotLine);
+  return [
     "# PR",
     fencedTitle(input.title),
     fenced("pr_description", input.body.slice(0, DESCRIPTION_LIMIT)),
-    "## Steps",
+    stepsHeading,
     fenced("pr_steps", steps.join("\n")),
     "## Hotspots already found",
     fenced("pr_hotspots", hotspots.join("\n")),
-    "## Diff",
-  ].join("\n");
+  ];
+}
+
+export function buildPrompt(input: OrientationInput): string {
+  const steps = firstOf(input.steps, STEP_LIST_LIMIT, "steps", stepLine);
+  const header = [...promptHeader(input, "## Steps", steps), "## Diff"].join("\n");
   const room = Math.max(0, PROMPT_CHAR_BUDGET - header.length);
   const diff = diffText(input.diffs);
   const clipped = diff.length > room ? `${diff.slice(0, room)}\n[diff truncated]` : diff;
   return `${header}\n${fenced("pr_diff", clipped)}`;
+}
+
+function buildSummaryPrompt(input: OrientationInput, summaries: StepSummary[]): string {
+  const whatById = new Map(
+    summaries.map((summary) => [summary.stepId, summary.what.replace(/\s+/g, " ")]),
+  );
+  const steps = firstOf(
+    input.steps,
+    STEP_LIST_LIMIT,
+    "steps",
+    (step) => `${stepLine(step)} | ${whatById.get(step.id) ?? ""}`,
+  );
+  return promptHeader(input, "## Steps, each with a summary of its changes", steps).join("\n");
 }
 
 function completeStepOrder(order: StepOrderEntry[], steps: Step[]): StepOrderEntry[] {
@@ -133,22 +160,58 @@ function parseOrientation(text: string, input: OrientationInput) {
   return keepKnown(OrientationSchema.parse(jsonObjectIn(text)), input);
 }
 
+async function askForOrientation(
+  request: ModelRequest,
+  input: OrientationInput,
+  config: LlmConfig,
+  fetchImpl: typeof fetch,
+  signal?: AbortSignal,
+): Promise<Orientation> {
+  const orientation = await askForJson(
+    { config, fetchImpl },
+    request,
+    (text) => parseOrientation(text, input),
+    signal,
+    "background",
+  );
+  return { ...orientation, model: config.model };
+}
+
 export async function orient(
   input: OrientationInput,
   config: LlmConfig,
   fetchImpl: typeof fetch = fetch,
   signal?: AbortSignal,
 ): Promise<Orientation> {
-  const request: ModelRequest = {
-    system: systemPrompt(input),
-    maxTokens: MAX_TOKENS,
-    messages: [{ role: "user", content: buildPrompt(input) }],
-  };
-  const orientation = await askForJson(
-    { config, fetchImpl },
-    request,
-    (text) => parseOrientation(text, input),
+  return askForOrientation(
+    {
+      system: systemPrompt(input),
+      maxTokens: MAX_TOKENS,
+      messages: [{ role: "user", content: buildPrompt(input) }],
+    },
+    input,
+    config,
+    fetchImpl,
     signal,
   );
-  return { ...orientation, model: config.model };
+}
+
+export async function orientFromSummaries(
+  input: OrientationInput,
+  summaries: StepSummary[],
+  config: LlmConfig,
+  fetchImpl: typeof fetch = fetch,
+  signal?: AbortSignal,
+): Promise<Orientation> {
+  return askForOrientation(
+    {
+      system: SUMMARY_PROMPT,
+      maxTokens: SUMMARY_MAX_TOKENS,
+      messages: [{ role: "user", content: buildSummaryPrompt(input, summaries) }],
+    },
+    input,
+    config,
+    fetchImpl,
+    signal,
+  );
 }

@@ -11,6 +11,15 @@ function run(store: SessionStore, raw: unknown) {
 }
 
 describe("applySessionAction", () => {
+  it("saves the step order the reader chose, and clears it for the built-in order", () => {
+    const store = new SessionStore(":memory:");
+    expect(run(store, { type: "step-order", stepIds: ["s2", "s1"] }).stepOrder).toEqual([
+      "s2",
+      "s1",
+    ]);
+    expect(run(store, { type: "step-order", stepIds: null }).stepOrder).toBeNull();
+  });
+
   it("applies each action and returns the new session", () => {
     const store = new SessionStore(":memory:");
     run(store, { type: "current-step", stepId: "s1", headSha: HEAD_SHA });
@@ -235,6 +244,23 @@ describe("applySessionAction", () => {
     ).toThrow();
   });
 
+  it("keeps the marks a model turn carries: lookup budget used up, and an answer from Claude", () => {
+    const store = new SessionStore(":memory:");
+    const thread = {
+      id: "6f1c8f9e-1d2b-4c3a-9e8f-7a6b5c4d3e2f",
+      headSha: HEAD_SHA,
+      target: { kind: "file", path: "src/a.ts" },
+      action: "ask",
+      question: "Why?",
+      turns: [
+        { role: "reviewer", text: "Why?" },
+        { role: "model", text: "It loads.", hasBudgetEnded: true, isFromClaude: true },
+      ],
+    };
+    const saved = run(store, { type: "assist-save", thread });
+    expect(saved.assistThreads).toEqual([expect.objectContaining({ turns: thread.turns })]);
+  });
+
   it("rejects a chat with an unknown target or too many turns", () => {
     const thread = {
       id: "6f1c8f9e-1d2b-4c3a-9e8f-7a6b5c4d3e2f",
@@ -314,6 +340,27 @@ describe("applySessionAction", () => {
     store.markSeen(KEY, "b".repeat(40));
     run(store, { type: "current-step", stepId: "s1", headSha: HEAD_SHA });
     expect(store.getSession(KEY).lastHeadSha).toBe("b".repeat(40));
+  });
+
+  it("snoozes a PR until tomorrow or until its head moves without starting a session", () => {
+    const store = new SessionStore(":memory:");
+    run(store, { type: "snooze", until: { kind: "tomorrow" } });
+    run(store, { type: "snooze", until: { kind: "new-commits", headSha: HEAD_SHA } });
+    expect(store.snoozes()).toEqual([{ key: KEY, until: { headSha: HEAD_SHA } }]);
+    expect(store.inProgress()).toEqual([]);
+  });
+
+  it("wakes a snoozed PR back into the active lists", () => {
+    const store = new SessionStore(":memory:");
+    run(store, { type: "snooze", until: { kind: "tomorrow" } });
+    run(store, { type: "wake" });
+    expect(store.snoozes()).toEqual([]);
+  });
+
+  it("rejects a snooze on a head that is not a commit SHA", () => {
+    expect(() =>
+      SessionActionSchema.parse({ type: "snooze", until: { kind: "new-commits", headSha: "x" } }),
+    ).toThrow();
   });
 
   it("archives a session and restores it", () => {

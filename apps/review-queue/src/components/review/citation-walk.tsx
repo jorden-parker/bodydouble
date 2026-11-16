@@ -1,13 +1,9 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { KeyboardEvent } from "react";
 import { cn } from "cn";
-import { splitPath } from "@/components/common/path-label";
+import { PathLabel } from "@/components/common/path-label";
 import { Button } from "@/components/ui/button";
 import type { Citation } from "./citations";
-
-function lineRange({ line, endLine }: Citation): string {
-  return endLine > line ? `:${line}-${endLine}` : `:${line}`;
-}
 
 export function CitationChip({
   citation,
@@ -18,8 +14,8 @@ export function CitationChip({
   active: boolean;
   onShow: () => void;
 }) {
-  const { directory, name } = splitPath(citation.path);
   const show = citation.inDiff ? onShow : undefined;
+  const isRange = citation.endLine > citation.line;
   return (
     <span
       role="button"
@@ -30,13 +26,15 @@ export function CitationChip({
       onClick={show}
       onKeyDown={show && ((event) => activateOnKey(event, show))}
       className={cn(
-        "cursor-pointer rounded-xs font-mono text-code wrap-anywhere underline decoration-dotted decoration-1 underline-offset-4 transition-colors duration-calm hover:decoration-primary focus-visible:ring-3 focus-visible:ring-ring/50 aria-disabled:cursor-default aria-disabled:text-muted-foreground aria-disabled:no-underline",
+        "inline-flex max-w-full cursor-pointer rounded-xs underline decoration-dotted decoration-1 underline-offset-4 transition-colors duration-calm hover:decoration-primary focus-visible:ring-3 focus-visible:ring-ring/50 aria-disabled:cursor-default aria-disabled:text-muted-foreground aria-disabled:no-underline",
         active ? "text-primary decoration-primary" : "decoration-foreground/25",
       )}
     >
-      <span className="text-muted-foreground">{directory}</span>
-      <span className="font-medium">{name}</span>
-      <span className="text-muted-foreground">{lineRange(citation)}</span>
+      <PathLabel
+        path={citation.path}
+        line={isRange ? citation.endLine : citation.line}
+        startLine={isRange ? citation.line : null}
+      />
     </span>
   );
 }

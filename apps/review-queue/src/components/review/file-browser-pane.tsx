@@ -111,7 +111,7 @@ function FileRow({
         onClick={() => onOpen(path)}
         className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
       >
-        <span className="min-w-0 flex-1 wrap-anywhere">{label}</span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
         {changed && <Badge variant="secondary">In this PR</Badge>}
       </button>
     </PaneRow>
@@ -173,7 +173,7 @@ function FolderNode({
           className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-sm"
         >
           <Chevron className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-          <span className="font-mono wrap-anywhere">{node.name}</span>
+          <span className="truncate font-mono">{node.name}</span>
         </button>
       </PaneRow>
       {open && (
@@ -340,7 +340,7 @@ function MatchGroups({
                   <span className="w-8 shrink-0 text-right text-muted-foreground select-none">
                     {match.line}
                   </span>
-                  <span className="min-w-0 wrap-anywhere">{match.text}</span>
+                  <span className="min-w-0 truncate">{match.text}</span>
                 </button>
               </PaneRow>
             ))}

@@ -33,7 +33,18 @@ describe("NeonShell", () => {
     expect(shell.querySelector(".app-body")?.contains(screen.getByText("Page body"))).toBe(true);
   });
 
-  it("gives the PR workspace a full-viewport shell so its own panes can scroll", () => {
+  it("leaves out the global app bar on PR pages, which have their own top bar", () => {
+    pathnameState.current = "/pr/acme/app/7";
+    render(
+      <NeonShell>
+        <p>Workspace</p>
+      </NeonShell>,
+    );
+    expect(screen.queryByRole("banner")).toBeNull();
+    expect(screen.getByText("Workspace")).toBeTruthy();
+  });
+
+  it("gives the PR workspace a full-viewport shell so its own regions can scroll", () => {
     pathnameState.current = "/pr/acme/app/7";
     const { container } = render(
       <NeonShell>

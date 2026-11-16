@@ -8,9 +8,10 @@ import {
   useRef,
   useState,
 } from "react";
-import type { PanelSide, SideLayouts } from "./pane-layout";
+import type { RegionOpen } from "./use-companion";
 import {
   PANEL_WIDTH,
+  type PanelSide,
   clampPanelWidth,
   dragDelta,
   fittedPanelWidth,
@@ -134,10 +135,8 @@ export function usePanelWidth(side: PanelSide, reservedWidth: number) {
   };
 }
 
-export function usePanelSizings(panes: SideLayouts) {
-  const leftOpen = panes.left.length > 0;
-  const rightOpen = panes.right.length > 0;
-  const left = usePanelWidth("left", rightOpen ? savedPanelWidth("right") : 0);
-  const right = usePanelWidth("right", leftOpen ? savedPanelWidth("left") : 0);
+export function usePanelSizings(open: RegionOpen) {
+  const left = usePanelWidth("left", open.right ? savedPanelWidth("right") : 0);
+  const right = usePanelWidth("right", open.left ? savedPanelWidth("left") : 0);
   return { left, right };
 }

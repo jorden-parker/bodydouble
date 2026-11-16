@@ -51,23 +51,28 @@ after the review GET and before the workspace mounts. `markReviewSeen`
 `markSeen` stores the previous head as the session's baseline (once, so a second
 push does not move it) and clears `finished_at` so the PR shows as in progress
 again; the review GET writes no session state. The `catch-up` session action
-clears the baseline. `changes?sha=` returns the interdiff from the baseline (404
-when there is none), `head` returns the current head, and `submit` answers 409
-when the PR head no longer matches the `headSha` being posted.
+clears the baseline. On the resume card, `changes-summary` makes one background
+call for a short guess of what the new commits changed, when the interdiff is at
+most 6 000 characters (`CHANGES_CHAR_BUDGET`, `lib/llm/changes-summary.ts`); the
+answer is cached by baseline and head SHA, and a larger interdiff makes no call.
+`changes?sha=` returns the interdiff from the baseline (404 when there is none),
+`head` returns the current head, and `submit` answers 409 when the PR head no
+longer matches the `headSha` being posted.
 
 **PR conversation and receipts** (`lib/github/conversation.ts`, `gh.ts`,
 `components/review/conversation-*`). The `conversation` route reads up to five
 pages of review comments (500 in all) and the first 100 reviews through
 `conditionalGet` (ETag cache in the store, TTL cache in `services.ts`), and the
-"On GitHub" pane (`g g`) shows them with threads per line. A `reply` route (POST
-`{ commentId, body }`) posts through `postReplyToReviewComment`, records a
-`reply_receipts` row, and drops the cached conversation with
-`forgetConversation`; reply bodies render through `Markdown` only and stay out
-of `ReviewData` and model prompts, like comment bodies. `submitReview` returns
-the created review's id and URL, and the `submissions` table keeps a receipt of
-each post. "Start over" never clears receipts. Comment and review bodies are
-author-written: they render through `Markdown` only, and they must stay out of
-`ReviewData` and every model prompt (`src/lib/llm/**`, `assist-service.ts`).
+GitHub view of the companion's Context tab (`g g`) shows them with threads per
+line. A `reply` route (POST `{ commentId, body }`) posts through
+`postReplyToReviewComment`, records a `reply_receipts` row, and drops the cached
+conversation with `forgetConversation`; reply bodies render through `Markdown`
+only and stay out of `ReviewData` and model prompts, like comment bodies.
+`submitReview` returns the created review's id and URL, and the `submissions`
+table keeps a receipt of each post. "Start over" never clears receipts. Comment
+and review bodies are author-written: they render through `Markdown` only, and
+they must stay out of `ReviewData` and every model prompt (`src/lib/llm/**`,
+`assist-service.ts`).
 
 **API routes** (`src/app/api/pr/[owner]/[repo]/[number]/*`). The base route
 loads the review. `definitions`, `references` and `orientation` take `?sha=` and
@@ -84,19 +89,24 @@ and returns its highlighted lines (`lib/review/file-lines.ts`); the diff's
 `assist` (POST `?sha=`, `lib/review/assist-service.ts`) streams plain text from
 the model about a range of diff lines. The client sends hunk and line indexes,
 never code. The server reads the lines from its own diff, and it ends a failed
-stream with the `ASSIST_ERROR_MARKER` from `lib/assist-protocol.ts`. The assist
-stream runs a tool loop (`lib/llm/tool-loop.ts`) over
+stream with the `ASSIST_ERROR_MARKER` from `lib/assist-protocol.ts`, after a
+`failure` record that names its kind (`unavailable`, `ended-early` or `failed`).
+The assist stream runs a tool loop (`lib/llm/tool-loop.ts`) over
 `lib/review/code-tools.ts`: `find_definition`, `find_references`, `search_code`
 and `read_file`, limited to tracked files of the head worktree, with results
-fenced as `<pr_tool_result>`, no limit on rounds (the reader's stop ends it),
-and no tools when the model has none. Each lookup streams as a
-`\u0001{json}\u0001` record (`ASSIST_LOOKUP_MARKER`) that
-`components/review/assist-stream.ts` parses apart from the answer text. The
-server gives the model no precomputed map of callers: the system prompt
-(`INVESTIGATE_RULE` in `lib/llm/assist.ts`) tells it to find and read the rest
-of the changed file, every caller (up to an entry point), every callee and
-related code itself. `read_file` with no range reads the whole file (400 lines,
-16 000 characters).
+fenced as `<pr_tool_result>`, at most `lookupBudget` rounds of lookups (4 by
+default, 12 at most; the round after the budget runs with no tools and emits a
+`budget-ended` phase), and no tools when the model has none. The stream carries
+`\u0001{json}\u0001` records (`ASSIST_RECORD_MARKER`): `phase` records (queued,
+reading, looking-up, writing, budget-ended) and `failure` records, which
+`components/review/assist-stream.ts` parses apart from the answer text. A
+request may also set `hasMoreDetail` (800 tokens instead of 300) and
+`shouldEscalate` (see the Claude Code backend), and the model sees at most the
+last four history messages. The server gives the model no precomputed map of
+callers: the system prompt (`INVESTIGATE_RULE` in `lib/llm/assist.ts`) tells it
+to spend its lookups on the callers and callees that matter most, and to read
+the rest of the changed file and related code itself. `read_file` with no range
+reads the whole file (400 lines, 16 000 characters).
 
 **Singletons** (`lib/review/services.ts`). The SQLite `SessionStore`
 (`lib/session/store.ts`) is stored on `globalThis` so it survives HMR. It
@@ -123,38 +133,56 @@ build scripts, proc macros, toolchain and module downloads, cgo, repo `rustc`
 wrappers, tsserver plugins and type acquisition. Keep it that way when you add a
 server.
 
-**Context tab** (`components/review/context-list.tsx`, `context-symbols.ts`).
-Each peek that resolves is recorded as a seen symbol (`symbol-seen`), and the
-reader can pin symbols (`symbol-pin`, `m`). These are stored in the
-`context_symbols` table along with where they were clicked from, so reopening a
-row re-runs the peek. The tab has view and kind toggles plus the jump-trail
-buttons. `g c` opens it.
+**Context tab** (`components/review/companion-context.tsx`, `context-list.tsx`,
+`context-symbols.ts`). Each peek that resolves is recorded as a seen symbol
+(`symbol-seen`), and the reader can pin symbols (`symbol-pin`, `m`). These are
+stored in the `context_symbols` table along with where they were clicked from,
+so reopening a row re-runs the peek. The tab shows the peek or the symbol list
+(with its view and kind toggles and the jump-trail buttons), and a toggle for
+the other views it also holds: Outline, Files, Map and GitHub. `g c` opens the
+symbols, `g o`, `g f`, `g m` and `g g` open the matching view.
 
-**Files pane** (`components/review/file-browser-pane.tsx`, `file-view.tsx`)
-lists every tracked file of the head worktree via the `files` route
-(`SymbolIndex.listFiles`). `openLocation` sends a target in the PR to the diff
-and anything else to the read-only `FileView` in the centre; `g f` opens it.
-Text mode uses the `search` route (`SymbolIndex.search`, fixed-string
-`git grep`, 200 results).
+**Files view** (the Files toggle of the Context tab,
+`components/review/file-browser-pane.tsx`, `file-view.tsx`) lists every tracked
+file of the head worktree via the `files` route (`SymbolIndex.listFiles`).
+`openLocation` sends a target in the PR to the diff and anything else to the
+read-only `FileView` in the centre; `g f` opens it. Text mode uses the `search`
+route (`SymbolIndex.search`, fixed-string `git grep`, 200 results).
 
 **LLM orientation** (`lib/llm/orientation.ts`,
-`lib/review/orientation-service.ts`). This is optional and calls an
-Ollama-compatible endpoint. Results are cached in the store's cache table.
-Configure it with `REVIEW_QUEUE_LLM_URL` (or `OLLAMA_HOST`),
-`REVIEW_QUEUE_LLM_MODEL`, `REVIEW_QUEUE_LLM_TIMEOUT_MS`, and
-`REVIEW_QUEUE_LLM=off`. Every call streams, and the timeout (default 180 000 ms)
-bounds the wait for the model's first byte and the longest silence between
-chunks, never the whole answer, so a slow local model is not cut off while it is
-still writing. A stream that ends without `message_stop` is an error, and every
-model call takes the route's abort signal so a reader who leaves frees the
-queue. Calls run one at a time (`streamTurn` in `lib/llm/client.ts`), so a call
-queued behind another does not spend its timeout waiting for Ollama's slot.
-Models think before answering, with 2048 extra tokens for it;
-`REVIEW_QUEUE_LLM_THINKING=off` stops that, but only use it with a model that
-does not then write its reasoning into the answer. Without
-`REVIEW_QUEUE_LLM_MODEL`, `lib/llm/model-choice.ts` uses the first model in
-claude-ollama's `ollama/sizes.json` (found by following the `claude-ollama`
-launcher on `PATH`) that Ollama has installed.
+`lib/review/orientation-service.ts`). This is optional and calls a local model
+server. Results are cached in the store's cache table. On the local backend the
+orientation is built in pieces: each step's explanation (the step header's own
+cache, keyed by head SHA) is generated first on the background lane, then one
+short call writes the orientation from those summaries, the step list and the
+hotspots, with no diff (`orientFromSummaries`). The Claude Code backend keeps
+the single prompt. `explanation-progress` counts the cached explanations for the
+Brief's progress line. Without `REVIEW_QUEUE_LLM_URL`, `lib/llm/model-choice.ts`
+probes oMLX on its loopback port (`CLAUDE_LITE_MLX_PORT`, default 8435, the port
+`cl serve` uses) and uses it when it answers; otherwise it uses Ollama
+(`OLLAMA_HOST`, default localhost:11434). It reads claude-lite's
+`config/sizes.json` and the gitignored `config/local-sizes.json` (found through
+`CLAUDE_LITE_HOME` or by following `cl` on `PATH`), and picks the largest size
+that the server serves and that fits memory by claude-lite's rule: 70% of
+unified memory unless `iogpu.wired_limit_mb` is set, and no limit for a remote
+server. `REVIEW_QUEUE_LLM_MODEL` names a model by hand. When nothing usable is
+served, the config carries the reason, which names the command to run (such as
+`cl serve 9b`), and no model is called. The URL stays environment-only.
+`REVIEW_QUEUE_LLM_TIMEOUT_MS` and `REVIEW_QUEUE_LLM=off` configure the rest.
+Every call streams, and the timeout (default 180 000 ms) bounds the wait for the
+model's first byte and the longest silence between chunks, never the whole
+answer. A stream that ends without `message_stop` is an error, and every model
+call takes the route's abort signal so a reader who leaves frees the queue.
+Turns run in two lanes (`lib/llm/lanes.ts`). Interactive turns (Ask and the
+summary draft) run ahead of background ones (orientation, step explanations and
+change parts), and an interactive turn aborts a running background turn, which
+`askModel` sends again once the interactive one has finished. Each turn's usage
+events feed the in-memory reading and writing speeds in `lib/llm/speeds.ts`,
+which start from defaults until measured. Thinking follows the chosen size's
+`thinking` default, unless `REVIEW_QUEUE_LLM_THINKING=on|off` or Settings says
+otherwise; when on, it adds 2048 tokens. `GET /api/model` reports the server,
+the chosen model or its reason, whether the server answers, each lane's running
+and queued turns, and the speeds.
 
 **Claude Code backend** (`lib/llm/claude-code.ts`, `streamTurn` in
 `lib/llm/client.ts`). `REVIEW_QUEUE_LLM_BACKEND=claude-code` (or Backend in
@@ -163,25 +191,36 @@ Ollama; `REVIEW_QUEUE_CLAUDE_MODEL` (`haiku` by default, or `sonnet`/`opus`)
 picks the model and `REVIEW_QUEUE_CLAUDE_BIN` overrides the binary. Each turn
 spawns `claude -p --output-format stream-json --include-partial-messages`, and
 its `stream_event` lines carry the same raw events the Ollama stream parser
-already reads, so timeouts, the one-at-a-time queue and the `message_stop` check
-are shared. To spend few tokens it replaces Claude Code's system prompt with the
-app's own, turns off tools, MCP servers, skills, settings sources and session
-saving, runs in an empty temp directory so no `CLAUDE.md` is found, and caps
-output with `CLAUDE_CODE_MAX_OUTPUT_TOKENS`. Ask makes one call with no tools
-and no `INVESTIGATE_RULE`. Cache keys include the model, so Claude and local
-answers never mix. PR code is sent to Anthropic on this backend. Constants
-shared with the client-side settings form live in `lib/llm/backends.ts`, which
-must stay free of Node imports.
+already reads, so timeouts, the lanes (`lib/llm/lanes.ts`) and the
+`message_stop` check are shared. To spend few tokens it replaces Claude Code's
+system prompt with the app's own, turns off tools, MCP servers, skills, settings
+sources and session saving, runs in an empty temp directory so no `CLAUDE.md` is
+found, and caps output with `CLAUDE_CODE_MAX_OUTPUT_TOKENS`. Ask makes one call
+with no tools and no `INVESTIGATE_RULE`. An assist request with `shouldEscalate`
+sends that one question through this path even when the backend is local, using
+the Claude model from Settings; nothing goes here by default. Cache keys include
+the model, so Claude and local answers never mix. PR code is sent to Anthropic
+on this backend. Constants shared with the client-side settings form live in
+`lib/llm/backends.ts`, which must stay free of Node imports.
 
-**Settings page** (`app/settings/page.tsx`, `lib/settings/`). It edits the model
-on/off, backend (local or Claude Code), model, Claude model, thinking and
-timeout, saved in the store's `settings` table. Once saved, these replace the
-matching environment variables; the URL stays environment-only so PR code cannot
-be sent to another endpoint from the UI. The Claude Code backend is the one
-exception: choosing it sends PR code to Anthropic through the `claude` CLI. LLM
-routes get their config from `currentLlmConfig()` in `lib/review/services.ts`.
+**Settings page** (`app/settings/page.tsx`, `lib/settings/`,
+`components/settings/`). It edits the model on/off, backend (local or Claude
+Code), model (Auto or one of the served models), Claude model, thinking (follow
+the model, on or off) and timeout, saved in the store's `settings` table. The
+Pull Requests section holds the "Prepare the next PR while I'm idle" switch (off
+by default, `preparation-settings.ts`): when on, the Queue posts `/api/prepare`
+after 30 seconds without input (`components/inbox/idle-preparation.tsx`), and
+`prepareReview` (`lib/review/preparation.ts`) loads that PR and runs its
+orientation on the background lane, one preparation at a time. Any input from
+the reader aborts that request. It shows which model Auto picked and why, and
+which sizes do not fit memory. Once saved, these replace the matching
+environment variables; the URL stays environment-only so PR code cannot be sent
+to another endpoint from the UI. The Claude Code backend is the one exception:
+choosing it sends PR code to Anthropic through the `claude` CLI. LLM routes get
+their config from `currentLlmConfig()` in `lib/review/services.ts`.
 `PUT /api/settings` saves and `DELETE /api/settings/cache` empties the cache
-table (orientations, step explanations and GitHub ETags).
+table (orientations, step explanations and GitHub ETags). `GET /api/model`
+returns the model status as JSON (`currentModelStatus()`).
 
 **Security boundary** (`src/proxy.ts`, the Next 16 replacement for middleware).
 The app answers only on its own host name, `review-queue.localhost`
@@ -214,20 +253,51 @@ needs no git setup beyond `gh` and a missing login fails at once. Modules take a
 `fetchPullRequest` and `store` the same way.
 
 **Client** (`src/components/review/`). `review-loader.tsx` →
-`review-workspace.tsx`. State lives in `use-*` hooks (navigation, session edits,
-peek, jumps, shortcuts, return detection), and `api.ts` is the only place that
-fetches. Pure logic is kept in non-hook modules (`hunk-index.ts`, `locate.ts`,
-`display-hotspots.ts`, `unfinished.ts`, `shortcut-keys.ts`) and tested in node.
-The chords `g h` (Hotspots pane) and `g g` (GitHub pane) are rows of that table.
-`src/components/inbox/` is the home page's list of review requests. It also
-lists open PRs from the repositories picked in Settings
-(`lib/settings/repository-settings.ts`), and `/dependabot` and `/smartling` show
-the Dependabot and Smartling ones on their own. Drafts are never listed
-(`--draft=false`), merged PRs are dropped from the in-progress, archived and
-posted lists (`listMergedPullRequestKeys`, one GraphQL call), and
-`?repository=owner/name` filters each list (`repository-filter.tsx`).
-`openPullRequests` in `services.ts` makes one `gh search prs` call per view for
-all repositories, cached for 60 s.
+`review-workspace.tsx`, which lays out three regions under one top bar
+(`workspace-top-bar.tsx`): the path rail (`path-rail.tsx`: Brief, every step in
+reading order, Wrap up), the centre (`centre.tsx`: `brief-page.tsx`, a step with
+`step-header.tsx` and `step-bar.tsx`, and `wrap-up-page.tsx`) and the companion
+(`companion.tsx`: Ask, Notes, Context). The Ask tab (`ask-panel.tsx`) is one
+thread per PR: each stored `AssistThread` is one exchange (its target, action
+and turns, kept in creation order in the session's `assistThreads`), and
+`use-assist.ts` shows them oldest first, each headed by its target chip. A typed
+question goes to the latest exchange when it has the same target on the same
+commit (`exchangeToContinue` in `assist-thread.ts`), otherwise it starts a new
+one; the quick verbs always start one. Every wait for the model renders
+`ModelWaitStatus` (`components/common/model-wait-status.tsx`, phases in plain
+words), and the model chips read `GET /api/model` through `useModelStatus`, at
+most every 15 s and not while the tab is hidden. "Ask Claude instead" opens
+`ask-claude-dialog.tsx`, and `shouldEscalate` is sent only after the reader
+confirms. `notice-slot.tsx` shows one notice above the centre, and
+`command-palette.tsx` (⌘K) jumps anywhere. State lives in `use-*` hooks
+(`use-workspace.ts` holds the page, `use-companion.ts` the regions and tabs,
+plus navigation, session edits, peek, jumps, shortcuts and return detection),
+and `api.ts` is the only place that fetches. Pure logic is kept in non-hook
+modules (`hunk-index.ts`, `locate.ts`, `display-hotspots.ts`, `unfinished.ts`,
+`shortcut-keys.ts`, `step-order.ts`, `progress.ts`) and tested in node.
+`shortcut-keys.ts` is the one table of keys: the help dialog is generated from
+it. The chords `g h` (hotspots in the path rail) and `g g` (GitHub view) are
+rows of that table, as are the other `g` chords that open a Context view.
+`src/components/inbox/` is the home page, the Queue. Every PR is one entry
+(`QueueEntry`, built in `inbox-data.ts` from review requests, the repositories
+picked in Settings and sessions), and `queue.ts` ranks and places each one
+exactly once: Up next, Continue, New commits, Waiting, then the folds Later
+(snoozed, `lib/session/snooze.ts`), Bots (Dependabot and Smartling, which also
+have their own pages), Posted and Archived. Ranking is paused, new commits,
+started, not started, then checks passing, smaller, older. Each row is
+`queue-row.tsx`, and the rows' own buttons carry the keys `j`/`k`, `s`, `e` and
+`r` (`queue-keys.ts`, `use-queue-keys.ts`). Drafts are never listed
+(`--draft=false`). `loadFacts` in `inbox-data.ts` reads size, checks, head SHA,
+merged state and age for every PR through one aliased GraphQL call
+(`listPullRequestFacts`, cached 60 s). `?repository=owner/name` filters the
+queue (`repository-filter.tsx`). `openPullRequests` in `services.ts` makes one
+`gh search prs` call per view for all repositories, cached for 60 s;
+`POST /api/inbox/refresh` clears the GitHub cache for Refresh. Snooze, wake
+(`wake`, the Wake button in Later) and archive are session actions (`snooze`,
+`wake`, `archive`), and the step total a session shows as "Step N of M" is
+written when its review is marked seen. A row shows the model's one-line intent
+only when its head SHA already has a cached orientation (`attachIntents`, no
+model call).
 
 **UI** (`src/components/ui/`) holds shadcn/ui primitives (Radix base); add more
 with `bunx shadcn@latest add <name>` and delete exports nothing uses so Fallow

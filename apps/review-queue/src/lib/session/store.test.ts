@@ -78,6 +78,14 @@ describe("SessionStore", () => {
     expect(store.getSession(KEY)).toMatchObject({ currentStepId: "s2", lastHeadSha: null });
   });
 
+  it("remembers the step order the reader chose, until they go back to the built-in one", () => {
+    expect(store.getSession(KEY).stepOrder).toBeNull();
+    store.setStepOrder(KEY, ["s2", "s1"]);
+    expect(store.getSession(KEY).stepOrder).toEqual(["s2", "s1"]);
+    store.setStepOrder(KEY, null);
+    expect(store.getSession(KEY).stepOrder).toBeNull();
+  });
+
   it("remembers the last head commit seen", () => {
     store.markSeen(KEY, "sha9");
     expect(store.getSession(KEY).lastHeadSha).toBe("sha9");
@@ -387,16 +395,16 @@ describe("SessionStore", () => {
     expect(store.getSession("other#1").doneSteps).toEqual(["s1"]);
   });
 
-  it("saves model chats, newest first, and updates them in place", () => {
+  it("keeps exchanges in the order they were asked, and updating one does not move it", () => {
     store.saveAssistThread(KEY, thread("t1"));
     now += 1000;
     store.saveAssistThread(KEY, thread("t2"));
     now += 1000;
-    store.saveAssistThread(KEY, thread("t1", "It loads twice."));
+    store.saveAssistThread(KEY, thread("t2", "It loads twice."));
     const saved = store.getSession(KEY).assistThreads;
     expect(saved.map((chat) => chat.id)).toEqual(["t1", "t2"]);
-    expect(saved[0]).toEqual({
-      ...thread("t1", "It loads twice."),
+    expect(saved[1]).toEqual({
+      ...thread("t2", "It loads twice."),
       updatedAt: "2026-10-26T10:00:02.000Z",
     });
   });
@@ -437,8 +445,37 @@ describe("SessionStore", () => {
         lastHeadSha: null,
         updatedAt: "2026-10-26T10:00:00.000Z",
         pause: null,
+        totalSteps: null,
       },
     });
+  });
+
+  it("reports the step total the review was loaded with", () => {
+    store.markSeen(KEY, "sha1");
+    store.setTotalSteps(KEY, 9);
+    expect(store.progressSummaries([KEY])[KEY]?.totalSteps).toBe(9);
+  });
+
+  it("wakes a snoozed PR so it is listed again", () => {
+    store.snooze("acme/app#8", { at: "2026-10-27T00:00:00.000Z" });
+    store.wake("acme/app#8");
+    expect(store.snoozes()).toEqual([]);
+  });
+
+  it("stores a snooze until a time or until the head moves, and lists them", () => {
+    store.snooze("acme/app#8", { at: "2026-10-27T00:00:00.000Z" });
+    store.snooze("acme/app#9", { headSha: "sha1" });
+    store.snooze("acme/app#9", { headSha: "sha2" });
+    expect(store.snoozes()).toEqual([
+      { key: "acme/app#8", until: { at: "2026-10-27T00:00:00.000Z" } },
+      { key: "acme/app#9", until: { headSha: "sha2" } },
+    ]);
+  });
+
+  it("does not start a session when a PR is snoozed", () => {
+    store.snooze("acme/app#8", { headSha: "sha1" });
+    expect(store.progressSummaries(["acme/app#8"])).toEqual({});
+    expect(store.inProgress()).toEqual([]);
   });
 
   it("includes the pause note in the summary", () => {

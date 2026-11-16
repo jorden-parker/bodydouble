@@ -3,14 +3,31 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "cn";
+import { modelChipOf } from "@/components/common/model-chip";
+import { useModelStatus } from "@/components/common/use-model-status";
 import { Otter } from "./otter";
 
 const NAVIGATION_LINKS = [
-  { label: "Inbox", href: "/" },
-  { label: "Dependabot", href: "/dependabot" },
-  { label: "Smartling", href: "/smartling" },
+  { label: "Queue", href: "/" },
   { label: "Settings", href: "/settings" },
 ];
+
+function ModelBadge() {
+  const chip = modelChipOf(useModelStatus());
+  if (!chip) return null;
+  return (
+    <span className="ml-auto flex items-center gap-1.5 self-center whitespace-nowrap rounded-full border border-line-soft px-2.5 py-0.5 text-xs text-muted-foreground">
+      <span
+        aria-hidden
+        className={cn(
+          "size-2 rounded-full",
+          chip.state === "ready" || chip.state === "busy" ? "bg-primary" : "bg-muted-foreground/40",
+        )}
+      />
+      {chip.name} {chip.stateWord}
+    </span>
+  );
+}
 
 export function AppBar() {
   const pathname = usePathname();
@@ -37,6 +54,7 @@ export function AppBar() {
             );
           })}
         </nav>
+        <ModelBadge />
       </div>
     </header>
   );

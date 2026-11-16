@@ -54,6 +54,7 @@ type NewReplyReceipt = Omit<ReplyReceipt, "postedAt">;
 
 export type Session = {
   currentStepId: string | null;
+  stepOrder: string[] | null;
   lastHeadSha: string | null;
   baselineHeadSha: string | null;
   updatedAt: string | null;
@@ -86,7 +87,14 @@ export type ProgressSummary = {
   lastHeadSha: string | null;
   updatedAt: string;
   pause: PauseState | null;
+  totalSteps: number | null;
 };
+
+export type SnoozeUntil = { at: string } | { headSha: string };
+
+export type Snooze = { key: string; until: SnoozeUntil };
+
+type SnoozeRow = { pr_key: string; until_at: string | null; until_head_sha: string | null };
 
 export type InProgressSession = {
   key: string;
@@ -124,6 +132,7 @@ type RecentSubmissionRow = {
 
 type SessionRow = {
   current_step: string | null;
+  step_order: string | null;
   head_sha: string | null;
   pause_note: string | null;
   paused_at: string | null;
@@ -245,6 +254,11 @@ CREATE TABLE IF NOT EXISTS reply_receipts (
   posted_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS reply_receipts_by_pr ON reply_receipts (pr_key, id);
+CREATE TABLE IF NOT EXISTS snoozes (
+  pr_key TEXT PRIMARY KEY,
+  until_at TEXT,
+  until_head_sha TEXT
+);
 `;
 
 const PROGRESS_TABLES = [
@@ -327,9 +341,42 @@ LEFT JOIN sessions s ON s.pr_key = r.pr_key
 ORDER BY r.id DESC
 LIMIT ?`;
 
-function pauseOf(row: SessionRow | undefined): PauseState | null {
+function stepOrderOf(row: Pick<SessionRow, "step_order"> | undefined): string[] | null {
+  return row?.step_order ? (JSON.parse(row.step_order) as string[]) : null;
+}
+
+function pauseOf(row: Pick<SessionRow, "pause_note" | "paused_at"> | undefined): PauseState | null {
   return row?.pause_note != null ? { note: row.pause_note, at: row.paused_at ?? "" } : null;
 }
+
+function toSnooze(row: SnoozeRow): Snooze {
+  const until: SnoozeUntil =
+    row.until_at !== null ? { at: row.until_at } : { headSha: row.until_head_sha ?? "" };
+  return { key: row.pr_key, until };
+}
+
+function progressSummariesQuery(keyCount: number): string {
+  return `
+SELECT s.pr_key, s.head_sha, s.pause_note, s.paused_at, s.updated_at, s.total_steps,
+  COUNT(DISTINCT d.step_id) AS done_count,
+  COUNT(DISTINCT n.id) AS note_count
+FROM sessions s
+LEFT JOIN done_steps d ON d.pr_key = s.pr_key
+LEFT JOIN notes n ON n.pr_key = s.pr_key
+WHERE s.updated_at IS NOT NULL AND s.pr_key IN (${Array(keyCount).fill("?").join(", ")})
+GROUP BY s.pr_key`;
+}
+
+type ProgressSummaryRow = {
+  pr_key: string;
+  head_sha: string | null;
+  pause_note: string | null;
+  paused_at: string | null;
+  updated_at: string;
+  total_steps: number | null;
+  done_count: number;
+  note_count: number;
+};
 
 function toInProgress(row: InProgressRow): InProgressSession {
   return {
@@ -403,6 +450,8 @@ function openDatabase(file: string): DatabaseSync {
   ensureColumn(db, "sessions", "title", "TEXT");
   ensureColumn(db, "sessions", "finished_at", "TEXT");
   ensureColumn(db, "sessions", "archived_at", "TEXT");
+  ensureColumn(db, "sessions", "total_steps", "INTEGER");
+  ensureColumn(db, "sessions", "step_order", "TEXT");
   return db;
 }
 
@@ -488,6 +537,7 @@ export class SessionStore {
       SessionRow | undefined;
     return {
       currentStepId: row?.current_step ?? null,
+      stepOrder: stepOrderOf(row),
       lastHeadSha: row?.head_sha ?? null,
       baselineHeadSha: this.headFrom("SELECT head_sha FROM review_baselines WHERE pr_key = ?", key),
       updatedAt: row?.updated_at ?? null,
@@ -507,6 +557,13 @@ export class SessionStore {
       submissions: this.submissions(key),
       replyReceipts: this.replyReceipts(key),
     };
+  }
+
+  setStepOrder(key: string, stepIds: string[] | null): void {
+    this.touch(key);
+    this.db
+      .prepare("UPDATE sessions SET step_order = ? WHERE pr_key = ?")
+      .run(stepIds === null ? null : JSON.stringify(stepIds), key);
   }
 
   setCurrentStep(key: string, stepId: string): void {
@@ -705,19 +762,43 @@ export class SessionStore {
   }
 
   progressSummaries(keys: string[]): Record<string, ProgressSummary> {
-    const summaries: Record<string, ProgressSummary> = {};
-    for (const key of keys) {
-      const session = this.getSession(key);
-      if (!session.updatedAt) continue;
-      summaries[key] = {
-        doneCount: session.doneSteps.length,
-        noteCount: session.notes.length,
-        lastHeadSha: session.lastHeadSha,
-        updatedAt: session.updatedAt,
-        pause: session.pause,
-      };
-    }
-    return summaries;
+    if (keys.length === 0) return {};
+    const rows = this.db
+      .prepare(progressSummariesQuery(keys.length))
+      .all(...keys) as ProgressSummaryRow[];
+    return Object.fromEntries(
+      rows.map((row) => [
+        row.pr_key,
+        {
+          doneCount: row.done_count,
+          noteCount: row.note_count,
+          lastHeadSha: row.head_sha,
+          updatedAt: row.updated_at,
+          pause: pauseOf(row),
+          totalSteps: row.total_steps,
+        },
+      ]),
+    );
+  }
+
+  setTotalSteps(key: string, totalSteps: number): void {
+    this.db.prepare("UPDATE sessions SET total_steps = ? WHERE pr_key = ?").run(totalSteps, key);
+  }
+
+  snooze(key: string, until: SnoozeUntil): void {
+    this.db
+      .prepare(
+        "INSERT INTO snoozes (pr_key, until_at, until_head_sha) VALUES (?, ?, ?) ON CONFLICT (pr_key) DO UPDATE SET until_at = excluded.until_at, until_head_sha = excluded.until_head_sha",
+      )
+      .run(key, "at" in until ? until.at : null, "headSha" in until ? until.headSha : null);
+  }
+
+  wake(key: string): void {
+    this.db.prepare("DELETE FROM snoozes WHERE pr_key = ?").run(key);
+  }
+
+  snoozes(): Snooze[] {
+    return (this.db.prepare("SELECT * FROM snoozes").all() as SnoozeRow[]).map(toSnooze);
   }
 
   rememberTitle(key: string, title: string): void {
@@ -823,7 +904,7 @@ export class SessionStore {
 
   private assistThreads(key: string): SavedAssistThread[] {
     const rows = this.db
-      .prepare("SELECT * FROM assist_threads WHERE pr_key = ? ORDER BY updated_at DESC, rowid DESC")
+      .prepare("SELECT * FROM assist_threads WHERE pr_key = ? ORDER BY rowid ASC")
       .all(key) as AssistThreadRow[];
     return rows.map((row) => ({
       id: row.id,

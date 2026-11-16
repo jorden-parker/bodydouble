@@ -12,7 +12,7 @@ export function NeonShell({ children }: { children: ReactNode }) {
   const isWorkspace = pathname.startsWith(WORKSPACE_PATH_PREFIX);
   return (
     <div className={cn("app", isWorkspace && "app--workspace")}>
-      <AppBar />
+      {!isWorkspace && <AppBar />}
       <div className="app-body">{children}</div>
     </div>
   );

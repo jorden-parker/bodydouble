@@ -97,6 +97,14 @@ describe("loadReview", () => {
     expect(navigable).toMatchObject({ "scripts/run.sh": false, "src/retry.ts": true });
   });
 
+  it("records how many steps the review has when it is marked seen", async () => {
+    const review = await loadReview(REF, deps);
+    await markReviewSeen(REF, review.headSha, deps.store);
+    expect(deps.store.progressSummaries([prKey(REF)])[prKey(REF)]?.totalSteps).toBe(
+      review.steps.length,
+    );
+  });
+
   it("remembers the PR title when the head is marked seen", async () => {
     const review = await loadReview(REF, deps);
     await markReviewSeen(REF, review.headSha, deps.store);

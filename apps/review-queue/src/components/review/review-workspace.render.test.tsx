@@ -1,5 +1,5 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { Profiler, memo } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,7 +7,6 @@ import type { ChangeNode } from "@/lib/types";
 import { installFakeApi } from "@/test/fake-api";
 import { REF, reviewPayload } from "@/test/review-fixture";
 import { CodeLineComponent } from "./code-line";
-import type { PanelSide } from "./pane-layout";
 import { ReviewLoader } from "./review-loader";
 
 vi.mock("./code-line", async (importOriginal) => {
@@ -41,13 +40,20 @@ function mountReview(onRender = vi.fn()) {
   return onRender;
 }
 
+async function startFromBrief(user: UserEvent) {
+  await waitFor(() => expect(document.getElementById("brief-heading")).not.toBeNull());
+  await user.click(screen.getByRole("button", { name: /Start with step 1/ }));
+  await screen.findByText(/^Step \d of 3/);
+}
+
 async function renderWorkspace(payload = reviewPayload()) {
   const api = installFakeApi(payload);
   vi.mocked(CodeLineComponent).mockClear();
   const onRender = mountReview();
-  await screen.findByText(/^Step \d of 3/);
+  const user = userEvent.setup();
+  await startFromBrief(user);
   await settleRequests(api.calls);
-  return { api, user: userEvent.setup(), onRender };
+  return { api, user, onRender };
 }
 
 async function settleRequests(calls: unknown[]) {
@@ -66,22 +72,6 @@ function nextFrame() {
 
 function diffLineRenders() {
   return vi.mocked(CodeLineComponent).mock.calls.length;
-}
-
-function reviewPanel(side: PanelSide = "right"): HTMLElement {
-  const panel = screen
-    .getAllByRole("complementary")
-    .find((aside) => aside.getAttribute("data-side") === side);
-  if (!panel) throw new Error(`no ${side} review panel`);
-  return panel;
-}
-
-function paneButton(name: string | RegExp) {
-  const matches = (["left", "right"] as const).flatMap((side) =>
-    within(reviewPanel(side)).queryAllByRole("button", { name }),
-  );
-  if (matches.length !== 1) throw new Error(`expected one pane button named ${String(name)}`);
-  return matches[0];
 }
 
 function manyNavigableFilesPayload() {
@@ -127,7 +117,7 @@ afterEach(() => {
 describe("review workspace renders", () => {
   it("keeps the top bar outside the scrolling column, so it never scrolls away", async () => {
     await renderWorkspace();
-    const topBar = screen.getByRole("link", { name: "Back to inbox" }).closest("header");
+    const topBar = screen.getByRole("link", { name: "Back to queue" }).closest("header");
     expect(document.getElementById("main")?.contains(topBar ?? null)).toBe(false);
   });
 
@@ -142,25 +132,24 @@ describe("review workspace renders", () => {
     expect(screen.getByRole("heading", { level: 1, name: payload.pr.title })).toBeTruthy();
   });
 
-  it("shows the review path as a labelled stream in the header", async () => {
+  it("shows one progress indicator in the top bar, with the time left", async () => {
     await renderWorkspace();
-    const path = screen.getByRole("progressbar", { name: "Review path" });
-    expect(path.closest("header")).not.toBeNull();
-    expect(path.getAttribute("aria-valuetext")).toBe("Walk the changes");
+    expect(screen.getAllByRole("progressbar", { name: "Steps read" })).toHaveLength(1);
+    expect(screen.getByText(/^0 of 3 · ~\d+ min left$/)).toBeTruthy();
   });
 
-  it("links the top bar to the pull request on GitHub", async () => {
-    await renderWorkspace();
+  it("links the menu to the pull request on GitHub", async () => {
+    const { user } = await renderWorkspace();
+    await user.click(screen.getByRole("button", { name: "More actions" }));
     const link = screen.getByRole("link", { name: "Open acme/app#7 on GitHub" });
     expect(link.getAttribute("href")).toBe("https://github.com/acme/app/pull/7");
-    expect(link.closest("header")).not.toBeNull();
   });
 
   it("a side-panel toggle renders no diff lines", async () => {
     const { user } = await renderWorkspace();
     expect(diffLineRenders()).toBeGreaterThan(0);
     vi.mocked(CodeLineComponent).mockClear();
-    await user.keyboard("]");
+    await user.keyboard("{]}");
     expect(diffLineRenders()).toBe(0);
   });
 
@@ -215,7 +204,7 @@ describe("review workspace renders", () => {
       });
     });
     mountReview();
-    await screen.findByText(/^Step \d of 3/);
+    await startFromBrief(userEvent.setup());
     await waitFor(() => expect(countReferenceRequests(api.calls)).toHaveLength(10));
     await waitFor(() => expect(inFlight).toBe(0));
     expect(new Set(countReferenceRequests(api.calls).map((call) => call.url)).size).toBe(10);
@@ -231,7 +220,7 @@ describe("review workspace renders", () => {
       orphanIds: [],
     };
     const { user } = await renderWorkspace(payload);
-    await user.click(paneButton("Map"));
+    await user.keyboard("gm");
     expect((await screen.findAllByText(MAP_NODE.name!)).length).toBeGreaterThan(0);
   });
 

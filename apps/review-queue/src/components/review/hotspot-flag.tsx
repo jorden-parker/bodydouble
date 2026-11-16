@@ -79,7 +79,7 @@ function FlagDetails({
         />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <span className="flex items-start gap-2 font-medium wrap-anywhere">
+        <span className="flex items-start gap-2 font-medium text-pretty">
           <InlineMarkdown text={hotspot.title} />
           {hotspot.suggested && (
             <span className="flex h-5 shrink-0 items-center">
@@ -115,7 +115,7 @@ function FlagChip({ hotspot, isChecked }: { hotspot: DisplayHotspot; isChecked: 
   return (
     <span
       data-checked={isChecked}
-      className={cn("inline-flex min-w-0 items-center gap-1.5 wrap-anywhere", diagnostic.text)}
+      className={cn("inline-flex min-w-0 items-center gap-1.5 text-pretty", diagnostic.text)}
     >
       <Icon data-icon={diagnostic.name} className="size-3.5 shrink-0" />
       <span

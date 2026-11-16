@@ -90,6 +90,12 @@ export async function explainStep(
     maxTokens: MAX_TOKENS,
     messages: [{ role: "user", content: buildStepPrompt(input) }],
   };
-  const explanation = await askForJson({ config, fetchImpl }, request, parseExplanation, signal);
+  const explanation = await askForJson(
+    { config, fetchImpl },
+    request,
+    parseExplanation,
+    signal,
+    "background",
+  );
   return { ...explanation, model: config.model };
 }

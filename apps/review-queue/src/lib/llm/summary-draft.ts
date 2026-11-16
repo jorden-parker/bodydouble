@@ -66,5 +66,5 @@ export async function draftSummary(
     maxTokens: MAX_TOKENS,
     messages: [{ role: "user", content: buildSummaryPrompt(input) }],
   };
-  return askForJson({ config, fetchImpl }, request, parseSummary, signal);
+  return askForJson({ config, fetchImpl }, request, parseSummary, signal, "interactive");
 }

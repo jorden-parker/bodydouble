@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { PageHeader, PageShell } from "@/components/common/page-shell";
-import { SmartlingList } from "@/components/inbox/dependabot-list";
+import { SmartlingList } from "@/components/inbox/bot-pull-request-list";
 import { InboxSkeleton } from "@/components/inbox/inbox-skeleton";
 import type { RepositorySearchParams } from "@/components/inbox/repository-filter";
 

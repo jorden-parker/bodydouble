@@ -1,19 +1,25 @@
 "use client";
 
 import { Coffee } from "lucide-react";
+import { useCallback } from "react";
 import { AppDialog } from "@/components/common/app-dialog";
 import { Callout } from "@/components/common/callout";
-import { InlineMarkdown } from "@/components/common/markdown-text";
+import { InlineMarkdown, Markdown } from "@/components/common/markdown-text";
 import { Button } from "@/components/ui/button";
 import { plural } from "@/lib/plural";
+import type { ChangesSummaryResult } from "@/lib/review/changes-summary-service";
 import type { Session } from "@/lib/session/store";
-import type { Step } from "@/lib/types";
+import type { PullRequestRef, Step } from "@/lib/types";
+import { fetchChangesSummary } from "./api";
+import { ModelUnavailable, useModelResult } from "./model-result";
 
 type ResumeCardProps = {
   session: Session;
   steps: Step[];
   nextStep: Step | null;
   reopenedCount: number;
+  pullRequest: PullRequestRef;
+  headSha: string;
   onContinue: () => void;
   onShowChanges: () => void;
 };
@@ -26,13 +32,53 @@ function sinceText(iso: string | null): string {
   return `${Math.round(minutes / 1440)} days ago`;
 }
 
+function useChangesSummary(pullRequest: PullRequestRef, headSha: string) {
+  const load = useCallback(() => fetchChangesSummary(pullRequest, headSha), [pullRequest, headSha]);
+  return useModelResult<ChangesSummaryResult>(load);
+}
+
+function ChangesSummary({
+  pullRequest,
+  headSha,
+}: {
+  pullRequest: PullRequestRef;
+  headSha: string;
+}) {
+  const { state, retry } = useChangesSummary(pullRequest, headSha);
+  if (state.status === "loading") {
+    return (
+      <p role="status" className="text-sm text-muted-foreground">
+        Local model is reading what changed…
+      </p>
+    );
+  }
+  if (state.status === "error") return <ModelUnavailable message={state.message} onRetry={retry} />;
+  if (state.status !== "ready") return null;
+  return (
+    <div className="flex flex-col gap-1.5 rounded-lg bg-muted/60 p-3 text-sm text-foreground">
+      <p className="text-sm text-muted-foreground">
+        The model&apos;s guess, unverified. The PR author can sway it.
+      </p>
+      <Markdown text={state.summary.summary} className="flex flex-col gap-1.5" />
+    </div>
+  );
+}
+
 type NewCommitsProps = {
   reopenedCount: number;
   canShowChanges: boolean;
+  pullRequest: PullRequestRef;
+  headSha: string;
   onShowChanges: () => void;
 };
 
-function NewCommits({ reopenedCount, canShowChanges, onShowChanges }: NewCommitsProps) {
+function NewCommits({
+  reopenedCount,
+  canShowChanges,
+  pullRequest,
+  headSha,
+  onShowChanges,
+}: NewCommitsProps) {
   if (reopenedCount === 0 && !canShowChanges) return null;
   return (
     <div className="flex flex-col items-start gap-2 text-severity-medium">
@@ -42,6 +88,7 @@ function NewCommits({ reopenedCount, canShowChanges, onShowChanges }: NewCommits
           They are marked again.
         </span>
       )}
+      {canShowChanges && <ChangesSummary pullRequest={pullRequest} headSha={headSha} />}
       {canShowChanges && (
         <Button variant="outline" size="sm" onClick={onShowChanges}>
           Show what changed
@@ -56,6 +103,8 @@ export function ResumeCard({
   steps,
   nextStep,
   reopenedCount,
+  pullRequest,
+  headSha,
   onContinue,
   onShowChanges,
 }: ResumeCardProps) {
@@ -120,6 +169,8 @@ export function ResumeCard({
         <NewCommits
           reopenedCount={reopenedCount}
           canShowChanges={session.baselineHeadSha !== null}
+          pullRequest={pullRequest}
+          headSha={headSha}
           onShowChanges={onShowChanges}
         />
       </dl>

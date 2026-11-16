@@ -2,133 +2,255 @@ import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { autoModel, claudeOllamaSizesPath, llmConfig, ollamaModels } from "./model-choice";
+import { llmConfig, chooseModel } from "./model-choice";
 
 const SIZES = {
-  "27b": { model: "qwen3.8-27b-cc" },
-  "35b": { model: "qwen3.6-35b-cc" },
-  "35b-coding": { model: "qwen3.6-35b-coding-cc" },
+  "9b": {
+    model: "qwen3.5-9b-mtp-cc",
+    memory_gb: 9,
+    mlx: "mlx-community/Qwen3.5-9B-4bit",
+    thinking: false,
+  },
+  "35b": {
+    model: "qwen3.6-35b-cc",
+    memory_gb: 22,
+    mlx: "mlx-community/Qwen3.6-35B-A3B-4bit",
+    thinking: false,
+  },
+  "40b": {
+    model: "flint-40b-128k-cc",
+    memory_gb: 27,
+    mlx: "mlx-community/flint-oQ4e",
+    thinking: true,
+  },
 };
 
-function claudeCustomCheckout(): { binDir: string; sizesPath: string } {
-  const root = realpathSync(mkdtempSync(path.join(tmpdir(), "claude-custom-")));
-  mkdirSync(path.join(root, "repo", "bin"), { recursive: true });
-  mkdirSync(path.join(root, "repo", "ollama"));
+const GIB = 1024 ** 3;
+const SIXTEEN_GB = { memoryBytes: 16 * GIB, wiredLimitMb: 0 };
+const NINE_B_MLX = "mlx-community--Qwen3.5-9B-4bit";
+
+function claudeLiteCheckout(sizes: object = SIZES) {
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), "claude-lite-")));
+  mkdirSync(path.join(root, "dist"));
+  mkdirSync(path.join(root, "config"));
   mkdirSync(path.join(root, "path-bin"));
-  const launcher = path.join(root, "repo", "bin", "claude-ollama");
+  const launcher = path.join(root, "dist", "claude-lite");
   writeFileSync(launcher, "");
-  symlinkSync(launcher, path.join(root, "path-bin", "claude-ollama"));
-  const sizesPath = path.join(root, "repo", "ollama", "sizes.json");
-  writeFileSync(sizesPath, JSON.stringify(SIZES));
-  return { binDir: path.join(root, "path-bin"), sizesPath };
+  symlinkSync(launcher, path.join(root, "path-bin", "cl"));
+  writeFileSync(path.join(root, "config", "sizes.json"), JSON.stringify(sizes));
+  return { home: root, binDir: path.join(root, "path-bin") };
 }
 
-function ollamaWith(names: string[]): typeof fetch {
-  return (async () => Response.json({ models: names.map((name) => ({ name })) })) as typeof fetch;
+type Servers = { omlx?: string[] | null; ollama?: string[] | null };
+
+function servers({ omlx = null, ollama = null }: Servers, requests: string[] = []): typeof fetch {
+  return (async (input: string | URL | Request) => {
+    const url = String(input);
+    requests.push(url);
+    if (url === "http://127.0.0.1:8435/v1/models" && omlx) {
+      return Response.json({ data: omlx.map((id) => ({ id })) });
+    }
+    if (url === "http://localhost:11434/api/tags" && ollama) {
+      return Response.json({ models: ollama.map((name) => ({ name })) });
+    }
+    throw new Error("connection refused");
+  }) as typeof fetch;
 }
 
-const unreachable = (async () => {
-  throw new Error("connection refused");
-}) as typeof fetch;
-
-const LOCAL_SETTINGS = {
+const SAVED = {
   enabled: true,
   model: null,
-  thinking: true,
+  thinking: "model",
   timeoutMs: 8000,
   backend: "local",
   claudeModel: "haiku",
 } as const;
 
-describe("claudeOllamaSizesPath", () => {
-  it("follows the claude-ollama launcher on PATH to its sizes.json", async () => {
-    const { binDir, sizesPath } = claudeCustomCheckout();
-    expect(await claudeOllamaSizesPath({ PATH: `/nowhere:${binDir}` })).toBe(sizesPath);
+describe("chooseModel", () => {
+  it("serves the largest fitting size from oMLX before Ollama when no URL is set", async () => {
+    const { binDir } = claudeLiteCheckout();
+    const choice = await chooseModel(
+      { PATH: binDir },
+      servers({ omlx: [NINE_B_MLX], ollama: ["qwen3.5-9b-mtp-cc"] }),
+      null,
+      SIXTEEN_GB,
+    );
+    expect(choice).toMatchObject({
+      server: "omlx",
+      baseURL: "http://127.0.0.1:8435",
+      model: NINE_B_MLX,
+      size: "9b",
+      isUsable: true,
+    });
   });
 
-  it("is null when claude-ollama is not on PATH", async () => {
-    expect(await claudeOllamaSizesPath({ PATH: "/nowhere" })).toBeNull();
+  it("never picks a size above the memory budget, even when it is served", async () => {
+    const { binDir } = claudeLiteCheckout();
+    const choice = await chooseModel(
+      { PATH: binDir },
+      servers({ omlx: [NINE_B_MLX, "mlx-community--Qwen3.6-35B-A3B-4bit"] }),
+      null,
+      SIXTEEN_GB,
+    );
+    expect(choice.size).toBe("9b");
+    expect(choice.sizes).toContainEqual({
+      name: "35b",
+      memoryGb: 22,
+      isFitting: false,
+      isServed: true,
+    });
+  });
+
+  it("picks the largest served size that fits a bigger machine", async () => {
+    const { binDir } = claudeLiteCheckout();
+    const choice = await chooseModel(
+      { PATH: binDir },
+      servers({ omlx: [NINE_B_MLX, "mlx-community--Qwen3.6-35B-A3B-4bit"] }),
+      null,
+      { memoryBytes: 64 * GIB, wiredLimitMb: 0 },
+    );
+    expect(choice.size).toBe("35b");
+  });
+
+  it("uses Ollama's installed size names when oMLX does not answer", async () => {
+    const { binDir } = claudeLiteCheckout();
+    const choice = await chooseModel(
+      { PATH: binDir },
+      servers({ ollama: ["qwen3.5-9b-mtp-cc:latest"] }),
+      null,
+      SIXTEEN_GB,
+    );
+    expect(choice).toMatchObject({ server: "ollama", model: "qwen3.5-9b-mtp-cc", size: "9b" });
+  });
+
+  it("uses the configured URL as Ollama and does not probe the oMLX port", async () => {
+    const { binDir } = claudeLiteCheckout();
+    const requests: string[] = [];
+    const env = { PATH: binDir, REVIEW_QUEUE_LLM_URL: "http://localhost:11434" };
+    const choice = await chooseModel(
+      env,
+      servers({ omlx: [NINE_B_MLX], ollama: ["qwen3.5-9b-mtp-cc"] }, requests),
+      null,
+      SIXTEEN_GB,
+    );
+    expect(choice.server).toBe("ollama");
+    expect(requests).not.toContain("http://127.0.0.1:8435/v1/models");
+  });
+
+  it("names the command that starts a model when nothing is served", async () => {
+    const { binDir } = claudeLiteCheckout();
+    const choice = await chooseModel({ PATH: binDir }, servers({}), null, SIXTEEN_GB);
+    expect(choice.isUsable).toBe(false);
+    expect(choice.reason).toContain("`cl serve 9b`");
+  });
+
+  it("says that nothing fits when the machine is too small for every size", async () => {
+    const { binDir } = claudeLiteCheckout();
+    const choice = await chooseModel({ PATH: binDir }, servers({ omlx: [NINE_B_MLX] }), null, {
+      memoryBytes: 8 * GIB,
+      wiredLimitMb: 0,
+    });
+    expect(choice.isUsable).toBe(false);
+    expect(choice.reason).toContain("9\u00a0GB");
+  });
+
+  it("finds claude-lite from CLAUDE_LITE_HOME without a cl on PATH", async () => {
+    const { home } = claudeLiteCheckout();
+    const choice = await chooseModel(
+      { CLAUDE_LITE_HOME: home },
+      servers({ omlx: [NINE_B_MLX] }),
+      null,
+      SIXTEEN_GB,
+    );
+    expect(choice.size).toBe("9b");
+  });
+
+  it("says where claude-lite was looked for when it is not found", async () => {
+    const choice = await chooseModel(
+      { PATH: "/nowhere" },
+      servers({ omlx: [NINE_B_MLX] }),
+      null,
+      SIXTEEN_GB,
+    );
+    expect(choice.isUsable).toBe(false);
+    expect(choice.reason).toContain("CLAUDE_LITE_HOME");
+  });
+
+  it("applies claude-lite's local-sizes overlay", async () => {
+    const { binDir, home } = claudeLiteCheckout();
+    writeFileSync(
+      path.join(home, "config", "local-sizes.json"),
+      JSON.stringify({ "9b": { memory_gb: 4 } }),
+    );
+    const choice = await chooseModel({ PATH: binDir }, servers({ omlx: [NINE_B_MLX] }), null, {
+      memoryBytes: 8 * GIB,
+      wiredLimitMb: 0,
+    });
+    expect(choice.size).toBe("9b");
+  });
+
+  it("keeps a model chosen by hand", async () => {
+    const { binDir } = claudeLiteCheckout();
+    const choice = await chooseModel({ PATH: binDir }, servers({ omlx: [] }), "mine", SIXTEEN_GB);
+    expect(choice).toMatchObject({ model: "mine", size: null, isUsable: true });
+  });
+
+  it("has no memory limit for a remote server", async () => {
+    const { binDir } = claudeLiteCheckout();
+    const choice = await chooseModel(
+      { PATH: binDir, REVIEW_QUEUE_LLM_URL: "http://gpu.example:11434" },
+      (async () => Response.json({ models: [{ name: "qwen3.6-35b-cc" }] })) as typeof fetch,
+      null,
+      SIXTEEN_GB,
+    );
+    expect(choice).toMatchObject({ budgetGb: null, size: "35b", model: "qwen3.6-35b-cc" });
   });
 });
 
 describe("llmConfig", () => {
-  it("picks the first claude-ollama model that Ollama has installed", async () => {
-    const { binDir } = claudeCustomCheckout();
-    const fetchImpl = ollamaWith([
-      "llama3:latest",
-      "qwen3.6-35b-coding-cc:latest",
-      "qwen3.6-35b-cc",
-    ]);
-    expect((await llmConfig({ PATH: binDir }, fetchImpl)).model).toBe("qwen3.6-35b-cc");
+  it("follows the chosen size's thinking default unless settings say otherwise", async () => {
+    const { binDir } = claudeLiteCheckout();
+    const fetchImpl = servers({ omlx: [NINE_B_MLX] });
+    const env = { PATH: binDir };
+    expect((await llmConfig(env, fetchImpl, SAVED)).thinking).toBe(false);
+    expect((await llmConfig(env, fetchImpl, { ...SAVED, thinking: "on" })).thinking).toBe(true);
+    expect((await llmConfig(env, fetchImpl, { ...SAVED, thinking: "off" })).thinking).toBe(false);
   });
 
-  it("keeps an explicitly configured model", async () => {
-    const { binDir } = claudeCustomCheckout();
-    const env = { PATH: binDir, REVIEW_QUEUE_LLM_MODEL: "mine" };
-    expect((await llmConfig(env, ollamaWith(["qwen3.6-35b-cc"]))).model).toBe("mine");
+  it("lets the environment choose thinking when nothing is saved", async () => {
+    const { binDir } = claudeLiteCheckout();
+    const config = await llmConfig(
+      { PATH: binDir, REVIEW_QUEUE_LLM_THINKING: "on" },
+      servers({ omlx: [NINE_B_MLX] }),
+    );
+    expect(config.thinking).toBe(true);
   });
 
-  it("falls back to the default when no claude-ollama model is installed", async () => {
-    const { binDir } = claudeCustomCheckout();
-    const fallback = (await llmConfig({ PATH: "/nowhere" }, unreachable)).model;
-    expect((await llmConfig({ PATH: binDir }, ollamaWith(["llama3:latest"]))).model).toBe(fallback);
-    expect((await llmConfig({ PATH: binDir }, unreachable)).model).toBe(fallback);
+  it("returns the reason as a problem when no model can be used", async () => {
+    const { binDir } = claudeLiteCheckout();
+    const config = await llmConfig({ PATH: binDir }, servers({}), SAVED);
+    expect(config.problem).toContain("`cl serve 9b`");
+    expect(config.model).toBe("");
   });
 
-  it("prefers saved settings to the environment", async () => {
-    const { binDir } = claudeCustomCheckout();
-    const env = { PATH: binDir, REVIEW_QUEUE_LLM_MODEL: "from-env" };
-    const saved = { ...LOCAL_SETTINGS, model: "saved", thinking: false, timeoutMs: 1234 };
-    expect(await llmConfig(env, ollamaWith(["qwen3.6-35b-cc"]), saved)).toMatchObject({
-      model: "saved",
-      thinking: false,
-      timeoutMs: 1234,
+  it("returns no problem when a model is chosen", async () => {
+    const { binDir } = claudeLiteCheckout();
+    const config = await llmConfig({ PATH: binDir }, servers({ omlx: [NINE_B_MLX] }), SAVED);
+    expect(config).toMatchObject({
+      model: NINE_B_MLX,
+      baseURL: "http://127.0.0.1:8435",
+      problem: null,
     });
   });
 
-  it("uses the chosen Claude model without asking Ollama what is installed", async () => {
-    const saved = {
-      ...LOCAL_SETTINGS,
-      backend: "claude-code",
-      claudeModel: "sonnet",
-      model: "ignored-local-model",
-    } as const;
-    const config = await llmConfig({}, unreachable, saved);
-    expect(config).toMatchObject({ backend: "claude-code", model: "sonnet" });
-    const fromEnv = await llmConfig(
-      { REVIEW_QUEUE_LLM_BACKEND: "claude-code", REVIEW_QUEUE_CLAUDE_MODEL: "opus" },
+  it("uses Claude Code's model without asking any server", async () => {
+    const config = await llmConfig(
+      {},
       (async () => {
-        throw new Error("fetch must not be called");
+        throw new Error("no server must be asked");
       }) as typeof fetch,
+      { ...SAVED, backend: "claude-code", claudeModel: "sonnet" },
     );
-    expect(fromEnv).toMatchObject({ backend: "claude-code", model: "opus" });
-  });
-
-  it("picks a model automatically when the saved model is auto", async () => {
-    const { binDir } = claudeCustomCheckout();
-    const env = { PATH: binDir, REVIEW_QUEUE_LLM_MODEL: "from-env" };
-    const saved = { ...LOCAL_SETTINGS, model: null, timeoutMs: 1234 };
-    const config = await llmConfig(env, ollamaWith(["qwen3.6-35b-cc"]), saved);
-    expect(config.model).toBe("qwen3.6-35b-cc");
-  });
-});
-
-describe("autoModel", () => {
-  it("is the first claude-ollama model among the installed ones", async () => {
-    const { binDir } = claudeCustomCheckout();
-    const env = { PATH: binDir };
-    expect(await autoModel(env, ["qwen3.6-35b-coding-cc", "qwen3.6-35b-cc"])).toBe(
-      "qwen3.6-35b-cc",
-    );
-    expect(await autoModel(env, ["llama3"])).toBeNull();
-  });
-});
-
-describe("ollamaModels", () => {
-  it("lists installed models without the :latest tag", async () => {
-    expect(await ollamaModels("http://llm.test", ollamaWith(["a:latest", "b:4b"]))).toEqual([
-      "a",
-      "b:4b",
-    ]);
+    expect(config).toMatchObject({ backend: "claude-code", model: "sonnet", problem: null });
   });
 });

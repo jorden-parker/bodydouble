@@ -30,7 +30,7 @@ export function PrDescription({ html }: { html: string }) {
       <div
         ref={ref}
         className={cn(
-          "flex w-full flex-col gap-2 text-sm wrap-anywhere text-muted-foreground [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded",
+          "flex w-full flex-col gap-2 text-pretty text-sm text-muted-foreground [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded",
           !expanded && "max-h-40 overflow-hidden",
           collapsed && "mask-b-from-50%",
         )}

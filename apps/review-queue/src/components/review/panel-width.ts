@@ -1,4 +1,4 @@
-import type { PanelSide } from "./pane-layout";
+export type PanelSide = "left" | "right";
 
 export const PANEL_WIDTH = { default: 384, min: 288, diffRoom: 480 };
 export const PANEL_STRIP_WIDTH = 72;

@@ -2,7 +2,7 @@ import type { LlmSettings } from "@/lib/settings/llm-settings";
 import type { SettingsView } from "@/lib/settings/settings-service";
 import { postJson } from "@/lib/json-response";
 
-type SettingsUpdate = { llm?: LlmSettings; repositories?: string[] };
+type SettingsUpdate = { llm?: LlmSettings; repositories?: string[]; prepareNext?: boolean };
 
 export function saveSettings(update: SettingsUpdate): Promise<SettingsView> {
   return postJson<SettingsView>("/api/settings", update, "PUT");

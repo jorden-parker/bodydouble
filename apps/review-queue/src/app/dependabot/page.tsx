@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { PageHeader, PageShell } from "@/components/common/page-shell";
-import { DependabotList } from "@/components/inbox/dependabot-list";
+import { DependabotList } from "@/components/inbox/bot-pull-request-list";
 import { InboxSkeleton } from "@/components/inbox/inbox-skeleton";
 import type { RepositorySearchParams } from "@/components/inbox/repository-filter";
 

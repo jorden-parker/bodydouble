@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import DependabotPage from "./page";
 
-vi.mock("@/components/inbox/dependabot-list", () => ({ DependabotList: () => null }));
+vi.mock("@/components/inbox/bot-pull-request-list", () => ({ DependabotList: () => null }));
 
 describe("DependabotPage", () => {
   it("titles the page Dependabot", () => {

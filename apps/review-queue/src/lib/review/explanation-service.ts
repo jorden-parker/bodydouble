@@ -30,6 +30,19 @@ export function storedExplanation(
   return storedModelResult(store, cacheKey(data, stepId, config), StepExplanationRecordSchema);
 }
 
+export type ExplanationProgress = { explained: number; total: number };
+
+export function explanationProgress(
+  data: ReviewData,
+  store: SessionStore,
+  config: LlmConfig,
+): ExplanationProgress {
+  const explained = data.steps.filter(
+    (step) => storedExplanation(data, step.id, store, config) !== null,
+  ).length;
+  return { explained, total: data.steps.length };
+}
+
 export async function explanationFor(
   data: ReviewData,
   stepId: string,

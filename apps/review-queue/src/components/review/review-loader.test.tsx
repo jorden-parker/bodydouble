@@ -1,12 +1,11 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ReviewComment } from "@/lib/github/gh";
 import { ASSIST_REPLY, installFakeApi, SUBMITTED_REVIEW_URL } from "@/test/fake-api";
 import { emptySession, HEAD_SHA, REF, reviewPayload } from "@/test/review-fixture";
-import type { PanelSide } from "./pane-layout";
 import { ReviewLoader } from "./review-loader";
 
 vi.mock("next/link", () => ({
@@ -25,8 +24,38 @@ async function renderReview(
   const api = installFakeApi(payload, orientation, explanations);
   const user = userEvent.setup();
   render(<ReviewLoader pullRequest={REF} />, { wrapper: TooltipProvider });
-  await screen.findByText(/^Step \d of 3/);
+  await startReading(user);
   return { api, user };
+}
+
+async function renderBrief(orientation?: unknown, payload = reviewPayload()) {
+  const api = installFakeApi(payload, orientation);
+  const user = userEvent.setup();
+  render(<ReviewLoader pullRequest={REF} />, { wrapper: TooltipProvider });
+  await screen.findByRole("heading", { level: 2, name: "Add retrying client" });
+  return { api, user };
+}
+
+async function startReading(user: UserEvent) {
+  await waitFor(() =>
+    expect(
+      document.getElementById("brief-heading") ?? document.getElementById("step-heading"),
+    ).not.toBeNull(),
+  );
+  const start = screen.queryByRole("button", { name: /Start with step 1/ });
+  if (start) {
+    await user.click(start);
+    await screen.findByText(/^Step \d of 3/);
+  }
+}
+
+function rail(): HTMLElement {
+  return screen.getByRole("navigation", { name: "Review path" });
+}
+
+function isRegionShown(name: string): boolean {
+  const role = name === "Review path" ? "navigation" : "complementary";
+  return screen.getByRole(role, { name, hidden: true }).closest(".hidden") === null;
 }
 
 const DEFAULT_VIEWPORT_WIDTH = window.innerWidth;
@@ -48,48 +77,6 @@ afterEach(() => {
   Reflect.deleteProperty(document, "hidden");
 });
 
-class DataTransferStub {
-  private data = new Map<string, string>();
-  effectAllowed = "all";
-  get types() {
-    return [...this.data.keys()];
-  }
-  setData(type: string, value: string) {
-    this.data.set(type, value);
-  }
-  getData(type: string) {
-    return this.data.get(type) ?? "";
-  }
-}
-
-function reviewPanel(side: PanelSide = "right"): HTMLElement {
-  const panel = screen
-    .getAllByRole("complementary")
-    .find((aside) => aside.getAttribute("data-side") === side);
-  if (!panel) throw new Error(`no ${side} review panel`);
-  return panel;
-}
-
-function paneButton(name: string | RegExp) {
-  const matches = (["left", "right"] as const).flatMap((side) =>
-    within(reviewPanel(side)).queryAllByRole("button", { name }),
-  );
-  if (matches.length !== 1) throw new Error(`expected one pane button named ${String(name)}`);
-  return matches[0];
-}
-
-async function splitAboutPane(user: ReturnType<typeof userEvent.setup>) {
-  await user.keyboard("{Shift>}");
-  await user.click(paneButton("About"));
-  await user.keyboard("{/Shift}");
-}
-
-function openPanes(side: PanelSide = "right") {
-  return [...reviewPanel(side).querySelectorAll("[data-pane-index]")].map(
-    (pane) => pane.getAttribute("aria-label") ?? pane.querySelector("section")?.ariaLabel,
-  );
-}
-
 const MODEL_ON = { status: "error", message: "x" };
 
 function selectFirstLine(path: string) {
@@ -105,28 +92,24 @@ function selectFirstLine(path: string) {
 }
 
 describe("ReviewLoader", () => {
-  it("shows a loading message, then the orientation and the first step", async () => {
+  it("shows a loading message, then the brief with the facts and the path", async () => {
     installFakeApi(reviewPayload());
-    const user = userEvent.setup();
     render(<ReviewLoader pullRequest={REF} />, { wrapper: TooltipProvider });
     expect(screen.getByText("Getting the PR ready…")).toBeTruthy();
-    expect(await screen.findByText("Step 1 of 3")).toBeTruthy();
-    expect(screen.getByText("types, 1 line")).toBeTruthy();
-    await splitAboutPane(user);
-    expect(screen.getByText("Before you start")).toBeTruthy();
-    expect(screen.getByText("≈")).toBeTruthy();
-    await userEvent.click(paneButton("Path"));
-    expect(screen.getByText("Start here")).toBeTruthy();
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Add retrying client" }),
+    ).toBeTruthy();
+    expect(screen.getByText("~2 min")).toBeTruthy();
+    expect(within(rail()).getByRole("button", { name: "Brief" }).getAttribute("aria-current")).toBe(
+      "page",
+    );
+    expect(within(rail()).getByRole("button", { name: /Wrap up/ })).toBeTruthy();
   });
 
-  it("keeps the orientation in its own About pane, opened in place of the Step pane", async () => {
-    const { user } = await renderReview();
-    const step = screen.getByRole("region", { name: "Step" });
-    expect(within(step).queryByText("Before you start")).toBeNull();
-    await user.click(paneButton("About"));
-    expect(openPanes()).toEqual(["About"]);
-    const about = screen.getByRole("region", { name: "About" });
-    expect(within(about).getByText("Before you start")).toBeTruthy();
+  it("shows the first step after the brief, with its role and size", async () => {
+    await renderReview();
+    expect(screen.getByText("Step 1 of 3")).toBeTruthy();
+    expect(screen.getByText("types, 1 line")).toBeTruthy();
   });
 
   it("shows an error when the PR cannot load", async () => {
@@ -138,8 +121,8 @@ describe("ReviewLoader", () => {
     expect(await screen.findByText("gh failed")).toBeTruthy();
   });
 
-  it("shows the local model summary when ready", async () => {
-    const { user } = await renderReview(reviewPayload(), {
+  it("shows the local model summary on the brief when ready", async () => {
+    await renderBrief({
       status: "ready",
       orientation: {
         model: "m",
@@ -153,14 +136,13 @@ describe("ReviewLoader", () => {
         ],
       },
     });
-    await splitAboutPane(user);
     expect(await screen.findByText("Adds retries to loading.")).toBeTruthy();
     expect(screen.getByText("medium")).toBeTruthy();
-    expect(await screen.findAllByText(/unverified/i)).toHaveLength(2);
+    expect(screen.getAllByText(/unverified/i).length).toBeGreaterThan(0);
   });
 
-  it("opens and lists the steps in the local model's order, with its reasons", async () => {
-    const { user } = await renderReview(reviewPayload(), {
+  it("suggests the model's order and reads the steps in it once the reader chooses it", async () => {
+    const { user } = await renderBrief({
       status: "ready",
       orientation: {
         model: "m",
@@ -176,55 +158,43 @@ describe("ReviewLoader", () => {
         extraHotspots: [],
       },
     });
-    expect(screen.getByText("Step 1 of 3")).toBeTruthy();
+    expect(
+      await screen.findByText(/The model suggests reading client\.ts before types\.ts/),
+    ).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Use that order" }));
+    expect(within(rail()).getByRole("button", { name: /1\. client\.ts/ })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /Start with step 1/ }));
+    expect(await screen.findByText(/The retry loop lives here/)).toBeTruthy();
     expect(screen.getByText("core, 2 lines")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Start at step/ })).toBeNull();
-    const reasons = [
-      "The retry loop lives here.",
-      "Then the options it reads.",
-      "Last, the lockfile.",
-    ];
-    await user.click(paneButton("Path"));
-    const path = within(screen.getByRole("list", { name: "Reading path" }));
-    expect(path.getAllByTestId("step-reason").map((reason) => reason.textContent)).toEqual(reasons);
   });
 
-  it("shows no steps until the local model has ordered them", async () => {
-    installFakeApi(reviewPayload(), new Promise(() => {}));
-    render(<ReviewLoader pullRequest={REF} />, { wrapper: TooltipProvider });
-    expect(await screen.findAllByText("Local model is ordering the steps…")).toHaveLength(1);
-    await userEvent.click(paneButton("Path"));
-    expect(screen.getAllByText("Local model is ordering the steps…")).toHaveLength(2);
-    expect(screen.queryByRole("list", { name: "Reading path" })).toBeNull();
-    expect(screen.queryByText(/^Step \d of 3/)).toBeNull();
-    expect(screen.queryByRole("button", { name: /Show whole PR/ })).toBeNull();
+  it("keeps the built-in order while the local model is still ordering the steps", async () => {
+    await renderBrief(new Promise(() => {}));
+    expect(screen.getByText(/^Local model is .+ You can start now\.$/)).toBeTruthy();
+    expect(within(rail()).getAllByRole("listitem")).toHaveLength(5);
+    expect(screen.queryByText(/suggests reading/)).toBeNull();
   });
 
   it("falls back to the built-in order when the local model is unavailable", async () => {
-    const { user } = await renderReview(reviewPayload(), {
-      status: "error",
-      message: "connection refused",
-    });
-    await splitAboutPane(user);
+    const { user } = await renderBrief({ status: "error", message: "connection refused" });
     expect(await screen.findByText(/connection refused/)).toBeTruthy();
-    expect(screen.getByText("Step 1 of 3")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+    expect(screen.getByText("Steps are in the built-in order and ready now.")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /Start with step 1/ }));
+    expect(await screen.findByText("Step 1 of 3")).toBeTruthy();
     expect(screen.getByText("types, 1 line")).toBeTruthy();
-    await user.click(paneButton("Path"));
-    expect(screen.getByText(/Built-in order/)).toBeTruthy();
   });
 
   it("explains the current step without being asked", async () => {
     await renderReview(reviewPayload(), MODEL_ON);
-    const rail = screen.getByRole("region", { name: "Step" });
-    expect(await within(rail).findByText("Adds the Options type.")).toBeTruthy();
-    expect(within(rail).getByText("Is retries optional?")).toBeTruthy();
+    expect(await screen.findByText("Adds the Options type.")).toBeTruthy();
+    expect(screen.getByText("Is retries optional?")).toBeTruthy();
   });
 
   it("asks the model more about a step check", async () => {
     const { api, user } = await renderReview(reviewPayload(), MODEL_ON);
-    const rail = screen.getByRole("region", { name: "Step" });
     await user.click(
-      await within(rail).findByRole("button", { name: "Ask more about: Is retries optional?" }),
+      await screen.findByRole("button", { name: "Ask more about: Is retries optional?" }),
     );
     const chat = await screen.findByRole("region", { name: "Ask the model" });
     expect(within(chat).getByText("Tell me more: Is retries optional?")).toBeTruthy();
@@ -256,14 +226,10 @@ describe("ReviewLoader", () => {
     expect(await screen.findByText("Adds the Options type.")).toBeTruthy();
   });
 
-  it("keeps the review open when the orientation request fails", async () => {
-    const { user } = await renderReview(
-      reviewPayload(),
-      Response.json({ error: "Review is not loaded" }, { status: 409 }),
-    );
-    await splitAboutPane(user);
+  it("keeps the brief open with a retry when the orientation request fails", async () => {
+    await renderBrief(Response.json({ error: "Review is not loaded" }, { status: 409 }));
     expect(await screen.findByText(/Review is not loaded/)).toBeTruthy();
-    expect(screen.getByText(/^Step 1 of 3/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
   });
 
   it("starts the review over after confirming, keeping notes by default", async () => {
@@ -286,7 +252,6 @@ describe("ReviewLoader", () => {
       }),
     );
     const { api, user } = await renderReview(payload);
-    await splitAboutPane(user);
     await user.click(screen.getByRole("button", { name: "More actions" }));
     await user.click(screen.getByRole("button", { name: "Start over" }));
     const dialog = screen.getByRole("dialog", { name: "Start this review over?" });
@@ -294,7 +259,9 @@ describe("ReviewLoader", () => {
     await user.click(within(dialog).getByRole("button", { name: "Start over" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(api.actions()).toContainEqual({ type: "start-over", keepNotes: true });
-    expect(await screen.findByText("Before you start")).toBeTruthy();
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Add retrying client" }),
+    ).toBeTruthy();
   });
 
   it("keeps progress when starting over is cancelled", async () => {
@@ -308,7 +275,7 @@ describe("ReviewLoader", () => {
 
   it("marks a step done and moves to the next one", async () => {
     const { api, user } = await renderReview();
-    await user.click(screen.getByRole("button", { name: /Next part/ }));
+    await user.click(screen.getByRole("button", { name: /Done, next step/ }));
     expect(await screen.findByText("Step 2 of 3")).toBeTruthy();
     expect(screen.getByText("core, 2 lines")).toBeTruthy();
     expect(api.actions()).toEqual(
@@ -346,137 +313,62 @@ describe("ReviewLoader", () => {
     }
   });
 
-  it("collapses the review panel and restores it with the toggle", async () => {
-    const { user } = await renderReview();
-    expect(openPanes()).toEqual(["Step"]);
-    expect(paneButton("Step").getAttribute("aria-pressed")).toBe("true");
-    await user.click(paneButton("Hide panel"));
-    expect(openPanes()).toEqual([]);
-    await user.click(paneButton("Path"));
-    expect(openPanes()).toEqual(["Path"]);
-    await user.keyboard("\\");
-    expect(openPanes()).toEqual([]);
-    await user.keyboard("\\");
-    expect(openPanes()).toEqual(["Path"]);
-  });
-
-  it("opens one pane at a time and closes a pane from its icon", async () => {
-    const { user } = await renderReview();
-    await user.click(paneButton("Path"));
-    expect(openPanes()).toEqual(["Path"]);
-    expect(paneButton("Step").getAttribute("aria-pressed")).toBe("false");
-    await user.click(paneButton("Path"));
-    expect(openPanes()).toEqual([]);
-  });
-
-  it("splits panes with shift-click and closes each one on its own", async () => {
-    const { user } = await renderReview();
-    await user.keyboard("{Shift>}");
-    await user.click(paneButton(/^Notes/));
-    await user.click(paneButton("Path"));
-    await user.keyboard("{/Shift}");
-    expect(openPanes()).toEqual(["Step", "Notes", "Path"]);
-    await user.click(paneButton("Close Notes"));
-    expect(openPanes()).toEqual(["Step", "Path"]);
-    await user.click(paneButton("Path"));
-    expect(openPanes()).toEqual(["Step"]);
-  });
-
-  it("splits panes by dragging an icon onto the panel", async () => {
-    vi.stubGlobal("DragEvent", class extends MouseEvent {});
+  it("labels the path, the step and the companion as three regions", async () => {
     await renderReview();
-    const dataTransfer = new DataTransferStub();
-    fireEvent.dragStart(paneButton("Path"), { dataTransfer });
-    const step = within(reviewPanel()).getByRole("region", { name: "Step" });
-    vi.spyOn(step, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 100, 100));
-    fireEvent.dragOver(step, { dataTransfer, clientY: 10 });
-    fireEvent.drop(step, { dataTransfer, clientY: 10 });
-    expect(openPanes()).toEqual(["Path", "Step"]);
-    fireEvent.dragStart(paneButton(/^Hotspots/), { dataTransfer });
-    fireEvent.drop(step, { dataTransfer, clientY: 90 });
-    expect(openPanes()).toEqual(["Path", "Step", "Hotspots"]);
+    expect(screen.getByRole("navigation", { name: "Review path" })).toBeTruthy();
+    expect(screen.getByRole("main")).toBeTruthy();
+    expect(screen.getByRole("complementary", { name: "Companion" })).toBeTruthy();
   });
 
-  it("opens a chat on the Discuss side and keeps the Step pane open", async () => {
-    setViewportWidth(1280);
+  it("hides and restores the path and the companion from the keyboard", async () => {
+    const { user } = await renderReview();
+    expect(isRegionShown("Review path")).toBe(true);
+    await user.keyboard("{[}");
+    expect(isRegionShown("Review path")).toBe(false);
+    await user.keyboard("{[}");
+    expect(isRegionShown("Review path")).toBe(true);
+    await user.keyboard("{]}");
+    expect(isRegionShown("Companion")).toBe(false);
+    await user.keyboard("\\");
+    expect(isRegionShown("Review path")).toBe(false);
+    expect(isRegionShown("Companion")).toBe(false);
+    await user.keyboard("\\");
+    expect(isRegionShown("Review path")).toBe(true);
+    expect(isRegionShown("Companion")).toBe(true);
+  });
+
+  it("opens Ask in the companion for selected lines, and removes the question from the thread", async () => {
     const { user } = await renderReview(reviewPayload(), MODEL_ON);
     selectFirstLine("src/types.ts");
     const toolbar = await screen.findByRole("toolbar", { name: /selected lines/ });
     await user.click(within(toolbar).getByRole("button", { name: /Explain/ }));
     const chat = await screen.findByRole("region", { name: "Ask the model" });
-    expect(openPanes("left")).toEqual(["Ask the model"]);
-    expect(openPanes("right")).toEqual(["Step"]);
-    await user.click(within(chat).getByRole("button", { name: "Close" }));
-    expect(openPanes("left")).toEqual([]);
+    expect(screen.getByRole("tab", { name: "Ask" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByText("Step 1 of 3")).toBeTruthy();
+    await user.click(within(chat).getByRole("button", { name: "Remove this question" }));
+    expect(within(chat).queryByRole("article")).toBeNull();
   });
 
-  it("keeps an open chat while Path opens", async () => {
-    setViewportWidth(1280);
+  it("keeps an open chat when the path moves to another step", async () => {
     const { user } = await renderReview(reviewPayload(), MODEL_ON);
     selectFirstLine("src/types.ts");
     const toolbar = await screen.findByRole("toolbar", { name: /selected lines/ });
     await user.click(within(toolbar).getByRole("button", { name: /Explain/ }));
     await screen.findByRole("region", { name: "Ask the model" });
-    await user.click(paneButton("Path"));
+    await user.click(within(rail()).getByRole("button", { name: /2\. client\.ts/ }));
+    expect(await screen.findByText("Step 2 of 3")).toBeTruthy();
     expect(screen.getByRole("region", { name: "Ask the model" })).toBeTruthy();
-    expect(openPanes("right")).toEqual(["Path"]);
   });
 
-  it("opens Path in place of the chat when both sides do not fit", async () => {
-    setViewportWidth(1100);
+  it("opens the hidden companion when a chat starts", async () => {
     const { user } = await renderReview(reviewPayload(), MODEL_ON);
-    selectFirstLine("src/types.ts");
-    const toolbar = await screen.findByRole("toolbar", { name: /selected lines/ });
-    await user.click(within(toolbar).getByRole("button", { name: /Explain/ }));
-    await screen.findByRole("region", { name: "Ask the model" });
-    await user.click(paneButton("Path"));
-    expect(openPanes("left")).toEqual([]);
-    expect(openPanes("right")).toEqual(["Path"]);
-  });
-
-  it("closes the right panel when the chat side opens below the side-by-side width", async () => {
-    setViewportWidth(1100);
-    const { user } = await renderReview(reviewPayload(), MODEL_ON);
-    expect(openPanes("right")).toEqual(["Step"]);
-    await user.click(screen.getByRole("button", { name: "Show chat side" }));
-    expect(openPanes("right")).toEqual([]);
-    expect(openPanes("left")).toHaveLength(1);
-  });
-
-  it("keeps a split when a peek opens a Context pane that is already open", async () => {
-    const { user } = await renderReview(
-      reviewPayload(emptySession({ currentStepId: "core:src/client.ts:0" })),
-    );
-    await user.keyboard("{Shift>}");
-    await user.click(paneButton("Chats"));
-    await user.click(paneButton("Context"));
-    await user.keyboard("{/Shift}");
-    await user.click(screen.getAllByRole("button", { name: "Options" })[0]);
-    expect(await screen.findByRole("region", { name: "Options" })).toBeTruthy();
-    expect(openPanes("left")).toEqual(["Chats", "Context"]);
-  });
-
-  it("opens the hidden panel when a chat starts", async () => {
-    const { user } = await renderReview(reviewPayload(), MODEL_ON);
-    await user.click(screen.getByRole("button", { name: "Hide panel" }));
+    await user.keyboard("{]}");
+    expect(isRegionShown("Companion")).toBe(false);
     selectFirstLine("src/types.ts");
     const toolbar = await screen.findByRole("toolbar", { name: /selected lines/ });
     await user.click(within(toolbar).getByRole("button", { name: /Explain/ }));
     expect(await screen.findByRole("region", { name: "Ask the model" })).toBeTruthy();
-  });
-
-  it("keeps a compact orientation pinned after the review starts", async () => {
-    const { user } = await renderReview();
-    await splitAboutPane(user);
-    expect(screen.getByText(/Retries failed loads/)).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: /Next part/ }));
-    await screen.findByText("Step 2 of 3");
-    expect(screen.getByText("core, 2 lines")).toBeTruthy();
-    expect(screen.getByText("≈")).toBeTruthy();
-    expect(screen.queryByText(/Retries failed loads/)).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Show details" }));
-    expect(screen.getByText(/Retries failed loads/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Hide details" })).toBeTruthy();
+    expect(isRegionShown("Companion")).toBe(true);
   });
 
   it("moves between steps with the keyboard and toggles the whole PR", async () => {
@@ -489,7 +381,7 @@ describe("ReviewLoader", () => {
     expect(screen.getByText("types, 1 line")).toBeTruthy();
     await user.keyboard("jk");
     await user.keyboard("a");
-    expect(screen.getByText("Back to one step at a time")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /One step at a time/ })).toBeTruthy();
     expect(screen.getByText("Collapsed: usually safe to skim. Show anyway")).toBeTruthy();
     await user.click(screen.getByText("Collapsed: usually safe to skim. Show anyway"));
     expect(screen.getByText("lock: 1")).toBeTruthy();
@@ -499,17 +391,15 @@ describe("ReviewLoader", () => {
     const { api, user } = await renderReview(
       reviewPayload(emptySession({ currentStepId: "core:src/client.ts:0" })),
     );
-    await user.click(screen.getByRole("button", { name: "Hide panel" }));
     await user.click(screen.getAllByRole("button", { name: "Options" })[0]);
-    const contextPanel = await screen.findByRole("region", { name: "Context" });
-    const peek = within(contextPanel).getByRole("region", { name: "Options" });
+    const peek = await screen.findByRole("region", { name: "Options" });
     expect(await within(peek).findByTitle("src/types.ts")).toBeTruthy();
     expect(within(peek).getByText("type", { selector: "[data-slot=badge]" })).toBeTruthy();
     expect(within(peek).getByText("export type").closest(".code-token")).toBeTruthy();
     expect(document.querySelector(".grid-cols-workspace")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: /In this PR/ }));
     expect(await screen.findByRole("button", { name: /Back to Options/ })).toBeTruthy();
-    expect(screen.getByText("1 of 3")).toBeTruthy();
+    expect(screen.getByText("Step 1 of 3")).toBeTruthy();
     await user.click(screen.getByRole("tab", { name: /References/ }));
     const reference = await screen.findByText("load(options: Options) {");
     expect(reference.closest("button")?.disabled).toBe(false);
@@ -517,7 +407,7 @@ describe("ReviewLoader", () => {
     await user.hover(screen.getByRole("button", { name: /Back to Options/ }));
     expect(await screen.findAllByText("src/client.ts:10")).toBeTruthy();
     await user.keyboard("b");
-    expect(await screen.findByText("2 of 3")).toBeTruthy();
+    expect(await screen.findByText("Step 2 of 3")).toBeTruthy();
     expect(api.actions()).toEqual(
       expect.arrayContaining([
         { type: "jump-push", name: "Options", path: "src/client.ts", line: 10 },
@@ -526,7 +416,11 @@ describe("ReviewLoader", () => {
     );
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("region", { name: "Options" })).toBeNull();
-    expect(within(contextPanel).getByRole("button", { name: "Open Options" })).toBeTruthy();
+    expect(
+      within(screen.getByRole("region", { name: "Context" })).getByRole("button", {
+        name: "Open Options",
+      }),
+    ).toBeTruthy();
   });
 
   it("remembers peeked names in the Context tab and pins them", async () => {
@@ -540,8 +434,7 @@ describe("ReviewLoader", () => {
     await user.keyboard("{Escape}gc");
     expect(await screen.findByRole("button", { name: "Open Options" })).toBeTruthy();
     expect(screen.getByText("type Options = { retries: number }")).toBeTruthy();
-    const contextTab = paneButton("Context (1)");
-    expect(within(contextTab).getByText("Context")).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Context" }).getAttribute("aria-selected")).toBe("true");
     expect(api.actions()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: "symbol-seen" }),
@@ -577,7 +470,7 @@ describe("ReviewLoader", () => {
     const landed = document.querySelector("[aria-current=location]");
     expect(landed?.getAttribute("id")).toBe("line-src/client.ts-10");
     await user.click(within(outline).getByRole("button", { name: /^retry/ }));
-    expect(await screen.findByRole("region", { name: "Context" })).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "retry" })).toBeTruthy();
   });
 
   it("marks a line that has a GitHub thread and opens the conversation from it", async () => {
@@ -600,9 +493,10 @@ describe("ReviewLoader", () => {
     });
     const user = userEvent.setup();
     render(<ReviewLoader pullRequest={REF} />, { wrapper: TooltipProvider });
-    await screen.findByText(/^Step \d of 3/);
+    await startReading(user);
     await user.click(await screen.findByRole("button", { name: "Show 1 GitHub thread" }));
     expect(await screen.findByText("Should this be exported?")).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "GitHub" }).getAttribute("data-state")).toBe("on");
   });
 
   it("adds a line note with the keyboard and parks a thought", async () => {
@@ -612,7 +506,7 @@ describe("ReviewLoader", () => {
     await user.click(screen.getByRole("button", { name: "blocking" }));
     await user.type(screen.getByPlaceholderText(/What did you notice/), "Needs a default");
     await user.click(screen.getByRole("button", { name: "Save note" }));
-    expect(await screen.findByText("Needs a default")).toBeTruthy();
+    expect((await screen.findAllByText("Needs a default")).length).toBeGreaterThan(0);
     await user.keyboard("P");
     const parking = await screen.findByPlaceholderText(/Park it here/);
     await waitFor(() => expect(document.activeElement).toBe(parking));
@@ -655,6 +549,23 @@ describe("ReviewLoader", () => {
     expect(screen.queryByText("Needs a default")).toBeNull();
   });
 
+  it("shows one notice at a time and says how many more wait behind it", async () => {
+    const payload = reviewPayload();
+    const merged = { ...payload, pr: { ...payload.pr, state: "merged" as const } };
+    const { api, user } = await renderReview(merged);
+    expect(screen.getByText(/already merged/)).toBeTruthy();
+    expect(screen.queryByText(/more notice/)).toBeNull();
+    api.refuseNextSessionAction("Note body is too long");
+    await user.keyboard("c");
+    await user.click(screen.getByRole("button", { name: "Issue" }));
+    await user.type(screen.getByPlaceholderText(/What did you notice/), "Needs a default");
+    await user.click(screen.getByRole("button", { name: "Save note" }));
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Couldn't save: Note body is too long",
+    );
+    expect(screen.getByText("1 more notice waiting behind this one.")).toBeTruthy();
+  });
+
   it("offers every label and keeps a non-blocking decoration with its hint", async () => {
     const { api, user } = await renderReview();
     await user.keyboard("c");
@@ -664,7 +575,7 @@ describe("ReviewLoader", () => {
     await user.click(screen.getByRole("button", { name: "non-blocking" }));
     await user.type(screen.getByPlaceholderText(/What did you notice/), "Extract a helper");
     await user.click(screen.getByRole("button", { name: "Save note" }));
-    expect(await screen.findByText("Extract a helper")).toBeTruthy();
+    expect((await screen.findAllByText("Extract a helper")).length).toBeGreaterThan(0);
     expect(api.actions()).toContainEqual({
       type: "note-add",
       path: "src/types.ts",
@@ -677,14 +588,12 @@ describe("ReviewLoader", () => {
     });
   });
 
-  it("opens and ticks off hotspots", async () => {
+  it("opens and ticks off hotspots from the path", async () => {
     const { api, user } = await renderReview();
-    await user.click(paneButton(/Hotspots \(1\)/));
-    await user.click(screen.getByRole("button", { name: /Debug output left in/ }));
-    await user.click(paneButton("Step"));
+    await user.keyboard("n");
     expect(await screen.findByText("Step 2 of 3")).toBeTruthy();
-    expect(screen.getByText("core, 2 lines")).toBeTruthy();
-    const stepHotspots = screen.getByRole("region", { name: "Hotspots in this step" });
+    await user.click(within(rail()).getByRole("button", { name: /Debug output left in/ }));
+    const stepHotspots = within(rail()).getByRole("region", { name: "Hotspots in this step" });
     await user.click(within(stepHotspots).getByTitle("Checked"));
     expect(api.actions()).toContainEqual({
       type: "hotspot-checked",
@@ -733,11 +642,23 @@ describe("ReviewLoader", () => {
       </StrictMode>,
       { wrapper: TooltipProvider },
     );
-    expect(await screen.findByText("Step 1 of 3")).toBeTruthy();
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Add retrying client" }),
+    ).toBeTruthy();
     expect(api.calls.filter((call) => call.url.includes("/seen"))).toHaveLength(1);
   });
 
-  it("finishes the review and posts selected notes", async () => {
+  it("opens the command palette with the keyboard and jumps to a step", async () => {
+    const { user } = await renderReview();
+    await user.keyboard("{Control>}k{/Control}");
+    const palette = await screen.findByRole("dialog", { name: "Command palette" });
+    await user.type(within(palette).getByLabelText("Search commands"), "step 2");
+    await user.click(within(palette).getByRole("button", { name: /Step 2: client\.ts/ }));
+    expect(await screen.findByText("Step 2 of 3")).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: "Command palette" })).toBeNull();
+  });
+
+  it("finishes the review from Wrap up and posts selected notes", async () => {
     const payload = reviewPayload(
       emptySession({
         notes: [
@@ -755,15 +676,14 @@ describe("ReviewLoader", () => {
         ],
       }),
     );
-    const { api, user } = await renderReview(payload);
-    await user.click(screen.getByRole("button", { name: /Finish/ }));
-    const dialog = screen.getByRole("dialog", { name: "Submit review" });
-    expect(within(dialog).getByText(/3 steps and 1 hotspot are not/)).toBeTruthy();
-    await user.click(within(dialog).getByRole("radio", { name: "Approve" }));
-    await user.type(within(dialog).getByPlaceholderText(/Overall summary/), "Nice work");
-    await user.click(within(dialog).getByRole("button", { name: "Post review" }));
-    await waitFor(() => expect(screen.queryByText("Submit review")).toBeNull());
-    expect(screen.getByRole("status").textContent).toMatch(/Review posted/);
+    const { api, user } = await renderBrief(undefined, payload);
+    await user.click(within(rail()).getByRole("button", { name: /Wrap up/ }));
+    const page = await screen.findByRole("article", { name: "Post your review" });
+    expect(within(page).getByText(/3 steps and 1 hotspot are not/)).toBeTruthy();
+    await user.click(within(page).getByRole("radio", { name: "Approve" }));
+    await user.type(within(page).getByPlaceholderText(/Overall summary/), "Nice work");
+    await user.click(within(page).getByRole("button", { name: "Post review" }));
+    expect(await screen.findByText(/Review posted/)).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open it" }).getAttribute("href")).toBe(
       SUBMITTED_REVIEW_URL,
     );
@@ -775,7 +695,7 @@ describe("ReviewLoader", () => {
     });
   });
 
-  it("drafts the summary from notes", async () => {
+  it("drafts the summary from notes on Wrap up", async () => {
     const payload = reviewPayload(
       emptySession({
         notes: [
@@ -793,58 +713,54 @@ describe("ReviewLoader", () => {
         ],
       }),
     );
-    const { user } = await renderReview(payload, { status: "error", message: "x" });
-    await user.click(screen.getByRole("button", { name: /Finish/ }));
-    const dialog = screen.getByRole("dialog", { name: "Submit review" });
-    await user.click(within(dialog).getByRole("button", { name: /Draft from my notes/ }));
+    const { user } = await renderBrief({ status: "error", message: "x" }, payload);
+    await user.click(within(rail()).getByRole("button", { name: /Wrap up/ }));
+    const page = await screen.findByRole("article", { name: "Post your review" });
+    await user.click(within(page).getByRole("button", { name: /Draft from my notes/ }));
     await waitFor(() =>
-      expect(within(dialog).getByPlaceholderText(/Overall summary/)).toHaveProperty(
+      expect(within(page).getByPlaceholderText(/Overall summary/)).toHaveProperty(
         "value",
         "Looks good overall; one question on retries.",
       ),
     );
   });
 
-  it("has no draft button when the model is off", async () => {
+  it("has no draft button on Wrap up when the model is off", async () => {
     const { user } = await renderReview();
-    await user.click(screen.getByRole("button", { name: /Finish/ }));
-    const dialog = screen.getByRole("dialog", { name: "Submit review" });
-    expect(within(dialog).queryByRole("button", { name: /Draft from my notes/ })).toBeNull();
+    await user.click(within(rail()).getByRole("button", { name: /Wrap up/ }));
+    const page = await screen.findByRole("article", { name: "Post your review" });
+    expect(within(page).queryByRole("button", { name: /Draft from my notes/ })).toBeNull();
   });
 
   it("shows the keyboard help", async () => {
     const { user } = await renderReview();
     await user.keyboard("?");
     expect(screen.getByText("Keyboard")).toBeTruthy();
-    expect(screen.getByText("Hotspots: things to check in this PR")).toBeTruthy();
-    expect(screen.getByText("GitHub: the PR's comments and what you posted")).toBeTruthy();
+    expect(screen.getByText("Hotspots in this step, in the path")).toBeTruthy();
+    expect(screen.getByText("Context: the PR's comments and your posts")).toBeTruthy();
     await user.click(screen.getByText("Keyboard"));
     await user.keyboard("{Escape}");
     expect(screen.queryByText("Keyboard")).toBeNull();
   });
 
-  it("opens the Hotspots and GitHub panes from the keyboard", async () => {
+  it("focuses the current step's hotspots and opens the GitHub view from the keyboard", async () => {
     const { user } = await renderReview();
     await user.keyboard("gh");
-    expect(openPanes()).toEqual(["Hotspots"]);
+    await waitFor(() => expect(document.activeElement?.id).toBe("path-hotspots"));
     await user.keyboard("gg");
-    expect(openPanes()).toEqual(["GitHub"]);
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: "GitHub" }).getAttribute("data-state")).toBe("on"),
+    );
   });
 
-  it("explains selected lines in a side panel and takes a follow-up", async () => {
-    setViewportWidth(1280);
+  it("explains selected lines in the companion and takes a follow-up on the same exchange", async () => {
     const { api, user } = await renderReview(reviewPayload(), MODEL_ON);
     selectFirstLine("src/types.ts");
     const toolbar = await screen.findByRole("toolbar", { name: /selected lines/ });
     await user.click(within(toolbar).getByRole("button", { name: /Explain/ }));
     const panel = await screen.findByRole("region", { name: "Ask the model" });
     expect(await within(panel).findByText(ASSIST_REPLY.join(""))).toBeTruthy();
-    expect(openPanes("right")).toEqual(["Step"]);
-    await user.click(within(panel).getByRole("button", { name: "src/types.ts L1" }));
-    await user.type(
-      within(panel).getByLabelText("Ask the model"),
-      "Why a number?{Meta>}{Enter}{/Meta}",
-    );
+    await user.type(within(panel).getByLabelText("Your question"), "Why a number?{Enter}");
     await waitFor(() =>
       expect(api.calls.filter((call) => call.url.includes("/assist")).at(-1)?.body).toMatchObject({
         action: "explain",
@@ -855,8 +771,7 @@ describe("ReviewLoader", () => {
         ],
       }),
     );
-    await user.keyboard("{Escape}");
-    expect(screen.queryByRole("region", { name: "Ask the model" })).toBeNull();
+    expect(within(panel).getAllByRole("article")).toHaveLength(1);
   });
 
   it("asks about a whole file from its header", async () => {
@@ -865,7 +780,7 @@ describe("ReviewLoader", () => {
     const toolbar = screen.getByRole("toolbar", { name: "File actions" });
     await user.click(within(toolbar).getByRole("button", { name: /Simplify/ }));
     const panel = await screen.findByRole("region", { name: "Ask the model" });
-    expect(within(panel).getAllByText("Simplify this file")).toHaveLength(2);
+    expect(within(panel).getByText("Simplify this file")).toBeTruthy();
     expect(await within(panel).findByText(ASSIST_REPLY.join(""))).toBeTruthy();
     const request = api.calls.filter((call) => call.url.includes("/assist")).at(-1)?.body;
     expect(request).toMatchObject({ action: "simplify", target: { kind: "file" } });
@@ -877,12 +792,12 @@ describe("ReviewLoader", () => {
     const toolbar = screen.getByRole("toolbar", { name: "File actions" });
     await user.click(within(toolbar).getByRole("button", { name: /Review/ }));
     const panel = await screen.findByRole("region", { name: "Ask the model" });
-    expect(within(panel).getAllByText("Review this file")).toHaveLength(2);
+    expect(within(panel).getByText("Review this file")).toBeTruthy();
     const request = api.calls.filter((call) => call.url.includes("/assist")).at(-1)?.body;
     expect(request).toMatchObject({ action: "review", target: { kind: "file" } });
   });
 
-  it("keeps each chat so it can be reopened and continued later", async () => {
+  it("keeps each exchange in the PR's thread, so it is still there after switching tabs", async () => {
     const { api, user } = await renderReview(reviewPayload(), MODEL_ON);
     selectFirstLine("src/types.ts");
     const toolbar = await screen.findByRole("toolbar", { name: /selected lines/ });
@@ -892,23 +807,22 @@ describe("ReviewLoader", () => {
     await waitFor(() =>
       expect(api.actions()).toContainEqual(expect.objectContaining({ type: "assist-save" })),
     );
-    await user.click(within(panel).getByRole("button", { name: "Close" }));
-    await user.click(paneButton("Chats (1)"));
-    await user.click(screen.getByRole("button", { name: /Explain these lines/ }));
-    const reopened = await screen.findByRole("region", { name: "Ask the model" });
-    expect(within(reopened).getByText(ASSIST_REPLY.join(""))).toBeTruthy();
-    expect(within(reopened).getByLabelText("Ask the model")).toBeTruthy();
+    await user.click(screen.getByRole("tab", { name: /Notes/ }));
+    await user.click(screen.getByRole("tab", { name: "Ask" }));
+    expect(
+      within(await screen.findByRole("region", { name: "Ask the model" })).getByText(
+        ASSIST_REPLY.join(""),
+      ),
+    ).toBeTruthy();
   });
 
-  it("drafts a review comment and saves it as a line note", async () => {
+  it("drafts a review comment from an answer and saves it as a line note", async () => {
     const { api, user } = await renderReview(reviewPayload(), MODEL_ON);
     selectFirstLine("src/types.ts");
     await user.click(await screen.findByRole("button", { name: /Comment/ }));
     const panel = await screen.findByRole("region", { name: "Ask the model" });
-    await user.type(
-      within(panel).getByPlaceholderText(/What worries you/),
-      "retries unbounded{Meta>}{Enter}{/Meta}",
-    );
+    expect(await within(panel).findByText(ASSIST_REPLY.join(""))).toBeTruthy();
+    await user.click(within(panel).getByRole("button", { name: "Turn into a comment" }));
     await user.click(await within(panel).findByRole("button", { name: "Issue" }));
     await user.click(within(panel).getByRole("button", { name: "blocking" }));
     await user.click(within(panel).getByRole("button", { name: "Save as note on L1" }));

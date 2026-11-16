@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PullRequest } from "@/lib/github/gh";
 import { SessionStore } from "@/lib/session/store";
-import { orientationFor, storedOrientation } from "./orientation-service";
+import type { Step } from "@/lib/types";
+import { storedExplanation } from "./explanation-service";
+import { orientationFor, storedOrientation, storedOrientationFor } from "./orientation-service";
 import type { ReviewData } from "./prepare";
 import { modelReply } from "@/test/fake-llm";
 
@@ -109,5 +111,48 @@ describe("storedOrientation", () => {
     await orientationFor(DATA, store, CONFIG, fetchImpl);
     expect(storedOrientation(DATA, store, CONFIG)).toMatchObject({ summary: "S" });
     expect(calls()).toBe(1);
+  });
+});
+
+const STEP_A: Step = { id: "a", title: "A", role: "core", reason: "", changedLines: 1, files: [] };
+const STEP_B: Step = { id: "b", title: "B", role: "core", reason: "", changedLines: 1, files: [] };
+
+function routedFetch() {
+  const bodies: { system: string }[] = [];
+  const fetchImpl = (async (_url: unknown, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { system: string };
+    bodies.push(body);
+    const isStepExplanation = body.system.includes("one step of a pull request");
+    return modelReply(
+      JSON.stringify(isStepExplanation ? { what: "It adds A.", checks: [] } : REPLY),
+    );
+  }) as unknown as typeof fetch;
+  return { fetchImpl, bodies };
+}
+
+describe("orientationFor on the local backend", () => {
+  it("explains each step once, caches it, then writes the orientation from those summaries", async () => {
+    const store = new SessionStore(":memory:");
+    const data = { ...DATA, steps: [STEP_A, STEP_B] };
+    const { fetchImpl, bodies } = routedFetch();
+    const result = await orientationFor(data, store, CONFIG, fetchImpl);
+    expect(result).toMatchObject({ status: "ready", orientation: { summary: "S" } });
+    const explanationCalls = bodies.filter((body) =>
+      body.system.includes("one step of a pull request"),
+    );
+    expect(explanationCalls).toHaveLength(2);
+    expect(bodies).toHaveLength(3);
+    expect(storedExplanation(data, "a", store, CONFIG)).toMatchObject({ what: "It adds A." });
+    expect(storedExplanation(data, "b", store, CONFIG)).toMatchObject({ what: "It adds A." });
+  });
+});
+
+describe("storedOrientationFor", () => {
+  it("reads the cached orientation for a PR and head without a prepared review", async () => {
+    const store = new SessionStore(":memory:");
+    const { fetchImpl } = countingFetch();
+    await orientationFor(DATA, store, CONFIG, fetchImpl);
+    expect(storedOrientationFor(DATA.pr.ref, "sha", store, CONFIG)).toMatchObject({ summary: "S" });
+    expect(storedOrientationFor(DATA.pr.ref, "newer", store, CONFIG)).toBeNull();
   });
 });

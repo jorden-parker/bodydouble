@@ -64,4 +64,11 @@ describe("TtlCache", () => {
     ).rejects.toThrow("boom");
     expect(await cache.get("a", 1000, async () => "recovered")).toBe("recovered");
   });
+
+  it("clear drops every entry so the next get loads again", async () => {
+    const cache = new TtlCache();
+    await cache.get("a", 1000, async () => 1);
+    cache.clear();
+    expect(await cache.get("a", 1000, async () => 2)).toBe(2);
+  });
 });

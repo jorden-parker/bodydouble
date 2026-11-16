@@ -222,6 +222,7 @@ export async function markReviewSeen(
   const key = prKey(ref);
   const reopenedStepIds = await reopenChangedSteps(review, store);
   store.markSeen(key, headSha);
+  store.setTotalSteps(key, review.data.steps.length);
   store.rememberTitle(key, review.data.pr.title);
   return { session: store.getSession(key), reopenedStepIds };
 }

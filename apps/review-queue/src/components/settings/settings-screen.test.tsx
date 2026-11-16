@@ -8,14 +8,28 @@ const VIEW: SettingsView = {
   llm: {
     enabled: true,
     model: null,
-    thinking: true,
+    thinking: "model",
     timeoutMs: 8000,
     backend: "local",
     claudeModel: "haiku",
   },
-  models: ["qwen3-4b-cc", "granite4.2-3b-cc"],
-  autoModel: "granite4.2-3b-cc",
+  choice: {
+    server: "omlx",
+    baseURL: "http://127.0.0.1:8435",
+    served: ["qwen3-4b-cc", "granite4.2-3b-cc"],
+    model: "granite4.2-3b-cc",
+    size: "9b",
+    hasThinkingByDefault: false,
+    isUsable: true,
+    reason: "9b is the largest served size that fits the 11.2\u00a0GB budget.",
+    budgetGb: 11.2,
+    sizes: [
+      { name: "9b", memoryGb: 9, isFitting: true, isServed: true },
+      { name: "35b", memoryGb: 22, isFitting: false, isServed: false },
+    ],
+  },
   repositories: [],
+  prepareNext: false,
 };
 
 type Call = { url: string; method: string; body: unknown };
@@ -49,7 +63,8 @@ describe("SettingsScreen", () => {
 
   it("keeps the backend options side by side on one line", () => {
     render(<SettingsScreen initial={VIEW} />);
-    expect(screen.getByRole("radiogroup").classList.contains("flex-nowrap")).toBe(true);
+    const backend = screen.getByRole("radiogroup", { name: "Model Backend" });
+    expect(backend.classList.contains("flex-nowrap")).toBe(true);
     for (const option of ["Local model", "Claude Code"]) {
       const label = screen.getByRole("radio", { name: option }).closest("label");
       expect(label?.classList.contains("whitespace-nowrap")).toBe(true);
@@ -70,6 +85,33 @@ describe("SettingsScreen", () => {
     expect(options).toEqual(["Auto (granite4.2-3b-cc)", "qwen3-4b-cc", "granite4.2-3b-cc"]);
   });
 
+  it("says which model was picked and why, and lists the sizes that do not fit", () => {
+    render(<SettingsScreen initial={VIEW} />);
+    expect(screen.getByText(/largest served size that fits the 11\.2/)).toBeTruthy();
+    expect(screen.getByText(/Does not fit this machine: 35b/)).toBeTruthy();
+  });
+
+  it("shows why no model can be used, with the command that starts one", () => {
+    const reason =
+      "No model server answers at http://127.0.0.1:8435. Start one with `cl serve 9b`.";
+    render(
+      <SettingsScreen
+        initial={{
+          ...VIEW,
+          choice: { ...VIEW.choice, isUsable: false, reason, served: null, model: null },
+        }}
+      />,
+    );
+    expect(screen.getByText(reason)).toBeTruthy();
+  });
+
+  it("offers the model's thinking default, or thinking on or off", () => {
+    render(<SettingsScreen initial={VIEW} />);
+    expect(screen.getByRole("radio", { name: "Follow the model" })).toHaveProperty("checked", true);
+    expect(screen.getByRole("radio", { name: "On" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Off" })).toBeTruthy();
+  });
+
   it("shows the local backend by default, with the local model field and no Claude one", () => {
     render(<SettingsScreen initial={VIEW} />);
     expect(screen.getByRole("radio", { name: "Local model" })).toHaveProperty("checked", true);
@@ -88,14 +130,26 @@ describe("SettingsScreen", () => {
     expect(screen.getByText(/sent to Anthropic/)).toBeTruthy();
   });
 
+  it("keeps next-PR preparation off until the reader switches it on, and says what it costs", async () => {
+    const calls = fakeFetch({ "PUT /api/settings": { ...VIEW, prepareNext: true } });
+    render(<SettingsScreen initial={VIEW} />);
+    const toggle = screen.getByLabelText("Prepare the next PR while I'm idle");
+    expect((toggle as HTMLInputElement).checked).toBe(false);
+    expect(screen.getByText(/about 6 GB of model stays in memory/)).toBeTruthy();
+    await userEvent.click(toggle);
+    await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
+    expect(await screen.findByText("Saved.")).toBeTruthy();
+    expect(calls[0].body).toMatchObject({ prepareNext: true });
+  });
+
   it("saves every change in one request: model, thinking, timeout and repositories", async () => {
-    const saved = { ...VIEW.llm, model: "qwen3-4b-cc", thinking: false, timeoutMs: 30_000 };
+    const saved = { ...VIEW.llm, model: "qwen3-4b-cc", thinking: "off", timeoutMs: 30_000 };
     const calls = fakeFetch({
       "PUT /api/settings": { ...VIEW, llm: saved, repositories: ["acme/api"] },
     });
     render(<SettingsScreen initial={VIEW} />);
     await userEvent.selectOptions(screen.getByLabelText("Model"), "qwen3-4b-cc");
-    await userEvent.click(screen.getByRole("switch", { name: /Let the Model Think/ }));
+    await userEvent.click(screen.getByRole("radio", { name: "Off" }));
     await userEvent.clear(screen.getByLabelText("Timeout (Seconds)"));
     await userEvent.type(screen.getByLabelText("Timeout (Seconds)"), "30");
     await userEvent.type(screen.getByLabelText("Repositories"), "acme/api{enter}");
@@ -105,7 +159,7 @@ describe("SettingsScreen", () => {
       {
         url: "/api/settings",
         method: "PUT",
-        body: { llm: saved, repositories: ["acme/api"] },
+        body: { llm: saved, repositories: ["acme/api"], prepareNext: false },
       },
     ]);
   });
@@ -119,7 +173,11 @@ describe("SettingsScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
     expect(await screen.findByText("Saved.")).toBeTruthy();
     expect(calls).toEqual([
-      { url: "/api/settings", method: "PUT", body: { llm: saved, repositories: [] } },
+      {
+        url: "/api/settings",
+        method: "PUT",
+        body: { llm: saved, repositories: [], prepareNext: false },
+      },
     ]);
   });
 

@@ -237,7 +237,7 @@ export function PeekPanel({ onTab, onClose, pinned, onTogglePin, ...body }: Peek
     >
       <div className="flex items-center gap-2">
         <Telescope className="size-4 text-primary" />
-        <h2 className="min-w-0 flex-1 font-mono text-label font-semibold wrap-anywhere">
+        <h2 className="min-w-0 flex-1 truncate font-mono text-label font-semibold">
           {peek.position.name}
         </h2>
         {peek.definitions?.length ? <PinButton pinned={pinned} onTogglePin={onTogglePin} /> : null}

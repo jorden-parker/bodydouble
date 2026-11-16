@@ -69,7 +69,7 @@ function LineNotes({ notes, onDelete }: { notes: Note[]; onDelete: (id: number) 
           <NoteKindBadge tag={note} />
           <Markdown
             text={note.body}
-            className="flex min-w-0 flex-1 flex-col gap-1.5 wrap-anywhere"
+            className="flex min-w-0 flex-1 flex-col gap-1.5 wrap-break-word"
           />
           <Button
             variant="ghost"

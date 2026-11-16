@@ -15,12 +15,15 @@ export async function chosenRepository(
   return typeof repository === "string" ? repository : null;
 }
 
+export function isInRepository(request: ReviewRequest, repository: string | null): boolean {
+  return repository === null || repositoryOf(request) === repository;
+}
+
 export function filterByRepository(
   requests: ReviewRequest[],
   repository: string | null,
 ): ReviewRequest[] {
-  if (repository === null) return requests;
-  return requests.filter((request) => repositoryOf(request) === repository);
+  return requests.filter((request) => isInRepository(request, repository));
 }
 
 export function RepositoryFilter({

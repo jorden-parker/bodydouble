@@ -10,7 +10,7 @@ import {
 const SETTINGS = {
   enabled: true,
   model: "qwen3:4b",
-  thinking: false,
+  thinking: "off",
   timeoutMs: 20_000,
   backend: "local",
   claudeModel: "haiku",
@@ -21,7 +21,7 @@ describe("llmSettingsFromEnv", () => {
     expect(llmSettingsFromEnv({})).toEqual({
       enabled: true,
       model: null,
-      thinking: true,
+      thinking: "model",
       timeoutMs: expect.any(Number),
       backend: "local",
       claudeModel: "haiku",
@@ -36,7 +36,7 @@ describe("llmSettingsFromEnv", () => {
     ).toEqual({
       enabled: false,
       model: "mine",
-      thinking: false,
+      thinking: "off",
       timeoutMs: 5000,
       backend: "local",
       claudeModel: "haiku",
@@ -84,6 +84,14 @@ describe("savedLlmSettings", () => {
     expect(savedLlmSettings(store)).toBeNull();
     saveLlmSettings(store, SETTINGS);
     expect(savedLlmSettings(store)).toEqual(SETTINGS);
+  });
+
+  it("reads the thinking switch saved as a boolean before it had three choices", () => {
+    const store = new SessionStore(":memory:");
+    store.setSetting("llm", JSON.stringify({ ...SETTINGS, thinking: true }));
+    expect(savedLlmSettings(store)).toMatchObject({ thinking: "on" });
+    store.setSetting("llm", JSON.stringify({ ...SETTINGS, thinking: false }));
+    expect(savedLlmSettings(store)).toMatchObject({ thinking: "off" });
   });
 
   it("ignores a stored value that no longer fits the schema", () => {

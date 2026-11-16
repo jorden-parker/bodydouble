@@ -47,7 +47,14 @@ describe("streamAssist", () => {
     stubResponse(new Response(`Partial${ASSIST_ERROR_MARKER}boom`));
     const onUpdate = vi.fn();
     await expect(ask(onUpdate)).rejects.toThrow("boom");
-    expect(onUpdate).toHaveBeenLastCalledWith({ text: "Partial", lookups: [], failure: "boom" });
+    expect(onUpdate).toHaveBeenLastCalledWith({
+      text: "Partial",
+      lookups: [],
+      phase: null,
+      failure: "boom",
+      failureKind: null,
+      hasBudgetEnded: false,
+    });
   });
 
   it("decodes a character split across two chunks", async () => {
@@ -62,6 +69,13 @@ describe("streamAssist", () => {
     stubResponse(new Response(body));
     const onUpdate = vi.fn();
     await ask(onUpdate);
-    expect(onUpdate).toHaveBeenLastCalledWith({ text: "Hi 🙂 done", lookups: [], failure: null });
+    expect(onUpdate).toHaveBeenLastCalledWith({
+      text: "Hi 🙂 done",
+      lookups: [],
+      phase: null,
+      failure: null,
+      failureKind: null,
+      hasBudgetEnded: false,
+    });
   });
 });
