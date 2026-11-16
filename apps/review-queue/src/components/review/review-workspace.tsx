@@ -165,8 +165,9 @@ function TopBar({
   orientation: OrientationState;
 }) {
   return (
-    <header className="flex min-w-0 flex-col gap-3 border-b border-line-soft px-4 pt-4 pb-3 sm:px-6">
-      <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-3">
+    <header className="relative flex min-w-0 flex-col gap-4 border-b border-line-soft bg-background px-4 pt-5 pb-4 sm:px-6">
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-dot-grid" />
+      <div className="relative flex min-w-0 flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="flex min-w-0 flex-1 basis-72 items-start gap-2">
           <HintButton
             variant="ghost"
@@ -179,14 +180,16 @@ function TopBar({
               <ArrowLeft />
             </Link>
           </HintButton>
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h1 className="line-clamp-2 text-title wrap-anywhere">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <p className="flex min-w-0 flex-wrap gap-x-3 text-eyebrow">
+              <span className="wrap-anywhere">{prKey(review.pr.ref)}</span>
+              <span>{review.headSha.slice(0, 7)}</span>
+            </p>
+            <h1 className="line-clamp-2 text-xl font-semibold tracking-tight text-balance wrap-anywhere sm:text-2xl">
               <InlineMarkdown text={review.pr.title} />
             </h1>
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-label text-fg-muted">
-              <span className="wrap-anywhere">{prKey(review.pr.ref)}</span>
               <span className="wrap-anywhere">by {review.pr.author}</span>
-              <span className="font-mono">{review.headSha.slice(0, 7)}</span>
               <a
                 href={review.pr.url}
                 target="_blank"
@@ -227,13 +230,14 @@ function TopBar({
             </PopoverContent>
           </Popover>
           <HintButton
-            variant="outline"
+            variant="ghost"
+            size="icon"
             hint="Pause with a note"
             shortcut="."
             onClick={() => workspace.setDialog("pause")}
           >
             <Coffee />
-            <span className="max-sm:sr-only">Pause</span>
+            <span className="sr-only">Pause</span>
           </HintButton>
           <Button onClick={() => workspace.setDialog("finish")}>
             <Send /> Finish
@@ -241,7 +245,7 @@ function TopBar({
         </div>
       </div>
       {workspace.breakDue && <BreakPill workspace={workspace} />}
-      <div className="px-8">
+      <div className="relative px-8">
         <Stream
           steps={REVIEW_PATH}
           currentIndex={reviewStage(workspace, orientation)}
@@ -540,7 +544,7 @@ function StepBar({ review, workspace }: { review: ReviewPayload; workspace: Work
   return (
     <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
       <div className="flex min-w-0 flex-1 basis-56 flex-col gap-1">
-        <span className="text-label text-fg-muted tabular-nums">
+        <span className="text-eyebrow tabular-nums">
           {workspace.currentIndex + 1} of {review.steps.length}
         </span>
         <h2 className="text-heading wrap-anywhere">{stepBarTitle(workspace, step)}</h2>
@@ -565,7 +569,7 @@ function StepBar({ review, workspace }: { review: ReviewPayload; workspace: Work
         {!workspace.showAll && !workspace.showChanges && (
           <>
             <HintButton
-              variant="outline"
+              variant="ghost"
               hint="Previous step"
               shortcut="p"
               onClick={() => workspace.moveStep(-1)}
@@ -925,9 +929,9 @@ export function ReviewWorkspace({
           orientation={orientation}
           fresh={fresh}
         />
-        <div className="relative flex min-h-0 min-w-0 flex-col">
-          <div className="shrink-0 px-4 pt-4 pb-4 sm:px-6">
-            <div className="mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-3">
+        <div className="relative flex min-h-0 min-w-0 flex-col bg-canvas-deep">
+          <div className="shrink-0 px-4 pt-6 pb-4 sm:px-8">
+            <div className="mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-4">
               <StepBar review={review} workspace={workspace} />
               <ClosedNotice state={review.pr.state} />
               {controls.actionError && (
@@ -943,10 +947,10 @@ export function ReviewWorkspace({
               )}
             </div>
           </div>
-          <main id="main" className="min-h-0 flex-1 overflow-y-auto px-4 pb-24 sm:px-6">
+          <main id="main" className="min-h-0 flex-1 overflow-y-auto px-4 pb-24 sm:px-8">
             <div
               id="step-top"
-              className="mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-6 pt-2"
+              className="mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-8 pt-2"
             >
               <CentreBody
                 workspace={workspace}

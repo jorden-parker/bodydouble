@@ -12,7 +12,7 @@
   --accent: var(--surface-2);
   --ring: var(--ink-blue);
   --app-gradient: var(--neon-gradient);
-  --rail: var(--bg-deep);
+  --rail: var(--bg);
   --marker: var(--neon-amber);
   --marker-foreground: var(--on-neon);
   --add: var(--tint-mint);

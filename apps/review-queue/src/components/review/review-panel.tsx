@@ -138,7 +138,7 @@ function PaneButton({
       draggable
       onDragStart={(event) => startPaneDrag(event, pane.id, side)}
       onClick={onClick}
-      className="relative mx-auto size-10 rounded-lg text-muted-foreground transition-colors duration-calm ease-calm hover:bg-foreground/5 hover:text-foreground aria-pressed:bg-accent aria-pressed:text-accent-foreground"
+      className="relative mx-auto size-10 rounded-lg text-fg-faint transition-colors duration-calm ease-calm after:absolute after:inset-x-3 after:bottom-1 after:h-0.5 after:rounded-pill after:bg-app-gradient after:opacity-0 after:transition-opacity after:duration-calm hover:bg-foreground/5 hover:text-foreground aria-pressed:text-foreground aria-pressed:after:opacity-100"
     >
       <span className="relative flex">
         <Icon />
@@ -183,7 +183,7 @@ function PaneFrame({
       <header
         draggable
         onDragStart={(event) => startPaneDrag(event, pane.id, side)}
-        className="group/pane-header flex min-h-11 shrink-0 cursor-grab items-center gap-2 px-4 text-label font-semibold text-fg active:cursor-grabbing"
+        className="group/pane-header flex min-h-12 shrink-0 cursor-grab items-center gap-2 px-5 text-eyebrow active:cursor-grabbing"
       >
         <span className="flex-1 truncate">{pane.label}</span>
         <GripVertical
@@ -200,7 +200,7 @@ function PaneFrame({
           <X />
         </Button>
       </header>
-      <div className="flex min-h-0 flex-1 animate-step-enter flex-col gap-4 overflow-y-auto px-4 pt-2 pb-4 [scrollbar-gutter:stable]">
+      <div className="flex min-h-0 flex-1 animate-step-enter flex-col gap-4 overflow-y-auto px-5 pt-2 pb-6 [scrollbar-gutter:stable]">
         {content.body}
       </div>
     </section>
@@ -274,7 +274,7 @@ export function ReviewPanel({
       onDrop={onDrop}
     >
       <div
-        className={`flex w-panel-strip-compact shrink-0 flex-col items-center gap-2 overflow-y-auto bg-rail p-2 ${style.stripEdge}`}
+        className={`flex w-panel-strip-compact shrink-0 flex-col items-center gap-4 overflow-x-hidden overflow-y-auto bg-rail px-0.5 py-3 ${style.stripEdge}`}
       >
         <PanelToggle side={side} open={panes.length > 0} onToggle={controls.togglePanel} />
         <div className="flex w-full flex-col gap-1">

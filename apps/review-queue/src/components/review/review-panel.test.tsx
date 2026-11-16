@@ -50,6 +50,13 @@ function overflowCodeBy(pixels: number) {
 }
 
 describe("ReviewPanel resizing", () => {
+  it("never scrolls the icon rail sideways", () => {
+    renderPanel();
+    const rail = screen.getByRole("button", { name: "Hide panel" }).parentElement;
+    expect(rail?.classList).toContain("overflow-x-hidden");
+    expect(rail?.classList).toContain("px-0.5");
+  });
+
   beforeEach(() => {
     window.localStorage.clear();
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 1600 });
