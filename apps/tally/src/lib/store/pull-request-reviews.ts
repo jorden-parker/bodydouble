@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { inTransaction } from "./database";
 
 export type ReviewStatus = "awaiting_review" | "in_review" | "changes_requested" | "approved";
 
@@ -17,7 +18,9 @@ export function toReviewStatus(value: string | null): ReviewStatus | null {
 }
 
 export function replacePullRequestReviews(db: DatabaseSync, reviews: PullRequestReview[]): void {
-  db.prepare(DELETE_ALL).run();
-  const statement = db.prepare(INSERT);
-  for (const review of reviews) statement.run(review.url, review.status);
+  inTransaction(db, () => {
+    db.prepare(DELETE_ALL).run();
+    const statement = db.prepare(INSERT);
+    for (const review of reviews) statement.run(review.url, review.status);
+  });
 }

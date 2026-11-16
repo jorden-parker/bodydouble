@@ -53,4 +53,13 @@ describe("assigned stories store", () => {
 
     expect(loadAssignedStories(db).map((story) => story.id)).toEqual(["3"]);
   });
+
+  it("keeps the stored stories when a replacement fails part-way", () => {
+    replaceAssignedStories(db, [assignedStory({ id: "kept" })]);
+
+    expect(() =>
+      replaceAssignedStories(db, [assignedStory({ id: "twice" }), assignedStory({ id: "twice" })]),
+    ).toThrow();
+    expect(loadAssignedStories(db).map((story) => story.id)).toEqual(["kept"]);
+  });
 });

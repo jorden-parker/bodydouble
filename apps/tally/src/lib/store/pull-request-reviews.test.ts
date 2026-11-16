@@ -49,4 +49,17 @@ describe("pull request reviews store", () => {
 
     expect(loadOpenItems(db).map((item) => item.reviewStatus)).toEqual([null]);
   });
+
+  it("keeps the stored statuses when a replacement fails part-way", () => {
+    replaceOpenItems(db, "github", [pullRequest("https://x/1")]);
+    replacePullRequestReviews(db, [{ url: "https://x/1", status: "approved" }]);
+
+    expect(() =>
+      replacePullRequestReviews(db, [
+        { url: "twice", status: "in_review" },
+        { url: "twice", status: "in_review" },
+      ]),
+    ).toThrow();
+    expect(loadOpenItems(db).map((openItem) => openItem.reviewStatus)).toEqual(["approved"]);
+  });
 });

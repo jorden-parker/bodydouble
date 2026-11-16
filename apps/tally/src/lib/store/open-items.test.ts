@@ -96,4 +96,16 @@ describe("open items store", () => {
 
     expect(loadOpenItems(db)).toEqual([]);
   });
+
+  it("keeps the stored items when a replacement fails part-way", () => {
+    replaceOpenItems(db, "github", [pullRequest({ externalId: "kept" })]);
+
+    expect(() =>
+      replaceOpenItems(db, "github", [
+        pullRequest({ externalId: "twice" }),
+        pullRequest({ externalId: "twice" }),
+      ]),
+    ).toThrow();
+    expect(loadOpenItems(db).map((openItem) => openItem.externalId)).toEqual(["kept"]);
+  });
 });

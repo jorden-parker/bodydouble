@@ -93,28 +93,32 @@ caches them on `globalThis`. Route handlers in `src/app/api` stay thin and call
   and titles (`sc-1234`), and `linkPullRequests` attaches any PR that names a
   story Shortcut did not attach itself. Shortcut's own attachments win.
 - All remote access goes through `Runner` (`src/lib/exec.ts`): `gh` for GitHub
-  and `short api` for Shortcut. `short` comes from `node_modules/.bin`, so start
-  the server through `bun run`. The CLI uses its own `short install` credentials
-  or an inherited `SHORTCUT_API_TOKEN`, which Next loads from `.env.local`.
+  and `short api` for Shortcut. Every command is stopped after 120 seconds, and
+  the Shortcut story search reads at most `MAX_STORY_PAGES` pages. `short` comes
+  from `node_modules/.bin`, so start the server through `bun run`. The CLI uses
+  its own `short install` credentials or an inherited `SHORTCUT_API_TOKEN`,
+  which Next loads from `.env.local`.
 - `createShortcutGet` keeps the `/api/v3/...` path shape and translates it to
   `short api` arguments.
 
 **Storage.** `src/lib/store/database.ts` holds the schema, applied with
 `CREATE TABLE IF NOT EXISTS` on open; there are no migrations. `events` is keyed
 on `(source, kind, external_id)`, so `upsertEvents` is idempotent and re-syncing
-overlapping windows is safe. `settings` is key/value. `snapshots` holds
-point-in-time counts (open PRs, requested reviews, stories in progress) that
-have no history. `open_items` holds the current open PRs and assigned stories,
-replaced per source on each successful fetch. `draft_items` flags the open items
-that are drafts. `work_details` holds PR size, ticket points and type, and start
-times for completed work, keyed on `(source, external_id)`. `tickets` and
-`ticket_pull_requests` hold the current ticket cards; `ticket_roles` says
-whether each is assigned, reviewing or completed (with `completed_at`) and
-`ticket_owners` names the owners. `assigned_stories` holds every unarchived
-story I own, for the `/tickets` page. `pull_request_reviews` holds the review
-status per PR url and is joined onto open items and ticket PRs on read, never
-stored per ticket. New data that needs a new column goes in a new table, because
-`CREATE TABLE IF NOT EXISTS` can't alter an existing one.
+overlapping windows is safe. The `replace…` writes delete and insert inside
+`inTransaction`, so a write that fails part-way keeps the old rows. `settings`
+is key/value. `snapshots` holds point-in-time counts (open PRs, requested
+reviews, stories in progress) that have no history. `open_items` holds the
+current open PRs and assigned stories, replaced per source on each successful
+fetch. `draft_items` flags the open items that are drafts. `work_details` holds
+PR size, ticket points and type, and start times for completed work, keyed on
+`(source, external_id)`. `tickets` and `ticket_pull_requests` hold the current
+ticket cards; `ticket_roles` says whether each is assigned, reviewing or
+completed (with `completed_at`) and `ticket_owners` names the owners.
+`assigned_stories` holds every unarchived story I own, for the `/tickets` page.
+`pull_request_reviews` holds the review status per PR url and is joined onto
+open items and ticket PRs on read, never stored per ticket. New data that needs
+a new column goes in a new table, because `CREATE TABLE IF NOT EXISTS` can't
+alter an existing one.
 
 **Metrics.** `src/lib/metrics/summary.ts` `summarize` is a pure function of
 events, snapshots, settings, range and `now`. Nothing derived is stored. The

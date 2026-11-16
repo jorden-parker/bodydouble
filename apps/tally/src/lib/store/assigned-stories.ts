@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { inTransaction } from "./database";
 
 export const WORKFLOW_STATE_TYPES = ["backlog", "unstarted", "started", "done"] as const;
 
@@ -58,22 +59,24 @@ function toAssignedStory(row: AssignedStoryRow): AssignedStory {
 }
 
 export function replaceAssignedStories(db: DatabaseSync, stories: AssignedStory[]): void {
-  db.prepare(`DELETE FROM assigned_stories`).run();
-  const statement = db.prepare(INSERT_STORY);
-  for (const story of stories) {
-    statement.run(
-      story.id,
-      story.title,
-      story.url,
-      story.openedAt,
-      story.completedAt,
-      story.storyType,
-      story.estimate,
-      story.state,
-      story.stateType,
-      story.statePosition,
-    );
-  }
+  inTransaction(db, () => {
+    db.prepare(`DELETE FROM assigned_stories`).run();
+    const statement = db.prepare(INSERT_STORY);
+    for (const story of stories) {
+      statement.run(
+        story.id,
+        story.title,
+        story.url,
+        story.openedAt,
+        story.completedAt,
+        story.storyType,
+        story.estimate,
+        story.state,
+        story.stateType,
+        story.statePosition,
+      );
+    }
+  });
 }
 
 export function loadAssignedStories(db: DatabaseSync): AssignedStory[] {

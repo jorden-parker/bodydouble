@@ -107,4 +107,12 @@ describe("fetchReviewedPrs", () => {
     expect(events.map((event) => event.externalId)).toEqual(["a", "b"]);
     expect(argValue(graphqlCalls[1], "after")).toBe("cursor-1");
   });
+
+  it("asks for my latest reviews on each PR, so a long thread keeps the newest", async () => {
+    const { run, graphqlCalls } = runnerFor(() => searchPage([], null));
+
+    await fetchReviewedPrs(run, SINCE);
+
+    expect(argValue(graphqlCalls[0] ?? [], "query")).toContain("reviews(author: $login, last: 50)");
+  });
 });

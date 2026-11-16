@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runCommand } from "./exec";
+import { createRunner, runCommand } from "./exec";
 
 describe("runCommand", () => {
   it("resolves with standard output", async () => {
@@ -12,5 +12,13 @@ describe("runCommand", () => {
     const failure = runCommand(process.execPath, ["-e", "console.error('boom'); process.exit(2)"]);
 
     await expect(failure).rejects.toThrow(/boom/);
+  });
+
+  it("stops a command that outlives the time limit and says so", async () => {
+    const run = createRunner(50);
+
+    const hungCommand = run(process.execPath, ["-e", "setTimeout(() => {}, 5000)"]);
+
+    await expect(hungCommand).rejects.toThrow(/timed out after 50 ms/);
   });
 });

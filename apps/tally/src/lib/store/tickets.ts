@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { inTransaction } from "./database";
 import { reviewStatusJoin, toReviewStatus, type ReviewStatus } from "./pull-request-reviews";
 
 export type TicketPullRequest = {
@@ -156,8 +157,10 @@ function insertTicket(db: DatabaseSync, ticket: Ticket): void {
 }
 
 export function replaceTickets(db: DatabaseSync, tickets: Ticket[]): void {
-  for (const statement of DELETE_STATEMENTS) db.prepare(statement).run();
-  for (const ticket of tickets) insertTicket(db, ticket);
+  inTransaction(db, () => {
+    for (const statement of DELETE_STATEMENTS) db.prepare(statement).run();
+    for (const ticket of tickets) insertTicket(db, ticket);
+  });
 }
 
 export function loadTickets(db: DatabaseSync): Ticket[] {

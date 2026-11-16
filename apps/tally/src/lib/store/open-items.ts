@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { inTransaction } from "./database";
 import type { EventSource } from "@/lib/store/events";
 import { reviewStatusJoin, toReviewStatus, type ReviewStatus } from "./pull-request-reviews";
 
@@ -60,14 +61,16 @@ function toOpenItem(row: OpenItemRow): OpenItem {
 }
 
 export function replaceOpenItems(db: DatabaseSync, source: EventSource, items: OpenItem[]): void {
-  db.prepare(DELETE_SOURCE).run(source);
-  db.prepare(DELETE_SOURCE_DRAFTS).run(source);
-  const statement = db.prepare(INSERT);
-  const draftStatement = db.prepare(INSERT_DRAFT);
-  for (const item of items) {
-    statement.run(item.source, item.externalId, item.openedAt, item.repo, item.title, item.url);
-    if (item.isDraft) draftStatement.run(item.source, item.externalId);
-  }
+  inTransaction(db, () => {
+    db.prepare(DELETE_SOURCE).run(source);
+    db.prepare(DELETE_SOURCE_DRAFTS).run(source);
+    const statement = db.prepare(INSERT);
+    const draftStatement = db.prepare(INSERT_DRAFT);
+    for (const item of items) {
+      statement.run(item.source, item.externalId, item.openedAt, item.repo, item.title, item.url);
+      if (item.isDraft) draftStatement.run(item.source, item.externalId);
+    }
+  });
 }
 
 export function loadOpenItems(db: DatabaseSync): OpenItem[] {

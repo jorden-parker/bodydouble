@@ -339,6 +339,22 @@ describe("syncAll", () => {
     ]);
   });
 
+  it("keeps the stored review statuses when the open-PR search fails", async () => {
+    const healthy = fakeGitHub().run;
+    await syncAll({ db, run: healthy, shortcut: fakeShortcut, now: () => NOW });
+
+    const failing: Runner = async (command, args) => {
+      if (isOpenAuthoredSearch(args)) throw new Error("search failed");
+      return healthy(command, args);
+    };
+    await syncAll({ db, run: failing, shortcut: fakeShortcut, now: () => NOW });
+
+    expect(loadOpenItems(db).map((openItem) => openItem.reviewStatus)).toEqual([
+      "awaiting_review",
+      "approved",
+    ]);
+  });
+
   it("asks GitHub for the last 60 days", async () => {
     const { run, calls } = fakeGitHub();
 

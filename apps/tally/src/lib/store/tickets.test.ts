@@ -91,4 +91,11 @@ describe("tickets store", () => {
     expect(db.prepare("SELECT COUNT(*) AS n FROM ticket_owners").get()).toEqual({ n: 0 });
     expect(db.prepare("SELECT COUNT(*) AS n FROM ticket_roles").get()).toEqual({ n: 1 });
   });
+
+  it("keeps the stored tickets when a replacement fails part-way", () => {
+    replaceTickets(db, [ticket({ id: "kept" })]);
+
+    expect(() => replaceTickets(db, [ticket({ id: "twice" }), ticket({ id: "twice" })])).toThrow();
+    expect(loadTickets(db).map((stored) => stored.id)).toEqual(["kept"]);
+  });
 });

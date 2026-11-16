@@ -94,6 +94,17 @@ const SCHEMA = `
   );
 `;
 
+export function inTransaction(db: DatabaseSync, write: () => void): void {
+  db.exec("BEGIN");
+  try {
+    write();
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 export function openDatabase(location: string): DatabaseSync {
   const db = new DatabaseSync(location);
   db.exec(SCHEMA);

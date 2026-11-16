@@ -109,14 +109,16 @@ async function syncGitHub(
     toReview: settledValue(toReview, []),
     mergedUrls: merged.map((pullRequest) => pullRequest.url),
   };
-  replacePullRequestReviews(
-    db,
-    [...pullRequests.authored, ...pullRequests.toReview].flatMap((pullRequest) =>
-      pullRequest.reviewStatus === null
-        ? []
-        : [{ url: pullRequest.url, status: pullRequest.reviewStatus }],
-    ),
-  );
+  if (openAuthored.status === "fulfilled" && toReview.status === "fulfilled") {
+    replacePullRequestReviews(
+      db,
+      [...pullRequests.authored, ...pullRequests.toReview].flatMap((pullRequest) =>
+        pullRequest.reviewStatus === null
+          ? []
+          : [{ url: pullRequest.url, status: pullRequest.reviewStatus }],
+      ),
+    );
+  }
   const failure = results.find((settled) => settled.status === "rejected");
   if (failure) result.errors.github = errorMessage(failure.reason);
   return pullRequests;

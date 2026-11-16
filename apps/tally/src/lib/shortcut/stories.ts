@@ -56,6 +56,8 @@ type StorySearchPage = {
 const SEARCH_PATH = "/api/v3/search/stories";
 const PAGE_SIZE = 25;
 
+export const MAX_STORY_PAGES = 40;
+
 function searchPath(query: string): string {
   return `${SEARCH_PATH}?query=${encodeURIComponent(query)}&page_size=${PAGE_SIZE}`;
 }
@@ -63,7 +65,7 @@ function searchPath(query: string): string {
 async function searchAllStories(get: ShortcutGet, query: string): Promise<Story[]> {
   const stories: Story[] = [];
   let path: string | null = searchPath(query);
-  while (path !== null) {
+  for (let pageCount = 0; path !== null && pageCount < MAX_STORY_PAGES; pageCount += 1) {
     const page: StorySearchPage = await get<StorySearchPage>(path);
     stories.push(...page.data);
     path = page.next;

@@ -19,7 +19,7 @@ const QUERY = `query($search: String!, $login: String!, $after: String) {
         title
         url
         repository { nameWithOwner }
-        reviews(author: $login, first: 50) { nodes { url submittedAt } }
+        reviews(author: $login, last: 50) { nodes { url submittedAt } }
       }
     }
   }

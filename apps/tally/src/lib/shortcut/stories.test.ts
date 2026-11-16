@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ShortcutGet } from "./client";
 import {
+  MAX_STORY_PAGES,
   countInProgressStories,
   fetchCompletedStories,
   fetchMemberNames,
@@ -291,6 +292,19 @@ describe("fetchOwnedStories", () => {
 
     expect(paths[1]).toBe("/api/v3/search/stories?next=abc");
     expect(stories.map((owned) => owned.id)).toEqual([1, 2]);
+  });
+
+  it("stops asking once the page limit is reached, even if Shortcut keeps offering more", async () => {
+    let requestCount = 0;
+    const get: ShortcutGet = async <T>() => {
+      requestCount += 1;
+      return { data: [story(requestCount, null)], next: "/api/v3/search/stories?next=again" } as T;
+    };
+
+    const stories = await fetchOwnedStories(get, "jorden");
+
+    expect(requestCount).toBe(MAX_STORY_PAGES);
+    expect(stories).toHaveLength(MAX_STORY_PAGES);
   });
 });
 
