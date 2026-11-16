@@ -38,20 +38,19 @@ describe("github", () => {
           repository: { nameWithOwner: "acme/app" },
           author: { login: "sam" },
           updatedAt: "2026-10-01T00:00:00Z",
-          isDraft: false,
         },
       ]),
     );
     const requests = await listReviewRequests(run);
     expect(calls[0].args).toContain("--review-requested=@me");
     expect(calls[0].args).toContain("--limit=100");
+    expect(calls[0].args).toContain("--draft=false");
     expect(requests[0]).toEqual({
       ref: REF,
       title: "Add cache",
       url: "https://github.com/acme/app/pull/7",
       author: "sam",
       updatedAt: "2026-10-01T00:00:00Z",
-      isDraft: false,
     });
   });
 
@@ -321,7 +320,6 @@ describe("listOpenPullRequests", () => {
     repository: { nameWithOwner: "acme/app" },
     author: { login: "dependabot[bot]" },
     updatedAt: "2026-10-01T00:00:00Z",
-    isDraft: false,
   };
 
   it("searches every repository in one call and returns the open PRs", async () => {
@@ -332,8 +330,9 @@ describe("listOpenPullRequests", () => {
       "search",
       "prs",
       "--state=open",
+      "--draft=false",
       "--limit=100",
-      "--json=number,title,url,repository,author,updatedAt,isDraft",
+      "--json=number,title,url,repository,author,updatedAt",
       "--repo=acme/app",
       "--repo=acme/lib",
       "--author=app/dependabot",
@@ -345,15 +344,28 @@ describe("listOpenPullRequests", () => {
         url: "https://github.com/acme/app/pull/7",
         author: "dependabot[bot]",
         updatedAt: "2026-10-01T00:00:00Z",
-        isDraft: false,
       },
     ]);
   });
 
-  it("excludes dependabot after every flag for the others view", async () => {
+  it("asks for the Smartling connector's pull requests for the smartling view", async () => {
+    const { run, calls } = fakeRunner("[]");
+    await listOpenPullRequests(["acme/app"], "smartling", run);
+    expect(calls[0].args.slice(-2)).toEqual([
+      "--repo=acme/app",
+      "--author=app/smartling-github-connector",
+    ]);
+  });
+
+  it("excludes dependabot and smartling after every flag for the others view", async () => {
     const { run, calls } = fakeRunner("[]");
     await listOpenPullRequests(["acme/app"], "others", run);
-    expect(calls[0].args.slice(-3)).toEqual(["--repo=acme/app", "--", "-author:app/dependabot"]);
+    expect(calls[0].args.slice(-4)).toEqual([
+      "--repo=acme/app",
+      "--",
+      "-author:app/dependabot",
+      "-author:app/smartling-github-connector",
+    ]);
     expect(calls[0].args).not.toContain("--author=app/dependabot");
   });
 

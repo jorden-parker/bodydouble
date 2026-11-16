@@ -1,11 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { REVIEW_REQUEST_LIMIT, type ReviewRequest } from "@/lib/github/gh";
 import { prKey } from "@/lib/pr-ref";
 import { openPullRequests, sessionStore } from "@/lib/review/services";
 import { savedRepositories } from "@/lib/settings/repository-settings";
-import { DependabotList } from "./dependabot-list";
+import { DependabotList, SmartlingList } from "./dependabot-list";
 
 vi.mock("next/server", () => ({ connection: vi.fn(async () => undefined) }));
 vi.mock("@/lib/review/services", () => ({ openPullRequests: vi.fn(), sessionStore: vi.fn() }));
@@ -17,7 +17,6 @@ const BUMP: ReviewRequest = {
   url: "https://github.com/acme/web/pull/3",
   author: "dependabot[bot]",
   updatedAt: "2026-10-27T09:00:00.000Z",
-  isDraft: false,
 };
 
 async function renderList() {
@@ -104,5 +103,36 @@ describe("DependabotList", () => {
     vi.mocked(openPullRequests).mockResolvedValue(full);
     await renderList();
     expect(screen.getByText(`Showing the first ${REVIEW_REQUEST_LIMIT}`)).toBeTruthy();
+  });
+
+  it("shows only the chosen repository's pull requests", async () => {
+    vi.mocked(openPullRequests).mockResolvedValue([
+      BUMP,
+      { ...BUMP, ref: { owner: "acme", repo: "api", number: 9 }, title: "Bump zod" },
+    ]);
+    render(await DependabotList({ searchParams: Promise.resolve({ repository: "acme/api" }) }), {
+      wrapper: TooltipProvider,
+    });
+    expect(screen.getByRole("link", { name: /Bump zod/ })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Bump lodash/ })).toBeNull();
+    const filter = screen.getByRole("navigation", { name: "Filter by repository" });
+    expect(within(filter).getByRole("link", { name: "acme/api" }).getAttribute("href")).toBe(
+      "/dependabot?repository=acme%2Fapi",
+    );
+  });
+});
+
+describe("SmartlingList", () => {
+  it("lists the open Smartling pull requests", async () => {
+    vi.mocked(openPullRequests).mockResolvedValue([{ ...BUMP, title: "Import translations" }]);
+    render(await SmartlingList(), { wrapper: TooltipProvider });
+    expect(openPullRequests).toHaveBeenCalledWith("smartling");
+    expect(screen.getByRole("link", { name: /Import translations/ })).toBeTruthy();
+  });
+
+  it("says so when no Smartling pull request is open", async () => {
+    vi.mocked(openPullRequests).mockResolvedValue([]);
+    render(await SmartlingList(), { wrapper: TooltipProvider });
+    expect(screen.getByText(/No Smartling pull requests are open/)).toBeTruthy();
   });
 });

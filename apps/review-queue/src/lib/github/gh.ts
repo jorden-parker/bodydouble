@@ -10,7 +10,6 @@ export type ReviewRequest = {
   url: string;
   author: string;
   updatedAt: string;
-  isDraft: boolean;
 };
 
 type PullRequestState = "open" | "closed" | "merged";
@@ -54,12 +53,11 @@ type SearchResult = {
   repository: { nameWithOwner: string };
   author: { login: string };
   updatedAt: string;
-  isDraft: boolean;
 };
 
 const RENDERED_BODY = "Accept: application/vnd.github.full+json";
 
-const SEARCH_FIELDS = "number,title,url,repository,author,updatedAt,isDraft";
+const SEARCH_FIELDS = "number,title,url,repository,author,updatedAt";
 
 export const REVIEW_REQUEST_LIMIT = 100;
 
@@ -75,7 +73,6 @@ function reviewRequestFromSearch(result: SearchResult): ReviewRequest {
     url: result.url,
     author: result.author.login,
     updatedAt: result.updatedAt,
-    isDraft: result.isDraft,
   };
 }
 
@@ -85,13 +82,19 @@ export async function listReviewRequests(run: Runner = githubRun): Promise<Revie
     "prs",
     "--review-requested=@me",
     "--state=open",
+    "--draft=false",
     `--limit=${REVIEW_REQUEST_LIMIT}`,
     `--json=${SEARCH_FIELDS}`,
   ]);
   return (JSON.parse(output) as SearchResult[]).map(reviewRequestFromSearch);
 }
 
-export type PullRequestAuthorship = "dependabot" | "others";
+const BOT_AUTHORS = {
+  dependabot: "app/dependabot",
+  smartling: "app/smartling-github-connector",
+};
+
+export type PullRequestAuthorship = keyof typeof BOT_AUTHORS | "others";
 
 export async function listOpenPullRequests(
   repositories: string[],
@@ -100,11 +103,14 @@ export async function listOpenPullRequests(
 ): Promise<ReviewRequest[]> {
   if (repositories.length === 0) return [];
   const authorArgs =
-    authorship === "dependabot" ? ["--author=app/dependabot"] : ["--", "-author:app/dependabot"];
+    authorship === "others"
+      ? ["--", ...Object.values(BOT_AUTHORS).map((author) => `-author:${author}`)]
+      : [`--author=${BOT_AUTHORS[authorship]}`];
   const output = await run("gh", [
     "search",
     "prs",
     "--state=open",
+    "--draft=false",
     `--limit=${REVIEW_REQUEST_LIMIT}`,
     `--json=${SEARCH_FIELDS}`,
     ...repositories.map((repository) => `--repo=${repository}`),

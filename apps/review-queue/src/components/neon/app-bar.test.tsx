@@ -20,14 +20,20 @@ describe("AppBar", () => {
     expect(brand.textContent).toContain("🦦");
   });
 
-  it("lists Inbox, Dependabot and Settings in the main navigation", () => {
+  it("lists Inbox, Dependabot, Smartling and Settings in the main navigation", () => {
     render(<AppBar />);
     const navigation = screen.getByRole("navigation", { name: "Main" });
     const links = within(navigation).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["Inbox", "Dependabot", "Settings"]);
+    expect(links.map((link) => link.textContent)).toEqual([
+      "Inbox",
+      "Dependabot",
+      "Smartling",
+      "Settings",
+    ]);
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "/",
       "/dependabot",
+      "/smartling",
       "/settings",
     ]);
   });

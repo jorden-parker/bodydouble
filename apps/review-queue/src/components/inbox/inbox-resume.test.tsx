@@ -21,7 +21,6 @@ const QUEUED: ReviewRequest = {
   url: "https://github.com/acme/app/pull/7",
   author: "sam",
   updatedAt: "2026-10-28T09:00:00.000Z",
-  isDraft: false,
 };
 
 const RESUME: InProgressSession = {

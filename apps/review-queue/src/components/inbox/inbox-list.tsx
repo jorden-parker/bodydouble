@@ -14,6 +14,12 @@ import { relativeTime } from "./in-progress-list";
 import { isPondClear, loadInbox } from "./inbox-data";
 import { PostedList } from "./posted-list";
 import { initialsOf, orderQueue, type QueueEntry } from "./queue";
+import {
+  chosenRepository,
+  filterByRepository,
+  RepositoryFilter,
+  type RepositorySearchParams,
+} from "./repository-filter";
 
 export { failureMessage } from "./inbox-data";
 
@@ -58,7 +64,6 @@ function InboxRow({ entry }: { entry: QueueEntry }) {
             <span className="font-mono text-fg wrap-anywhere">{prKey(request.ref)}</span>
             <span>by {request.author}</span>
             <span>updated {relativeTime(request.updatedAt)}</span>
-            {request.isDraft && <span>draft</span>}
           </span>
           {progress?.pause && <PausedNote pause={progress.pause} />}
           <span className="flex flex-wrap gap-2">
@@ -180,36 +185,52 @@ function RequestQueue({
   );
 }
 
-function batchedBumpsMessage(count: number): string {
-  if (count === 0) return "No dependency bumps waiting.";
-  if (count === 1) return "1 dependency bump, batched for later.";
-  return `${count} dependency bumps, batched for later.`;
+function batchedMessage(count: number, change: string): string {
+  if (count === 0) return `No ${change}s waiting.`;
+  if (count === 1) return `1 ${change}, batched for later.`;
+  return `${count} ${change}s, batched for later.`;
 }
 
-function DependabotSummary({ count }: { count: number | null }) {
+function BatchedSummary({
+  count,
+  change,
+  botName,
+  href,
+}: {
+  count: number | null;
+  change: string;
+  botName: string;
+  href: string;
+}) {
   if (count === null) return null;
   return (
     <p className="flex flex-wrap items-center gap-2 rounded-xl border border-line-soft bg-card px-4 py-3 text-sm text-fg-muted">
       <Bot aria-hidden="true" className="size-4 shrink-0" />
-      <span>{batchedBumpsMessage(count)}</span>
+      <span>{batchedMessage(count, change)}</span>
       <Link
-        href="/dependabot"
+        href={href}
         className="inline-flex min-h-8 items-center font-medium text-fg underline underline-offset-4"
       >
-        See Dependabot
+        See {botName}
       </Link>
     </p>
   );
 }
 
-export async function InboxList() {
+export async function InboxList({ searchParams }: { searchParams?: RepositorySearchParams } = {}) {
   const inbox = await loadInbox();
+  const chosen = await chosenRepository(searchParams);
   return (
     <div className="flex min-w-0 flex-col gap-6">
+      <RepositoryFilter
+        requests={[...inbox.requests, ...inbox.repositoryRequests]}
+        chosen={chosen}
+        basePath="/"
+      />
       {!isPondClear(inbox) && (
         <RequestQueue
           title="Waiting for you"
-          requests={inbox.requests}
+          requests={filterByRepository(inbox.requests, chosen)}
           progress={inbox.progress}
           error={inbox.requestsError}
           emptyMessage="Nothing is waiting for your review. Enjoy it."
@@ -219,11 +240,16 @@ export async function InboxList() {
         <RequestQueue
           title="Open in your repositories"
           action={
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/dependabot">Dependabot PRs</Link>
-            </Button>
+            <span className="flex flex-wrap gap-2">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/dependabot">Dependabot PRs</Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/smartling">Smartling PRs</Link>
+              </Button>
+            </span>
           }
-          requests={inbox.repositoryRequests}
+          requests={filterByRepository(inbox.repositoryRequests, chosen)}
           progress={inbox.progress}
           error={inbox.repositoryError}
           emptyMessage="No open pull requests in your repositories."
@@ -238,7 +264,18 @@ export async function InboxList() {
         </p>
       )}
       <PostedList reviews={inbox.posted} />
-      <DependabotSummary count={inbox.dependabotCount} />
+      <BatchedSummary
+        count={inbox.dependabotCount}
+        change="dependency bump"
+        botName="Dependabot"
+        href="/dependabot"
+      />
+      <BatchedSummary
+        count={inbox.smartlingCount}
+        change="translation update"
+        botName="Smartling"
+        href="/smartling"
+      />
     </div>
   );
 }

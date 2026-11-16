@@ -4,8 +4,9 @@ import { InboxList } from "@/components/inbox/inbox-list";
 import { InboxResume } from "@/components/inbox/inbox-resume";
 import { InboxSkeleton } from "@/components/inbox/inbox-skeleton";
 import { OpenPullRequestForm } from "@/components/inbox/open-pull-request-form";
+import type { RepositorySearchParams } from "@/components/inbox/repository-filter";
 
-export default function InboxPage() {
+export default function InboxPage({ searchParams }: { searchParams?: RepositorySearchParams }) {
   return (
     <PageShell>
       <PageHeader title="Inbox" lede="One PR at a time. Pick one, follow the path, take breaks." />
@@ -17,7 +18,7 @@ export default function InboxPage() {
         </section>
         <section aria-label="Waiting for you" className="flex min-w-0 flex-col gap-6">
           <Suspense fallback={<InboxSkeleton />}>
-            <InboxList />
+            <InboxList searchParams={searchParams} />
           </Suspense>
           <OpenPullRequestForm />
         </section>

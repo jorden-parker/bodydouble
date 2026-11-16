@@ -5,7 +5,11 @@ import { EmptyState } from "@/components/common/empty-state";
 import { InlineMarkdown } from "@/components/common/markdown-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { REVIEW_REQUEST_LIMIT, type ReviewRequest } from "@/lib/github/gh";
+import {
+  REVIEW_REQUEST_LIMIT,
+  type PullRequestAuthorship,
+  type ReviewRequest,
+} from "@/lib/github/gh";
 import { prKey, prPath } from "@/lib/pr-ref";
 import { openPullRequests, sessionStore } from "@/lib/review/services";
 import { savedRepositories } from "@/lib/settings/repository-settings";
@@ -13,6 +17,14 @@ import type { PauseState, ProgressSummary } from "@/lib/session/store";
 import { relativeTime } from "./in-progress-list";
 import { failureMessage } from "./inbox-list";
 import { orderQueue, type QueueEntry } from "./queue";
+import {
+  chosenRepository,
+  filterByRepository,
+  RepositoryFilter,
+  type RepositorySearchParams,
+} from "./repository-filter";
+
+type BotListProps = { searchParams?: RepositorySearchParams };
 
 const BUMP_TITLE = /\bbump\s+(\S+)\s+from\s+(\S+)\s+to\s+(\S+)/i;
 
@@ -61,7 +73,6 @@ function DependabotRow({ entry }: { entry: QueueEntry }) {
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-fg-muted">
           <span>by {request.author}</span>
           <span>updated {relativeTime(request.updatedAt)}</span>
-          {request.isDraft && <span>draft</span>}
           {entry.movedSinceVisit && <Badge variant="amber">Activity since your visit</Badge>}
         </p>
         {progress?.pause && <PausedNote pause={progress.pause} />}
@@ -118,21 +129,27 @@ function DependabotRows({
   );
 }
 
-export async function DependabotList() {
+async function BotPullRequestList({
+  authorship,
+  botName,
+  searchParams,
+}: BotListProps & { authorship: PullRequestAuthorship; botName: string }) {
   await connection();
   const store = sessionStore();
-  const outcome = await openPullRequests("dependabot").then(
+  const chosen = await chosenRepository(searchParams);
+  const outcome = await openPullRequests(authorship).then(
     (requests) => ({ requests, error: null }),
     (failure: unknown) => ({ requests: [], error: failureMessage(failure) }),
   );
   const hasRepositories = savedRepositories(store).length > 0;
   const progress = store.progressSummaries(outcome.requests.map((request) => prKey(request.ref)));
   const count = outcome.requests.length;
+  const shownRequests = filterByRepository(outcome.requests, chosen);
   return (
     <div className="grid min-w-0 gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-heading">Open pull requests</h2>
-        <Badge variant="blue">{count}</Badge>
+        <Badge variant="blue">{shownRequests.length}</Badge>
       </div>
       {outcome.error ? (
         <div className="grid gap-2 rounded-xl border border-ink-coral/40 p-4 text-sm">
@@ -145,14 +162,14 @@ export async function DependabotList() {
       ) : count === 0 ? (
         <EmptyState emoji="🌴">
           {hasRepositories ? (
-            "No Dependabot pull requests are open. Nothing to update."
+            `No ${botName} pull requests are open. Nothing to update.`
           ) : (
             <>
               Pick repositories in{" "}
               <Link href="/settings" className="text-fg underline underline-offset-4">
                 Settings
               </Link>{" "}
-              to see their Dependabot PRs here.
+              to see their {botName} PRs here.
             </>
           )}
         </EmptyState>
@@ -161,9 +178,22 @@ export async function DependabotList() {
           {count === REVIEW_REQUEST_LIMIT && (
             <p className="text-label text-fg-muted">Showing the first {REVIEW_REQUEST_LIMIT}</p>
           )}
-          <DependabotRows requests={outcome.requests} progress={progress} />
+          <RepositoryFilter
+            requests={outcome.requests}
+            chosen={chosen}
+            basePath={`/${authorship}`}
+          />
+          <DependabotRows requests={shownRequests} progress={progress} />
         </>
       )}
     </div>
   );
+}
+
+export function DependabotList({ searchParams }: BotListProps = {}) {
+  return BotPullRequestList({ authorship: "dependabot", botName: "Dependabot", searchParams });
+}
+
+export function SmartlingList({ searchParams }: BotListProps = {}) {
+  return BotPullRequestList({ authorship: "smartling", botName: "Smartling", searchParams });
 }

@@ -21,11 +21,11 @@ const REQUEST: ReviewRequest = {
   url: "https://github.com/acme/app/pull/7",
   author: "sam",
   updatedAt: "2026-10-28T09:00:00.000Z",
-  isDraft: false,
 };
 
-async function renderInbox() {
-  render(await InboxList(), { wrapper: TooltipProvider });
+async function renderInbox(repository?: string) {
+  const searchParams = repository ? Promise.resolve({ repository }) : undefined;
+  render(await InboxList({ searchParams }), { wrapper: TooltipProvider });
 }
 
 beforeEach(() => {
@@ -117,7 +117,6 @@ const REPOSITORY_REQUEST: ReviewRequest = {
   url: "https://github.com/acme/web/pull/3",
   author: "lee",
   updatedAt: "2026-10-27T09:00:00.000Z",
-  isDraft: false,
 };
 
 function repositorySection(): HTMLElement {
@@ -196,5 +195,62 @@ describe("InboxList repositories", () => {
     expect(progressSummaries).toHaveBeenCalledWith(
       expect.arrayContaining([prKey(REPOSITORY_REQUEST.ref)]),
     );
+  });
+
+  it("links the repositories section to the Smartling page", async () => {
+    await renderInbox();
+    const link = screen.getByRole("link", { name: "Smartling PRs" });
+    expect(link.getAttribute("href")).toBe("/smartling");
+  });
+
+  it("summarises the batched Smartling updates and links to the Smartling page", async () => {
+    vi.mocked(openPullRequests).mockImplementation(async (authorship) =>
+      authorship === "smartling" ? [REPOSITORY_REQUEST] : [],
+    );
+    await renderInbox();
+    expect(screen.getByText("1 translation update, batched for later.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "See Smartling" }).getAttribute("href")).toBe(
+      "/smartling",
+    );
+  });
+});
+
+describe("InboxList repository filter", () => {
+  beforeEach(() => {
+    vi.mocked(openPullRequests).mockImplementation(async (authorship) =>
+      authorship === "others" ? [REPOSITORY_REQUEST] : [],
+    );
+  });
+
+  it("offers every listed repository as a filter link, with all of them current at first", async () => {
+    await renderInbox();
+    const filter = screen.getByRole("navigation", { name: "Filter by repository" });
+    const links = within(filter).getAllByRole("link");
+    expect(links.map((link) => link.textContent)).toEqual([
+      "All repositories",
+      "acme/app",
+      "acme/web",
+    ]);
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "/",
+      "/?repository=acme%2Fapp",
+      "/?repository=acme%2Fweb",
+    ]);
+    expect(links[0].getAttribute("aria-current")).toBe("true");
+  });
+
+  it("shows only the chosen repository's pull requests in both sections", async () => {
+    await renderInbox("acme/web");
+    expect(screen.queryByRole("link", { name: /Add retry/ })).toBeNull();
+    expect(screen.getByRole("link", { name: /Bump lodash/ })).toBeTruthy();
+    const filter = screen.getByRole("navigation", { name: "Filter by repository" });
+    const current = within(filter).getByRole("link", { name: "acme/web" });
+    expect(current.getAttribute("aria-current")).toBe("true");
+  });
+
+  it("leaves the filter out when every pull request is in one repository", async () => {
+    vi.mocked(openPullRequests).mockResolvedValue([]);
+    await renderInbox();
+    expect(screen.queryByRole("navigation", { name: "Filter by repository" })).toBeNull();
   });
 });

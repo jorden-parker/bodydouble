@@ -221,9 +221,11 @@ fetches. Pure logic is kept in non-hook modules (`hunk-index.ts`, `locate.ts`,
 The chords `g h` (Hotspots pane) and `g g` (GitHub pane) are rows of that table.
 `src/components/inbox/` is the home page's list of review requests. It also
 lists open PRs from the repositories picked in Settings
-(`lib/settings/repository-settings.ts`), and `/dependabot` shows the Dependabot
-ones on their own. `openPullRequests` in `services.ts` makes one `gh search prs`
-call per view for all repositories, cached for 60 s.
+(`lib/settings/repository-settings.ts`), and `/dependabot` and `/smartling` show
+the Dependabot and Smartling ones on their own. Drafts are never listed
+(`--draft=false`), and `?repository=owner/name` filters each list
+(`repository-filter.tsx`). `openPullRequests` in `services.ts` makes one
+`gh search prs` call per view for all repositories, cached for 60 s.
 
 **UI** (`src/components/ui/`) holds shadcn/ui primitives (Radix base); add more
 with `bunx shadcn@latest add <name>` and delete exports nothing uses so Fallow

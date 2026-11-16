@@ -13,6 +13,7 @@ export type Inbox = {
   repositoryRequests: ReviewRequest[];
   repositoryError: string | null;
   dependabotCount: number | null;
+  smartlingCount: number | null;
   hasRepositories: boolean;
   progress: Record<string, ProgressSummary>;
   inProgress: InProgressSession[];
@@ -31,10 +32,11 @@ export function isPondClear(inbox: Pick<Inbox, "requests" | "requestsError">): b
 export const loadInbox = cache(async (): Promise<Inbox> => {
   await connection();
   const store = sessionStore();
-  const [waiting, repositories, dependabot] = await Promise.allSettled([
+  const [waiting, repositories, dependabot, smartling] = await Promise.allSettled([
     reviewRequests(),
     openPullRequests("others"),
     openPullRequests("dependabot"),
+    openPullRequests("smartling"),
   ]);
   const requests = waiting.status === "fulfilled" ? waiting.value : [];
   const waitingKeys = new Set(requests.map((request) => prKey(request.ref)));
@@ -53,6 +55,7 @@ export const loadInbox = cache(async (): Promise<Inbox> => {
     repositoryError:
       repositories.status === "rejected" ? failureMessage(repositories.reason) : null,
     dependabotCount: dependabot.status === "fulfilled" ? dependabot.value.length : null,
+    smartlingCount: smartling.status === "fulfilled" ? smartling.value.length : null,
     hasRepositories: savedRepositories(store).length > 0,
     progress: store.progressSummaries([...listedKeys]),
     inProgress: store.inProgress().filter((session) => !listedKeys.has(session.key)),

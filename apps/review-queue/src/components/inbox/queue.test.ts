@@ -23,7 +23,6 @@ function request(number: number, updatedAt: string = SEEN_AT): ReviewRequest {
     url: `https://github.com/acme/app/pull/${number}`,
     author: "sam",
     updatedAt,
-    isDraft: false,
   };
 }
 
