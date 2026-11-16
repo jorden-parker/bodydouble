@@ -60,7 +60,7 @@ function ProgressIndicator({ review, session, workspace }: WorkspaceTopBarProps)
   );
 }
 
-function TopBarMenu({ review, workspace }: Pick<WorkspaceTopBarProps, "review" | "workspace">) {
+function TopBarMenu({ workspace }: Pick<WorkspaceTopBarProps, "workspace">) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -152,7 +152,7 @@ export function WorkspaceTopBar({ review, session, workspace }: WorkspaceTopBarP
           <span className="hidden sm:inline">GitHub</span>
         </a>
       </HintButton>
-      <TopBarMenu review={review} workspace={workspace} />
+      <TopBarMenu workspace={workspace} />
     </header>
   );
 }
