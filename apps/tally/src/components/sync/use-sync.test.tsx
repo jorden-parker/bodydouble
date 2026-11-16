@@ -3,6 +3,18 @@ import { describe, expect, it, vi } from "vitest";
 import { fakeApi } from "@/test/fake-api";
 import { describeSyncErrors, useSync } from "./use-sync";
 
+describe("describeSyncErrors", () => {
+  it("says when the cooldown reused the last result instead of fetching", () => {
+    const [notice] = describeSyncErrors({ errors: {}, uncountedReviewRepos: [], isReused: true });
+
+    expect(notice).toMatch(/synced moments ago/i);
+  });
+
+  it("stays quiet after a fresh sync", () => {
+    expect(describeSyncErrors({ errors: {}, uncountedReviewRepos: [] })).toEqual([]);
+  });
+});
+
 describe("useSync", () => {
   it("reports the described sync problems and counts the completed sync", async () => {
     const runSync = vi.fn(async () => ({

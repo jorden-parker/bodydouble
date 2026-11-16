@@ -12,12 +12,16 @@ type SearchedPullRequest = {
   repository: { nameWithOwner: string };
 };
 
-type MergedPullRequest = SearchedPullRequest & {
-  mergedAt: string;
+type AuthoredPullRequest = SearchedPullRequest & {
+  mergedAt: string | null;
   additions: number;
   deletions: number;
   changedFiles: number;
 };
+
+type MergedPullRequest = AuthoredPullRequest & { mergedAt: string };
+
+export type AuthoredPullRequests = { created: TallyEvent[]; merged: WorkItem[] };
 
 type OpenPullRequest = SearchedPullRequest & {
   isDraft: boolean;
@@ -30,9 +34,7 @@ type OpenPullRequest = SearchedPullRequest & {
 
 export type ReviewablePullRequest = OpenItem & { headRefName: string; author: string };
 
-const SEARCH_LIMIT = "100";
-
-const MERGED_QUERY = `query($search: String!, $after: String) {
+const AUTHORED_QUERY = `query($search: String!, $after: String) {
   search(query: $search, type: ISSUE, first: 100, after: $after) {
     pageInfo { hasNextPage endCursor }
     nodes {
@@ -69,19 +71,6 @@ const OPEN_QUERY = `query($search: String!, $login: String!, $after: String) {
     }
   }
 }`;
-
-async function searchPullRequests<T>(run: Runner, filters: string[], fields: string): Promise<T[]> {
-  const output = await run("gh", [
-    "search",
-    "prs",
-    ...filters,
-    "--json",
-    fields,
-    "--limit",
-    SEARCH_LIMIT,
-  ]);
-  return JSON.parse(output);
-}
 
 function toEvent(
   kind: TallyEvent["kind"],
@@ -162,20 +151,27 @@ function distinctByUrl(pullRequests: OpenPullRequest[]): OpenPullRequest[] {
   });
 }
 
-export async function fetchMergedPrs(run: Runner, sinceDate: string): Promise<WorkItem[]> {
-  const login = await fetchLogin(run);
-  const search = `is:pr author:${login} is:merged merged:>=${sinceDate}`;
-  const merged = await searchAll<MergedPullRequest>(run, MERGED_QUERY, { search });
-  return merged.map(toWorkItem);
+function isMerged(pullRequest: AuthoredPullRequest): pullRequest is MergedPullRequest {
+  return pullRequest.mergedAt !== null;
 }
 
-export async function fetchCreatedPrs(run: Runner, sinceDate: string): Promise<TallyEvent[]> {
-  const created = await searchPullRequests<SearchedPullRequest>(
-    run,
-    ["--author", "@me", "--created", `>=${sinceDate}`],
-    "title,url,createdAt,repository",
-  );
-  return created.map((pullRequest) => toEvent("pr_created", pullRequest, pullRequest.createdAt));
+export async function fetchAuthoredPrs(
+  run: Runner,
+  sinceDate: string,
+): Promise<AuthoredPullRequests> {
+  const login = await fetchLogin(run);
+  const search = `is:pr author:${login} updated:>=${sinceDate} sort:updated-desc`;
+  const authored = await searchAll<AuthoredPullRequest>(run, AUTHORED_QUERY, { search });
+  const sinceTimestamp = `${sinceDate}T00:00:00Z`;
+  return {
+    created: authored
+      .filter((pullRequest) => pullRequest.createdAt >= sinceTimestamp)
+      .map((pullRequest) => toEvent("pr_created", pullRequest, pullRequest.createdAt)),
+    merged: authored
+      .filter(isMerged)
+      .filter((pullRequest) => pullRequest.mergedAt >= sinceTimestamp)
+      .map(toWorkItem),
+  };
 }
 
 export async function fetchOpenAuthoredPrs(run: Runner): Promise<ReviewablePullRequest[]> {

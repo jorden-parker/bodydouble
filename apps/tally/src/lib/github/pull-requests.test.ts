@@ -1,20 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Runner } from "@/lib/exec";
-import {
-  fetchCreatedPrs,
-  fetchMergedPrs,
-  fetchOpenAuthoredPrs,
-  fetchPullRequestsToReview,
-} from "./pull-requests";
-
-function recordingRunner(output: unknown) {
-  const calls: string[][] = [];
-  const run: Runner = async (command, args) => {
-    calls.push([command, ...args]);
-    return JSON.stringify(output);
-  };
-  return { run, calls };
-}
+import { fetchAuthoredPrs, fetchOpenAuthoredPrs, fetchPullRequestsToReview } from "./pull-requests";
 
 function searchPage(nodes: unknown[]) {
   return JSON.stringify({
@@ -53,49 +39,51 @@ function openPullRequest(number: number, overrides: Record<string, unknown> = {}
   };
 }
 
-describe("fetchMergedPrs", () => {
-  const MERGED_PAGE = {
-    data: {
-      search: {
-        pageInfo: { hasNextPage: false, endCursor: null },
-        nodes: [
-          {
-            title: "Ship it",
-            url: "https://github.com/acme/api/pull/4",
-            createdAt: "2026-10-25T16:00:00Z",
-            mergedAt: "2026-10-27T16:00:00Z",
-            additions: 120,
-            deletions: 30,
-            changedFiles: 4,
-            repository: { nameWithOwner: "acme/api" },
-          },
-        ],
-      },
-    },
-  };
-
-  function fakeGitHub() {
-    const calls: string[][] = [];
-    const run: Runner = async (_command, args) => {
-      calls.push(args);
-      return args[1] === "user" ? "jorden-parker\n" : JSON.stringify(MERGED_PAGE);
+describe("fetchAuthoredPrs", () => {
+  function authoredPullRequest(number: number, createdAt: string, mergedAt: string | null) {
+    return {
+      title: `PR ${number}`,
+      url: `https://github.com/acme/api/pull/${number}`,
+      createdAt,
+      mergedAt,
+      additions: 120,
+      deletions: 30,
+      changedFiles: 4,
+      repository: { nameWithOwner: "acme/api" },
     };
-    return { run, calls };
   }
 
-  it("maps my merged PRs with their size and opening time", async () => {
-    const { run } = fakeGitHub();
+  it("finds the PRs I created and merged since the date in one search", async () => {
+    const { run, searches } = graphqlRunner(() => [
+      authoredPullRequest(4, "2026-08-25T16:00:00Z", "2026-10-27T16:00:00Z"),
+      authoredPullRequest(9, "2026-10-29T08:00:00Z", null),
+      authoredPullRequest(2, "2026-08-01T08:00:00Z", "2026-08-20T08:00:00Z"),
+    ]);
 
-    expect(await fetchMergedPrs(run, "2026-09-01")).toEqual([
+    const { created, merged } = await fetchAuthoredPrs(run, "2026-09-01");
+
+    expect(searches).toEqual(["is:pr author:jorden-parker updated:>=2026-09-01 sort:updated-desc"]);
+    expect(created).toEqual([
+      {
+        source: "github",
+        kind: "pr_created",
+        externalId: "https://github.com/acme/api/pull/9",
+        occurredAt: "2026-10-29T08:00:00Z",
+        repo: "acme/api",
+        title: "PR 9",
+        url: "https://github.com/acme/api/pull/9",
+      },
+    ]);
+    expect(merged).toEqual([
       {
         source: "github",
         kind: "pr_merged",
         externalId: "https://github.com/acme/api/pull/4",
         occurredAt: "2026-10-27T16:00:00Z",
         repo: "acme/api",
-        title: "Ship it",
+        title: "PR 4",
         url: "https://github.com/acme/api/pull/4",
-        startedAt: "2026-10-25T16:00:00Z",
+        startedAt: "2026-08-25T16:00:00Z",
         points: null,
         storyType: null,
         additions: 120,
@@ -105,40 +93,39 @@ describe("fetchMergedPrs", () => {
     ]);
   });
 
-  it("searches merged PRs by my login since the date", async () => {
-    const { run, calls } = fakeGitHub();
+  it("counts a PR created and merged since the date as both", async () => {
+    const { run } = graphqlRunner(() => [
+      authoredPullRequest(7, "2026-10-29T08:00:00Z", "2026-10-29T09:00:00Z"),
+    ]);
 
-    await fetchMergedPrs(run, "2026-09-01");
+    const { created, merged } = await fetchAuthoredPrs(run, "2026-09-01");
 
-    expect(calls[1]).toContain("search=is:pr author:jorden-parker is:merged merged:>=2026-09-01");
+    expect(created.map((event) => event.occurredAt)).toEqual(["2026-10-29T08:00:00Z"]);
+    expect(merged.map((item) => item.occurredAt)).toEqual(["2026-10-29T09:00:00Z"]);
   });
-});
 
-describe("fetchCreatedPrs", () => {
-  it("searches my PRs created since the date and maps createdAt", async () => {
-    const { run, calls } = recordingRunner([
-      {
-        title: "Fix flake",
-        url: "https://github.com/acme/web/pull/9",
-        createdAt: "2026-10-29T08:00:00Z",
-        repository: { nameWithOwner: "acme/web" },
-      },
-    ]);
-
-    expect(await fetchCreatedPrs(run, "2026-09-01")).toEqual([
-      {
-        source: "github",
-        kind: "pr_created",
-        externalId: "https://github.com/acme/web/pull/9",
-        occurredAt: "2026-10-29T08:00:00Z",
-        repo: "acme/web",
-        title: "Fix flake",
-        url: "https://github.com/acme/web/pull/9",
-      },
-    ]);
-    expect(calls[0]).toEqual(
-      expect.arrayContaining(["--author", "@me", "--created", ">=2026-09-01"]),
+  it("keeps created PRs beyond the first hundred", async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) =>
+      authoredPullRequest(index + 1, "2026-10-29T08:00:00Z", null),
     );
+    const run: Runner = async (_command, args) => {
+      if (args[1] === "user") return "jorden-parker\n";
+      const isSecondPage = argValue(args, "after") === "cursor-1";
+      return JSON.stringify({
+        data: {
+          search: {
+            pageInfo: { hasNextPage: !isSecondPage, endCursor: isSecondPage ? null : "cursor-1" },
+            nodes: isSecondPage
+              ? [authoredPullRequest(101, "2026-10-30T08:00:00Z", null)]
+              : firstPage,
+          },
+        },
+      });
+    };
+
+    const { created } = await fetchAuthoredPrs(run, "2026-09-01");
+
+    expect(created).toHaveLength(101);
   });
 });
 

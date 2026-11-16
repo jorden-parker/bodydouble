@@ -11,9 +11,11 @@ import {
   createServices,
   InvalidSettingsError,
   parseDayRange,
+  RATE_LIMIT_COOLDOWN_MS,
   SYNC_COOLDOWN_MS,
   type Services,
 } from "./services";
+import type { Runner } from "@/lib/exec";
 import type { ShortcutGet } from "@/lib/shortcut/client";
 
 const NOW = new Date("2026-10-30T12:00:00Z");
@@ -198,7 +200,11 @@ describe("services", () => {
   });
 
   describe("sync throttling", () => {
-    function createCountingServices(clock: { time: number }) {
+    const forbiddenGitHub: Runner = async () => {
+      throw new Error("gh must not run in this test");
+    };
+
+    function createCountingServices(clock: { time: number }, run: Runner = forbiddenGitHub) {
       let syncCount = 0;
       const shortcut: ShortcutGet = async <T>(path: string) => {
         if (path.endsWith("/member")) syncCount += 1;
@@ -206,9 +212,7 @@ describe("services", () => {
       };
       const throttled = createServices({
         db,
-        run: async () => {
-          throw new Error("gh must not run in this test");
-        },
+        run,
         shortcut,
         now: () => new Date(clock.time),
       });
@@ -232,7 +236,25 @@ describe("services", () => {
 
       const first = await throttled.sync();
       clock.time += SYNC_COOLDOWN_MS - 1;
-      expect(await throttled.sync()).toBe(first);
+      expect(await throttled.sync()).toEqual({ ...first, isReused: true });
+      expect(first.isReused).toBeUndefined();
+      expect(syncCount()).toBe(1);
+
+      clock.time += 1;
+      expect((await throttled.sync()).isReused).toBeUndefined();
+      expect(syncCount()).toBe(2);
+    });
+
+    it("waits longer before asking again once GitHub reports a rate limit", async () => {
+      saveSettings(db, { allowList: ["acme"] });
+      const clock = { time: NOW.getTime() };
+      const { throttled, syncCount } = createCountingServices(clock, async () => {
+        throw new Error("gh: API rate limit exceeded for user ID 1");
+      });
+
+      await throttled.sync();
+      clock.time += RATE_LIMIT_COOLDOWN_MS - 1;
+      expect(await throttled.sync()).toMatchObject({ isReused: true });
       expect(syncCount()).toBe(1);
 
       clock.time += 1;

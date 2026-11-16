@@ -58,14 +58,26 @@ function startOfDay(day: string): string {
 }
 
 export const SYNC_COOLDOWN_MS = 2 * 60 * 1000;
+export const RATE_LIMIT_COOLDOWN_MS = 15 * 60 * 1000;
+
+type LatestSync = { startedAt: number; result: Promise<SyncResult>; settled: SyncResult | null };
+
+function cooldownAfter({ settled }: LatestSync): number {
+  const isRateLimited = /rate limit/i.test(settled?.errors.github ?? "");
+  return isRateLimited ? RATE_LIMIT_COOLDOWN_MS : SYNC_COOLDOWN_MS;
+}
 
 function createThrottledSync(dependencies: SyncDependencies): () => Promise<SyncResult> {
-  let latest: { startedAt: number; result: Promise<SyncResult> } | null = null;
-  return () => {
+  let latest: LatestSync | null = null;
+  return async () => {
     const startedAt = dependencies.now().getTime();
-    if (latest && startedAt - latest.startedAt < SYNC_COOLDOWN_MS) return latest.result;
-    latest = { startedAt, result: syncAll(dependencies) };
-    return latest.result;
+    if (latest && startedAt - latest.startedAt < cooldownAfter(latest)) {
+      return latest.settled ? { ...latest.settled, isReused: true } : latest.result;
+    }
+    const started: LatestSync = { startedAt, result: syncAll(dependencies), settled: null };
+    latest = started;
+    started.settled = await started.result;
+    return started.settled;
   };
 }
 

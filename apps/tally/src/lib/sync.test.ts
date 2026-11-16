@@ -38,16 +38,24 @@ function reviewSearchPage(): string {
   ]);
 }
 
-function mergedSearchPage(): string {
-  const merged = (repo: string, number: number) => ({
+function authoredSearchPage(): string {
+  const authored = (repo: string, number: number, createdAt: string, mergedAt: string | null) => ({
     ...pullRequest(repo, number),
-    createdAt: "2026-10-25T16:00:00Z",
-    mergedAt: "2026-10-27T16:00:00Z",
+    createdAt,
+    mergedAt,
     additions: 120,
     deletions: 30,
     changedFiles: 4,
   });
-  return searchPage([merged("acme/api", 4), merged("stranger/lib", 8)]);
+  return searchPage([
+    authored("acme/api", 4, "2026-10-25T16:00:00Z", "2026-10-27T16:00:00Z"),
+    authored("stranger/lib", 8, "2026-10-25T16:00:00Z", "2026-10-27T16:00:00Z"),
+    authored("acme/web", 3, "2026-10-29T08:00:00Z", null),
+  ]);
+}
+
+function isAuthoredSearch(args: string[]): boolean {
+  return searchOf(args).startsWith("is:pr author:");
 }
 
 function openPullRequest(
@@ -99,11 +107,8 @@ function fakeGitHub(): { run: Runner; calls: string[][] } {
   const run: Runner = async (_command, args) => {
     calls.push(args);
     if (args[0] === "api" && args[1] === "user") return "jorden-parker\n";
-    if (args.includes("--created")) {
-      return JSON.stringify([{ ...pullRequest("acme/web", 3), createdAt: "2026-10-29T08:00:00Z" }]);
-    }
+    if (isAuthoredSearch(args)) return authoredSearchPage();
     const search = searchOf(args);
-    if (search.includes("is:merged")) return mergedSearchPage();
     if (search.includes("updated:")) return reviewSearchPage();
     if (search.includes("review-requested:")) return searchPage(TO_REVIEW);
     if (search.includes("reviewed-by:")) return searchPage([]);
@@ -278,6 +283,7 @@ describe("syncAll", () => {
 
     expect(result.errors).toEqual({});
     expect(storedEvents().map((event) => `${event.kind}:${event.externalId}`)).toEqual([
+      "pr_created:https://github.com/acme/api/pull/4",
       "pr_merged:https://github.com/acme/api/pull/4",
       "pr_reviewed:review-allowed",
       "pr_created:https://github.com/acme/web/pull/3",
@@ -338,13 +344,21 @@ describe("syncAll", () => {
 
     await syncAll({ db, run, shortcut: fakeShortcut, now: () => NOW });
 
-    const created = calls.find((args) => args.includes("--created")) ?? [];
     const searches = calls.map(searchOf);
-    expect(created).toContain(">=2026-08-31");
-    expect(searches).toContain("is:pr author:jorden-parker is:merged merged:>=2026-08-31");
+    expect(searches).toContain("is:pr author:jorden-parker updated:>=2026-08-31 sort:updated-desc");
     expect(searches).toContain(
       "is:pr reviewed-by:jorden-parker -author:jorden-parker updated:>=2026-08-31",
     );
+  });
+
+  it("spends one login lookup and five searches on GitHub per sync", async () => {
+    const { run, calls } = fakeGitHub();
+
+    await syncAll({ db, run, shortcut: fakeShortcut, now: () => NOW });
+
+    expect(calls.filter((args) => args[1] === "user")).toHaveLength(1);
+    expect(calls.filter((args) => args[1] === "graphql")).toHaveLength(5);
+    expect(calls).toHaveLength(6);
   });
 
   it("does not call GitHub while the allow-list is empty", async () => {
@@ -392,13 +406,13 @@ describe("syncAll", () => {
   it("keeps reviews when another GitHub call fails", async () => {
     const { run: healthyGitHub } = fakeGitHub();
     const run: Runner = async (command, args) => {
-      if (searchOf(args).includes("is:merged")) throw new Error("merged search failed");
+      if (isAuthoredSearch(args)) throw new Error("authored search failed");
       return healthyGitHub(command, args);
     };
 
     const result = await syncAll({ db, run, shortcut: fakeShortcut, now: () => NOW });
 
-    expect(result.errors.github).toBe("merged search failed");
+    expect(result.errors.github).toBe("authored search failed");
     expect(storedEvents().map((event) => event.kind)).toContain("pr_reviewed");
     expect(loadSettings(db).lastSyncedAt).toBeNull();
   });

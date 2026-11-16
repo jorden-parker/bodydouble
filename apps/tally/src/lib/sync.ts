@@ -2,10 +2,10 @@ import type { DatabaseSync } from "node:sqlite";
 import type { Runner } from "@/lib/exec";
 import { filterToAllowList, uncountedRepos } from "@/lib/github/allow-list";
 import {
-  fetchCreatedPrs,
-  fetchMergedPrs,
+  fetchAuthoredPrs,
   fetchOpenAuthoredPrs,
   fetchPullRequestsToReview,
+  type AuthoredPullRequests,
   type ReviewablePullRequest,
 } from "@/lib/github/pull-requests";
 import { fetchReviewedPrs } from "@/lib/github/reviews";
@@ -48,6 +48,7 @@ export type SyncDependencies = {
 export type SyncResult = {
   errors: Partial<Record<EventSource, string>>;
   uncountedReviewRepos: string[];
+  isReused?: boolean;
 };
 
 type GitHubSync = PullRequestsByRole;
@@ -55,6 +56,8 @@ type GitHubSync = PullRequestsByRole;
 type ShortcutSync = { assigned: Ticket[]; completed: Ticket[]; context: StoryContext };
 
 const NO_PULL_REQUESTS: GitHubSync = { authored: [], toReview: [], mergedUrls: [] };
+
+const NO_AUTHORED_PRS: AuthoredPullRequests = { created: [], merged: [] };
 
 function daysFrom(date: Date, days: number): Date {
   return new Date(date.getTime() + days * MILLISECONDS_PER_DAY);
@@ -81,18 +84,15 @@ async function syncGitHub(
   const sinceDate = dayOf(daysFrom(now, -SYNC_WINDOW_DAYS));
   const results = await Promise.allSettled([
     fetchReviewedPrs(run, sinceDate),
-    fetchCreatedPrs(run, sinceDate),
-    fetchMergedPrs(run, sinceDate),
+    fetchAuthoredPrs(run, sinceDate),
     fetchOpenAuthoredPrs(run),
     fetchPullRequestsToReview(run),
   ]);
-  const [reviewed, created, merged, openAuthored, toReview] = results;
+  const [reviewed, authored, openAuthored, toReview] = results;
   const reviews = settledValue(reviewed, []);
-  const mergedPrs = filterToAllowList(settledValue(merged, []), allowList);
-  upsertEvents(db, [
-    ...filterToAllowList([...reviews, ...settledValue(created, [])], allowList),
-    ...mergedPrs,
-  ]);
+  const { created, merged } = settledValue(authored, NO_AUTHORED_PRS);
+  const mergedPrs = filterToAllowList(merged, allowList);
+  upsertEvents(db, [...filterToAllowList([...reviews, ...created], allowList), ...mergedPrs]);
   upsertWorkDetails(db, mergedPrs);
   result.uncountedReviewRepos.push(...uncountedRepos(reviews, allowList));
   if (openAuthored.status === "fulfilled") {
@@ -107,7 +107,7 @@ async function syncGitHub(
   const pullRequests = {
     authored: settledValue(openAuthored, []),
     toReview: settledValue(toReview, []),
-    mergedUrls: settledValue(merged, []).map((pullRequest) => pullRequest.url),
+    mergedUrls: merged.map((pullRequest) => pullRequest.url),
   };
   replacePullRequestReviews(
     db,

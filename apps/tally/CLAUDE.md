@@ -69,15 +69,20 @@ caches them on `globalThis`. Route handlers in `src/app/api` stay thin and call
   stored.
 - GitHub sync is skipped while the allow-list is empty.
 - To protect the GitHub rate limit, `createServices` shares one in-flight sync
-  and returns the last result for `SYNC_COOLDOWN_MS` (2 minutes) after a sync
-  starts. `fetchLogin` asks `gh api user` once per `Runner`, and `searchAll`
-  reads at most `MAX_SEARCH_PAGES` pages of 100.
-- Merged PRs come from a paged GraphQL search (`src/lib/github/search.ts`),
-  because `gh search prs` can't return PR size. Open PRs use the same search to
-  get `reviewDecision`, review counts and the branch name; my own open PRs and
-  the PRs waiting on my review (`review-requested:` plus `reviewed-by:` minus
-  those I last approved) both come back as `ReviewablePullRequest` with a
-  derived `reviewStatus`.
+  and returns the last result, flagged `isReused`, for `SYNC_COOLDOWN_MS` (2
+  minutes) after a sync starts, or `RATE_LIMIT_COOLDOWN_MS` (15 minutes) when
+  GitHub's error names a rate limit. `fetchLogin` asks `gh api user` once per
+  `Runner`, and `searchAll` reads at most `MAX_SEARCH_PAGES` pages of 100. A
+  sync is five GraphQL searches when each fits one page; a test in
+  `sync.test.ts` pins that budget.
+- Created and merged PRs come from one paged GraphQL search
+  (`src/lib/github/search.ts`) over my PRs updated in the window, because
+  `gh search prs` stops at 100 results, can't return PR size and spends the
+  separate REST search limit. Open PRs use the same search to get
+  `reviewDecision`, review counts and the branch name; my own open PRs and the
+  PRs waiting on my review (`review-requested:` plus `reviewed-by:` minus those
+  I last approved) both come back as `ReviewablePullRequest` with a derived
+  `reviewStatus`.
 - One `owner:<me> !is:archived` search fetches every story I own. All of them go
   to `assigned_stories` with their workflow state name, type (`backlog`,
   `unstarted`, `started`, `done`, from `/api/v3/workflows`) and position; the
