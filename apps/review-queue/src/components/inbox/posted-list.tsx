@@ -42,7 +42,7 @@ function PostedRow({ review }: { review: RecentSubmission }) {
 
 export function PostedList({ reviews }: { reviews: RecentSubmission[] }) {
   return (
-    <section className="grid gap-s-4">
+    <section className="flex min-h-0 flex-col gap-s-4">
       <h2 className="font-display text-2xl font-semibold">Posted</h2>
       {reviews.length === 0 ? (
         <div className="rounded-md border border-line-soft bg-surface-2">
@@ -50,7 +50,7 @@ export function PostedList({ reviews }: { reviews: RecentSubmission[] }) {
         </div>
       ) : (
         <>
-          <ul className="grid max-h-80 gap-s-2 overflow-y-auto">
+          <ul className="grid min-h-0 gap-s-2 overflow-y-auto">
             {reviews.map((review) => (
               <PostedRow key={review.reviewId} review={review} />
             ))}

@@ -9,13 +9,13 @@ const PANEL_CLASS = "rounded-lg border border-line-soft bg-surface p-s-5 shadow-
 
 export default function InboxPage() {
   return (
-    <Panels label="Inbox sections" className="grid-cols-[5fr_6fr]">
+    <Panels label="Inbox sections" className="grid-cols-[5fr_6fr] items-stretch">
       <Panel title="Pick Up Where You Left Off" className={`${PANEL_CLASS} grid-rows-1`}>
         <Suspense fallback={<InboxSkeleton />}>
           <InboxResume />
         </Suspense>
       </Panel>
-      <Panel title="Waiting for You" className={PANEL_CLASS}>
+      <Panel title="Waiting for You" className={`${PANEL_CLASS} grid-rows-[minmax(0,1fr)_auto]`}>
         <Suspense fallback={<InboxSkeleton />}>
           <InboxList />
         </Suspense>

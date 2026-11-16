@@ -62,6 +62,13 @@ describe("InboxList rows", () => {
     expect(link.closest('a[href^="/pr/"]')).toBeNull();
   });
 
+  it("lets the queue list shrink to fit the panel instead of a fixed height cap", async () => {
+    await renderInbox();
+    const list = screen.getAllByRole("list")[0];
+    expect(list.classList.contains("max-h-80")).toBe(false);
+    expect(list.classList.contains("min-h-0")).toBe(true);
+  });
+
   it("sets the row title in semibold", async () => {
     await renderInbox();
     expect(screen.getByText("Add retry").closest(".font-semibold")).not.toBeNull();

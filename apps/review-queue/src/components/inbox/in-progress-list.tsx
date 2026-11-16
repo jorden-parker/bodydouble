@@ -172,7 +172,7 @@ export function InProgressList({
     </HintButton>
   );
   return (
-    <section className="grid gap-s-4">
+    <section className="flex min-h-0 flex-col gap-s-4">
       <h2 ref={headingRef} tabIndex={-1} className="font-display text-2xl font-semibold">
         In Progress <span className="tabular-nums text-fg-muted">({sessions.length})</span>
       </h2>
@@ -182,11 +182,11 @@ export function InProgressList({
         isResumePrimary={isResumePrimary}
       />
       {others.length > 0 && (
-        <div className="grid gap-s-3">
+        <div className="flex min-h-0 flex-col gap-s-3">
           <h3 className="font-display text-lg font-semibold">
             Also in Progress <span className="tabular-nums text-fg-muted">({others.length})</span>
           </h3>
-          <ul className="grid max-h-80 gap-s-2 overflow-y-auto">
+          <ul className="grid min-h-0 gap-s-2 overflow-y-auto">
             {others.map((session) => (
               <InProgressRow key={session.key} session={session} control={archiveButton(session)} />
             ))}

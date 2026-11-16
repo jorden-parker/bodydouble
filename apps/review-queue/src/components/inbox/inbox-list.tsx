@@ -121,7 +121,7 @@ function QueueSection({
   children: ReactNode;
 }) {
   return (
-    <section className="grid gap-s-4">
+    <section className="flex min-h-0 flex-col gap-s-4">
       <div className="flex flex-wrap items-center justify-between gap-s-3">
         <h2 className="font-display text-2xl font-semibold">
           {title} <span className="tabular-nums text-fg-muted">({count})</span>
@@ -175,7 +175,7 @@ function RequestQueue({
       {requests.length === REVIEW_REQUEST_LIMIT && (
         <p className="text-sm text-fg-muted">Showing the first {REVIEW_REQUEST_LIMIT}</p>
       )}
-      <ul className="grid max-h-80 gap-s-2 overflow-y-auto">
+      <ul className="grid min-h-0 gap-s-2 overflow-y-auto">
         <QueueRows entries={orderQueue(requests, progress)} />
       </ul>
     </QueueSection>
@@ -207,7 +207,7 @@ function DependabotSummary({ count }: { count: number | null }) {
 export async function InboxList() {
   const inbox = await loadInbox();
   return (
-    <div className="grid content-start gap-s-7">
+    <div className="flex min-h-0 flex-col gap-s-7">
       {!isPondClear(inbox) && (
         <RequestQueue
           title="Waiting for You"

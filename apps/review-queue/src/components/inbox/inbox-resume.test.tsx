@@ -65,13 +65,15 @@ describe("InboxResume in progress", () => {
     expect(stream.getAttribute("aria-valuenow")).toBe("2");
   });
 
-  it("keeps the hero fixed and lets the In Progress region scroll in its own box", async () => {
+  it("keeps the hero fixed and lets the In Progress region fill the rest without its own scroll box", async () => {
     await renderResume();
     const hero = screen.getByRole("heading", { level: 1, name: "Review Queue" }).closest("div");
     expect(hero?.parentElement?.classList.contains("shrink-0")).toBe(true);
-    const region = screen.getByRole("heading", { name: "Add retry budget" }).closest(".min-h-0");
+    const region = screen
+      .getByRole("heading", { name: "Add retry budget" })
+      .closest(".flex-1.min-h-0");
     expect(region?.classList.contains("flex-1")).toBe(true);
-    expect(region?.classList.contains("overflow-y-auto")).toBe(true);
+    expect(region?.classList.contains("overflow-y-auto")).toBe(false);
   });
 
   it("links the resume button to the pull request", async () => {

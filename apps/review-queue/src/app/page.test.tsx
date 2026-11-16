@@ -41,6 +41,17 @@ describe("InboxPage", () => {
     expect(screen.getByRole("main").classList.contains("grid-cols-[5fr_6fr]")).toBe(true);
   });
 
+  it("stretches both panels to the full height of the page", () => {
+    render(<InboxPage />);
+    expect(screen.getByRole("main").classList.contains("items-stretch")).toBe(true);
+  });
+
+  it("gives the waiting lists the free height and keeps the URL form below them", () => {
+    render(<InboxPage />);
+    const waiting = screen.getByRole("region", { name: "Waiting for You" });
+    expect(waiting.classList.contains("grid-rows-[minmax(0,1fr)_auto]")).toBe(true);
+  });
+
   it("keeps the Open Any PR by URL form in the waiting panel", () => {
     render(<InboxPage />);
     const waiting = screen.getByRole("region", { name: "Waiting for You" });
