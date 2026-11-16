@@ -9,6 +9,8 @@ import { Otter } from "./otter";
 
 const NAVIGATION_LINKS = [
   { label: "Queue", href: "/" },
+  { label: "Dependabot", href: "/dependabot" },
+  { label: "Smartling", href: "/smartling" },
   { label: "Settings", href: "/settings" },
 ];
 

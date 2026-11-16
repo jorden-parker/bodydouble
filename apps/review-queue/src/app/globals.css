@@ -215,6 +215,7 @@
   .app {
     display: flex;
     flex-direction: column;
+    height: auto;
     min-height: 100dvh;
     background: var(--bg);
     overflow: visible;
@@ -333,6 +334,9 @@
   }
   .page-shell--narrow {
     --page-width: 720px;
+  }
+  .page-shell:not(:has(.page-band)) {
+    padding-top: var(--s-6);
   }
   @media (width >= 640px) {
     .page-shell {

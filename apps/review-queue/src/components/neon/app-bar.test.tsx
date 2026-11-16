@@ -23,12 +23,22 @@ describe("AppBar", () => {
     expect(brand.textContent).toContain("🦦");
   });
 
-  it("lists Queue and Settings in the main navigation", () => {
+  it("lists Queue, Dependabot, Smartling and Settings in the main navigation", () => {
     render(<AppBar />);
     const navigation = screen.getByRole("navigation", { name: "Main" });
     const links = within(navigation).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["Queue", "Settings"]);
-    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/", "/settings"]);
+    expect(links.map((link) => link.textContent)).toEqual([
+      "Queue",
+      "Dependabot",
+      "Smartling",
+      "Settings",
+    ]);
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "/",
+      "/dependabot",
+      "/smartling",
+      "/settings",
+    ]);
   });
 
   it("marks the link for the current page with aria-current and the tab underline", () => {

@@ -286,10 +286,10 @@ rows of that table, as are the other `g` chords that open a Context view.
 picked in Settings and sessions), and `queue.ts` ranks and places each one
 exactly once: Up next, Continue, New commits, Waiting, then the folds Later
 (snoozed, `lib/session/snooze.ts`), Bots (Dependabot and Smartling, which also
-have their own pages), Posted and Archived. Ranking is paused, new commits,
-started, not started, then checks passing, smaller, older. Each row is
-`queue-row.tsx`, and the rows' own buttons carry the keys `j`/`k`, `s`, `e` and
-`r` (`queue-keys.ts`, `use-queue-keys.ts`). Drafts are never listed
+have their own pages in the top navigation), Posted and Archived. Ranking is
+paused, new commits, started, not started, then checks passing, smaller, older.
+Each row is `queue-row.tsx`, and the rows' own buttons carry the keys `j`/`k`,
+`s`, `e` and `r` (`queue-keys.ts`, `use-queue-keys.ts`). Drafts are never listed
 (`--draft=false`). `loadFacts` in `inbox-data.ts` reads size, checks, head SHA,
 closed state and age for every PR through one aliased GraphQL call
 (`listPullRequestFacts`, cached 60 s). `?repository=owner/name` filters the
