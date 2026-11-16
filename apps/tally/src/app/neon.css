@@ -3,7 +3,7 @@ html {
 }
 
 .app-main {
-  --gap: clamp(var(--s-4), 2.6vh, var(--s-6));
+  --gap: clamp(var(--s-4), 2vh, var(--s-5));
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -11,17 +11,12 @@ html {
   min-height: 0;
   min-width: 0;
   width: 100%;
-  max-width: 1680px;
-  margin: 0 auto;
   overflow: hidden;
-  padding: clamp(var(--s-4), 3.2vh, var(--s-7)) clamp(var(--s-4), 3vw, var(--s-7));
+  padding: var(--s-5) clamp(var(--s-4), 2vw, var(--s-6));
 }
 
 .tally-mark {
   flex: none;
-  filter: drop-shadow(
-    0 0 calc(8px * var(--glow-strength)) color-mix(in oklch, var(--neon-pink) 70%, transparent)
-  );
 }
 
 .stream__rider .tally-mark {
@@ -95,7 +90,7 @@ html {
   max-width: 30%;
   overflow: hidden;
   font-size: 0.8125rem;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--text-muted);
   text-overflow: ellipsis;
   white-space: nowrap;

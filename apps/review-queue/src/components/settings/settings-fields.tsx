@@ -70,7 +70,7 @@ export function ToggleSwitch({
       role="switch"
       checked={checked}
       onChange={(event) => onChange(event.target.checked)}
-      className="relative m-0 h-11 w-14 shrink-0 cursor-pointer appearance-none rounded-pill transition-colors before:absolute before:top-1/2 before:left-1/2 before:h-7 before:w-13 before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-pill before:border before:border-line before:bg-surface-3 before:transition-colors checked:before:border-transparent checked:before:bg-neon after:absolute after:top-1/2 after:left-[calc(50%-23px)] after:size-[22px] after:-translate-y-1/2 after:rounded-full after:bg-fg-muted after:transition-transform checked:after:translate-x-6 checked:after:bg-on-neon focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-neon-amber"
+      className="relative m-0 h-11 w-14 shrink-0 cursor-pointer appearance-none rounded-pill transition-colors before:absolute before:top-1/2 before:left-1/2 before:h-7 before:w-13 before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-pill before:border before:border-line before:bg-surface-3 before:transition-colors checked:before:border-transparent checked:before:bg-neon after:absolute after:top-1/2 after:left-[calc(50%-23px)] after:size-[22px] after:-translate-y-1/2 after:rounded-full after:bg-fg-muted after:transition-transform checked:after:translate-x-6 checked:after:bg-background focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-neon-amber"
     />
   );
 }

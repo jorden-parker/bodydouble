@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import RootLayout from "./layout";
 
 vi.mock("next/font/google", () => ({
-  Fredoka: vi.fn((options: { variable: string }) => ({ variable: options.variable })),
   Atkinson_Hyperlegible: vi.fn((options: { variable: string }) => ({ variable: options.variable })),
   JetBrains_Mono: vi.fn((options: { variable: string }) => ({ variable: options.variable })),
 }));
@@ -15,8 +14,8 @@ function htmlClassNames(): string[] {
 }
 
 describe("RootLayout fonts", () => {
-  it("puts the Fredoka display variable on the html element", () => {
-    expect(htmlClassNames()).toContain("--font-fredoka");
+  it("no longer loads the Fredoka display face", () => {
+    expect(htmlClassNames()).not.toContain("--font-fredoka");
   });
 
   it("puts the Atkinson Hyperlegible body variable on the html element", () => {

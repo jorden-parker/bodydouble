@@ -96,7 +96,7 @@ function InProgressFeature({
 }) {
   const ref = parsePullRequestRef(session.key);
   return (
-    <article className="grid gap-s-4 rounded-md border border-neon-blue/45 bg-surface-2 p-s-5 shadow-glow-blue">
+    <article className="grid gap-s-4 rounded-md border border-line bg-surface p-s-5">
       <div className="flex flex-wrap items-start justify-between gap-s-3">
         <div className="grid min-w-0 gap-s-1">
           <h3 className="font-display text-xl leading-snug font-semibold">

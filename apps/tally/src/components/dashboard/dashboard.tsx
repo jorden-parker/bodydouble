@@ -40,14 +40,14 @@ function RangeSwitch({ range, onChange }: { range: Range; onChange: (range: Rang
         if (isRange(chosen)) onChange(chosen);
       }}
       spacing={0}
-      className="rounded-pill border border-line-soft bg-surface p-1"
+      className="rounded-lg border border-line-soft bg-surface p-1"
     >
       {RANGES.map((option) => (
         <ToggleGroupItem
           key={option}
           value={option}
           size="sm"
-          className="rounded-pill! px-4 text-muted-foreground aria-pressed:bg-surface-3 aria-pressed:text-foreground"
+          className="rounded-md! px-4 text-muted-foreground aria-pressed:bg-surface-3 aria-pressed:text-foreground"
         >
           {RANGE_LABELS[option]}
         </ToggleGroupItem>

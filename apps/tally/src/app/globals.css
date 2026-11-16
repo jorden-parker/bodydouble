@@ -11,7 +11,8 @@
   --stream-accent-glow: var(--neon-amber);
   --stream-water-corner: var(--r-pill);
 
-  --primary: var(--neon-pink);
+  --primary: var(--text);
+  --primary-foreground: var(--bg);
   --accent: var(--surface-3);
   --destructive-surface: var(--tint-coral);
   --ring: var(--neon-blue);
@@ -43,8 +44,8 @@
   --radius-4xl: calc(var(--radius) * 4);
   --radius-pill: var(--r-pill);
 
-  --font-heading: var(--font-display);
-  --font-hand: var(--font-display);
+  --font-heading: var(--font-sans);
+  --font-hand: var(--font-sans);
 
   --animate-draw: draw 450ms ease-out both;
 
@@ -62,22 +63,16 @@
 
 @theme {
   --font-sans: var(--font-sans-face), system-ui, sans-serif;
-  --font-display: var(--font-display-face), "Atkinson Hyperlegible", system-ui, sans-serif;
+  --font-display: var(--font-sans-face), system-ui, sans-serif;
   --font-mono: var(--font-mono-face), ui-monospace, monospace;
 }
 
 @utility text-neon {
-  background-image: var(--neon-gradient);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
+  color: var(--text);
 }
 
 @utility text-neon-tally {
-  background-image: var(--tally-gradient);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
+  color: var(--text);
 }
 
 @layer base {
@@ -91,8 +86,8 @@
   }
 
   :focus-visible {
-    outline: 3px solid var(--neon-amber);
-    outline-offset: 3px;
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
     border-radius: var(--r-sm);
   }
 }

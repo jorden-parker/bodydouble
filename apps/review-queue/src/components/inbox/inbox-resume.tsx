@@ -6,9 +6,9 @@ import { HomeSessions } from "./home-sessions";
 import { isPondClear, loadInbox } from "./inbox-data";
 
 const RIPPLE_RINGS = [
-  { className: "border-neon-blue", delay: "0s" },
-  { className: "border-neon-pink", delay: "1.2s" },
-  { className: "border-neon-amber", delay: "2.4s" },
+  { className: "border-line", delay: "0s" },
+  { className: "border-line", delay: "1.2s" },
+  { className: "border-line", delay: "2.4s" },
 ];
 
 function InboxHero() {
@@ -39,7 +39,7 @@ function PondClear() {
       >
         {RIPPLE_RINGS.map((ring) => (
           <span
-            key={ring.className}
+            key={ring.delay}
             className={`absolute inset-1/4 animate-ping rounded-full border-2 ${ring.className}`}
             style={{ animationDelay: ring.delay, animationDuration: "3.6s" }}
           />

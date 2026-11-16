@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { Atkinson_Hyperlegible, Fredoka, JetBrains_Mono } from "next/font/google";
+import { Atkinson_Hyperlegible, JetBrains_Mono } from "next/font/google";
 import { AppBar } from "@/components/neon/app-bar";
 import "./globals.css";
 
-const fredoka = Fredoka({ subsets: ["latin"], variable: "--font-display-face" });
 const atkinson = Atkinson_Hyperlegible({
   subsets: ["latin"],
   weight: ["400", "700"],
@@ -18,10 +17,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="en"
-      className={`${fredoka.variable} ${atkinson.variable} ${jetbrainsMono.variable}`}
-    >
+    <html lang="en" className={`${atkinson.variable} ${jetbrainsMono.variable}`}>
       <body className="app">
         <AppBar />
         {children}

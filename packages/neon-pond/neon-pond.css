@@ -4,23 +4,23 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --bg: oklch(0.17 0.035 282);
-  --bg-deep: oklch(0.13 0.03 282);
-  --surface: oklch(0.215 0.04 282);
-  --surface-2: oklch(0.255 0.045 284);
-  --surface-3: oklch(0.3 0.05 286);
-  --line: oklch(0.36 0.05 286);
-  --line-soft: oklch(0.3 0.04 286);
-  --text: oklch(0.97 0.01 285);
-  --text-muted: oklch(0.78 0.03 285);
-  --text-faint: oklch(0.66 0.035 285);
+  --bg: oklch(0.145 0 0);
+  --bg-deep: oklch(0.12 0 0);
+  --surface: oklch(0.165 0 0);
+  --surface-2: oklch(0.2 0 0);
+  --surface-3: oklch(0.24 0 0);
+  --line: oklch(0.29 0 0);
+  --line-soft: oklch(0.225 0 0);
+  --text: oklch(0.95 0 0);
+  --text-muted: oklch(0.72 0 0);
+  --text-faint: oklch(0.62 0 0);
 
-  --neon-blue: oklch(0.74 0.17 255);
-  --neon-pink: oklch(0.74 0.21 350);
-  --neon-amber: oklch(0.86 0.15 82);
-  --neon-mint: oklch(0.85 0.16 165);
-  --neon-coral: oklch(0.74 0.18 25);
-  --neon-violet: oklch(0.72 0.18 300);
+  --neon-blue: oklch(0.68 0.15 255);
+  --neon-pink: oklch(0.7 0.15 350);
+  --neon-amber: oklch(0.8 0.13 80);
+  --neon-mint: oklch(0.76 0.13 162);
+  --neon-coral: oklch(0.68 0.16 25);
+  --neon-violet: oklch(0.68 0.14 300);
 
   --ink-blue: var(--neon-blue);
   --ink-pink: var(--neon-pink);
@@ -29,40 +29,38 @@
   --ink-coral: var(--neon-coral);
   --ink-violet: var(--neon-violet);
 
-  --on-neon: oklch(0.16 0.04 282);
+  --on-neon: oklch(0.145 0 0);
 
-  --tint-blue: color-mix(in oklch, var(--neon-blue) 16%, transparent);
-  --tint-pink: color-mix(in oklch, var(--neon-pink) 16%, transparent);
-  --tint-amber: color-mix(in oklch, var(--neon-amber) 16%, transparent);
-  --tint-mint: color-mix(in oklch, var(--neon-mint) 16%, transparent);
-  --tint-coral: color-mix(in oklch, var(--neon-coral) 16%, transparent);
-  --tint-violet: color-mix(in oklch, var(--neon-violet) 16%, transparent);
+  --tint-blue: color-mix(in oklch, var(--neon-blue) 12%, transparent);
+  --tint-pink: color-mix(in oklch, var(--neon-pink) 12%, transparent);
+  --tint-amber: color-mix(in oklch, var(--neon-amber) 12%, transparent);
+  --tint-mint: color-mix(in oklch, var(--neon-mint) 12%, transparent);
+  --tint-coral: color-mix(in oklch, var(--neon-coral) 12%, transparent);
+  --tint-violet: color-mix(in oklch, var(--neon-violet) 12%, transparent);
 
-  --glow-strength: 1;
-  --grid-dot: oklch(1 0 0 / 0.045);
+  --glow-strength: 0;
+  --grid-dot: transparent;
 }
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     color-scheme: light;
-    --bg: oklch(0.975 0.012 290);
-    --bg-deep: oklch(0.95 0.018 290);
+    --bg: oklch(1 0 0);
+    --bg-deep: oklch(0.98 0 0);
     --surface: oklch(1 0 0);
-    --surface-2: oklch(0.965 0.014 290);
-    --surface-3: oklch(0.93 0.02 290);
-    --line: oklch(0.86 0.025 290);
-    --line-soft: oklch(0.91 0.018 290);
-    --text: oklch(0.22 0.04 282);
-    --text-muted: oklch(0.44 0.04 284);
-    --text-faint: oklch(0.54 0.035 284);
-    --ink-blue: oklch(0.5 0.19 258);
-    --ink-pink: oklch(0.52 0.21 350);
+    --surface-2: oklch(0.97 0 0);
+    --surface-3: oklch(0.94 0 0);
+    --line: oklch(0.89 0 0);
+    --line-soft: oklch(0.93 0 0);
+    --text: oklch(0.16 0 0);
+    --text-muted: oklch(0.44 0 0);
+    --text-faint: oklch(0.54 0 0);
+    --ink-blue: oklch(0.5 0.18 258);
+    --ink-pink: oklch(0.52 0.19 350);
     --ink-amber: oklch(0.52 0.12 70);
     --ink-mint: oklch(0.5 0.12 165);
     --ink-coral: oklch(0.52 0.19 25);
-    --ink-violet: oklch(0.5 0.2 300);
-    --glow-strength: 0.45;
-    --grid-dot: oklch(0.3 0.05 285 / 0.07);
+    --ink-violet: oklch(0.5 0.18 300);
   }
 }
 
@@ -77,50 +75,19 @@
   --s-8: 64px;
   --s-9: 96px;
 
-  --r-sm: 10px;
-  --r-md: 16px;
-  --r-lg: 24px;
-  --r-xl: 32px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 12px;
   --r-pill: 999px;
 
-  --neon-gradient: linear-gradient(
-    100deg,
-    var(--neon-blue),
-    var(--neon-pink) 55%,
-    var(--neon-amber)
-  );
-  --tally-gradient: linear-gradient(
-    100deg,
-    var(--neon-pink),
-    var(--neon-amber)
-  );
+  --neon-gradient: linear-gradient(var(--text), var(--text));
+  --tally-gradient: linear-gradient(var(--text), var(--text));
 
-  --glow-blue:
-    0 0 0 1px color-mix(in oklch, var(--neon-blue) 55%, transparent),
-    0 10px 36px -10px
-      color-mix(
-        in oklch,
-        var(--neon-blue) calc(70% * var(--glow-strength)),
-        transparent
-      );
-  --glow-pink:
-    0 0 0 1px color-mix(in oklch, var(--neon-pink) 55%, transparent),
-    0 10px 36px -10px
-      color-mix(
-        in oklch,
-        var(--neon-pink) calc(70% * var(--glow-strength)),
-        transparent
-      );
-  --glow-amber:
-    0 0 0 1px color-mix(in oklch, var(--neon-amber) 55%, transparent),
-    0 10px 36px -10px
-      color-mix(
-        in oklch,
-        var(--neon-amber) calc(70% * var(--glow-strength)),
-        transparent
-      );
-  --lift:
-    0 1px 0 oklch(1 0 0 / 0.05) inset, 0 12px 32px -16px oklch(0 0 0 / 0.5);
+  --glow-blue: 0 0 0 1px var(--line);
+  --glow-pink: 0 0 0 1px var(--line);
+  --glow-amber: 0 0 0 1px var(--line);
+  --lift: none;
 
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -201,26 +168,6 @@
   background-image: var(--tally-gradient);
 }
 
-@keyframes stream-wave {
-  from {
-    -webkit-mask-position: 0 0;
-    mask-position: 0 0;
-  }
-  to {
-    -webkit-mask-position: -48px 0;
-    mask-position: -48px 0;
-  }
-}
-
-@keyframes stream-glint {
-  from {
-    background-position: 0 0;
-  }
-  to {
-    background-position: 70px 0;
-  }
-}
-
 @keyframes bob {
   0%,
   100% {
@@ -249,110 +196,38 @@
     height: 100dvh;
     min-height: 0;
     overflow: hidden;
-    background:
-      radial-gradient(circle at 1px 1px, var(--grid-dot) 1px, transparent 0) 0
-        0 / 24px 24px,
-      var(--bg);
+    background: var(--bg);
   }
 
   .stream {
     --progress: 0%;
-    --water-y: 38px;
-    --water-h: 26px;
-    --stream-gradient: var(--stream-accent-gradient);
-    --stream-glow: var(--stream-accent-glow);
+    --water-y: 10px;
     position: relative;
-    height: 62px;
+    height: 20px;
     min-width: 140px;
-    margin-inline: 40px;
+    margin-inline: 8px;
     container-type: inline-size;
   }
   .stream--labels {
-    height: 84px;
+    height: 40px;
   }
   .stream__water {
     position: absolute;
     top: var(--water-y);
-    right: -12px;
-    left: -12px;
-    height: var(--water-h);
+    right: 0;
+    left: 0;
+    height: 2px;
     transform: translateY(-50%);
-    border-radius: 0 0 var(--stream-water-corner) var(--stream-water-corner);
-    background: linear-gradient(
-      180deg,
-      color-mix(in oklch, var(--neon-blue) 62%, var(--surface-3)) 0%,
-      color-mix(in oklch, var(--neon-blue) 34%, var(--surface-2)) 55%,
-      color-mix(in oklch, var(--neon-blue) 18%, var(--bg)) 100%
-    );
-    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 28' preserveAspectRatio='none'%3E%3Cpath d='M0 7Q12 1 24 7T48 7V28H0Z'/%3E%3C/svg%3E")
-      repeat-x 0 0 / 48px 100%;
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 28' preserveAspectRatio='none'%3E%3Cpath d='M0 7Q12 1 24 7T48 7V28H0Z'/%3E%3C/svg%3E")
-      repeat-x 0 0 / 48px 100%;
-    animation: stream-wave 2.8s linear infinite;
+    border-radius: var(--r-pill);
+    background: var(--line);
     overflow: hidden;
-    box-shadow: inset 0 -3px 0
-      color-mix(in oklch, var(--neon-blue) 30%, var(--bg));
-  }
-  .stream__water::after {
-    content: "";
-    position: absolute;
-    top: 48%;
-    right: 0;
-    left: 0;
-    height: 2px;
-    border-radius: 2px;
-    background: repeating-linear-gradient(
-      90deg,
-      transparent 0 10px,
-      color-mix(in oklch, var(--text) 55%, transparent) 10px 26px,
-      transparent 26px 50px,
-      color-mix(in oklch, var(--text) 30%, transparent) 50px 58px,
-      transparent 58px 70px
-    );
-    background-size: 70px 100%;
-    animation: stream-glint 2.2s linear infinite;
-  }
-  .stream__water::before {
-    content: "";
-    position: absolute;
-    top: 74%;
-    right: 0;
-    left: 0;
-    z-index: 1;
-    height: 2px;
-    border-radius: 2px;
-    background: repeating-linear-gradient(
-      90deg,
-      transparent 0 22px,
-      color-mix(in oklch, var(--text) 25%, transparent) 22px 34px,
-      transparent 34px 70px
-    );
-    background-size: 70px 100%;
-    animation: stream-glint 3.4s linear infinite;
   }
   .stream__flow {
     position: absolute;
     inset: 0 auto 0 0;
-    width: calc(var(--progress) + 12px);
-    background: var(--stream-gradient);
-    opacity: 0.88;
-  }
-  .stream__flow::after {
-    content: "";
-    position: absolute;
-    top: 40%;
-    right: 0;
-    left: 0;
-    height: 3px;
-    border-radius: 3px;
-    background: repeating-linear-gradient(
-      90deg,
-      transparent 0 12px,
-      oklch(1 0 0 / 0.55) 12px 24px,
-      transparent 24px 35px
-    );
-    background-size: 35px 100%;
-    animation: stream-glint 1.4s linear infinite;
+    width: var(--progress);
+    background: var(--text);
+    transition: width var(--t-med) var(--ease-out);
   }
   .stream__stops {
     position: absolute;
@@ -364,38 +239,34 @@
   }
   .stream__stop {
     position: absolute;
-    top: calc(var(--water-y) + 4px);
+    top: var(--water-y);
     left: var(--at);
     transform: translate(-50%, -50%);
   }
   .stream__stop::before {
     display: block;
-    width: 18px;
-    height: 12px;
-    border-radius: 55% 45% 50% 50% / 65% 60% 40% 35%;
-    background: color-mix(in oklch, var(--text-faint) 60%, var(--surface-3));
-    box-shadow:
-      inset 0 -3px 0 oklch(0 0 0 / 0.3),
-      0 1px 0 oklch(1 0 0 / 0.1);
+    width: 8px;
+    height: 8px;
+    border-radius: var(--r-pill);
+    background: var(--bg);
+    box-shadow: inset 0 0 0 1.5px var(--line);
     content: "";
   }
   .stream__stop.is-done::before {
-    background: color-mix(in oklch, var(--stream-glow) 45%, var(--text));
-    box-shadow:
-      inset 0 -3px 0 oklch(0 0 0 / 0.2),
-      0 0 calc(10px * var(--glow-strength))
-        color-mix(in oklch, var(--stream-glow) 60%, transparent);
+    background: var(--text);
+    box-shadow: none;
   }
   .stream__stop.is-current::before {
-    background: var(--text);
+    background: var(--bg);
+    box-shadow: inset 0 0 0 2px var(--text);
   }
   .stream__stop span {
     position: absolute;
-    top: 24px;
+    top: 12px;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 0.8125rem;
-    font-weight: 700;
+    font-size: 0.75rem;
+    font-weight: 500;
     color: var(--text-faint);
     white-space: nowrap;
   }
@@ -405,39 +276,19 @@
   }
   .stream__stop:first-child span {
     left: 0;
-    transform: translateX(-9px);
+    transform: translateX(-4px);
   }
   .stream__stop:last-child span {
     right: 0;
     left: auto;
-    transform: translateX(9px);
+    transform: translateX(4px);
   }
   .stream__rider {
-    position: absolute;
-    top: var(--water-y);
-    left: var(--progress);
-    z-index: 2;
-    display: grid;
-    width: 88px;
-    height: 52px;
-    place-items: center;
-    transform: translate(-50%, -66%);
-    transition: left 600ms var(--ease-spring);
-    filter: drop-shadow(0 5px 6px oklch(0 0 0 / 0.35));
+    display: none;
   }
   .stream--small {
-    --water-y: 27px;
-    --water-h: 18px;
-    height: 40px;
-    margin-inline: 30px;
-  }
-  .stream--small .stream__rider {
-    width: 56px;
-    height: 33px;
-  }
-  .stream--small .stream__stop::before {
-    width: 14px;
-    height: 9px;
+    --water-y: 8px;
+    height: 16px;
   }
   .stream--small .stream__stop span {
     display: none;
