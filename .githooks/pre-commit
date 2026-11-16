@@ -6,5 +6,5 @@ for app in $staged_apps; do
   hook="$repository_root/apps/$app/.husky/pre-commit"
   [ -f "$hook" ] || continue
   echo "pre-commit: checking apps/$app"
-  (cd "$repository_root/apps/$app" && sh "$hook")
+  (cd "$repository_root/apps/$app" && sh -e "$hook")
 done
