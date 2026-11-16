@@ -373,7 +373,11 @@ function PartsStatus({ state, enabled }: { state: ChangePartsState; enabled: boo
     );
   }
   if (state.status === "loading" && enabled) {
-    return <p className="text-sm text-muted-foreground">Asking the model how the changes fit…</p>;
+    return (
+      <p role="status" className="text-sm text-muted-foreground">
+        Asking the model how the changes fit…
+      </p>
+    );
   }
   return null;
 }

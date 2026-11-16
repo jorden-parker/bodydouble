@@ -26,12 +26,16 @@ const RISK_STYLES = {
 
 function AiSummary({ orientation }: { orientation: OrientationState }) {
   if (orientation.status === "loading") {
-    return <p className="text-sm text-muted-foreground">Local model is reading the diff…</p>;
+    return (
+      <p role="status" className="text-sm text-muted-foreground">
+        Local model is reading the diff…
+      </p>
+    );
   }
   if (orientation.status === "disabled") return null;
   if (orientation.status === "error") {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p role="status" className="text-sm text-muted-foreground">
         Local model unavailable ({orientation.message}). Using heuristics only.
       </p>
     );

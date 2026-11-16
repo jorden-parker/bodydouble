@@ -8,6 +8,14 @@ vi.mock("next/navigation", () => ({ usePathname: () => pathname.current }));
 import { AppBar } from "./app-bar";
 
 describe("AppBar", () => {
+  it("offers a skip link to the main content first", () => {
+    render(<AppBar />);
+
+    const skipLink = screen.getAllByRole("link")[0];
+    expect(skipLink.textContent).toBe("Skip to content");
+    expect(skipLink.getAttribute("href")).toBe("#main");
+  });
+
   it("links to every page", () => {
     render(<AppBar />);
 
@@ -23,6 +31,18 @@ describe("AppBar", () => {
       "Work Log": "/work",
       Settings: "/settings",
     });
+  });
+
+  it("marks the current page with more than colour", () => {
+    pathname.current = "/tickets";
+    render(<AppBar />);
+
+    expect(screen.getByRole("link", { name: "Tickets" }).classList.contains("bg-surface-2")).toBe(
+      true,
+    );
+    expect(screen.getByRole("link", { name: "Settings" }).classList.contains("bg-surface-2")).toBe(
+      false,
+    );
   });
 
   it("marks the current page", () => {

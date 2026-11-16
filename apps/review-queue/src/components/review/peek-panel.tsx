@@ -175,7 +175,7 @@ function ReferenceFile({
               onClick={() => onGoTo({ path: reference.path, line: reference.line, name })}
               className="flex w-full gap-3 text-left font-mono text-code"
             >
-              <span className="w-8 shrink-0 text-right text-muted-foreground/70 select-none">
+              <span className="w-8 shrink-0 text-right text-muted-foreground select-none">
                 {reference.line}
               </span>
               <code className={WRAPPED_CODE}>

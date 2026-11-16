@@ -16,7 +16,7 @@ function scrollToCentre(element: HTMLElement | null) {
 
 export function LoadingRows() {
   return (
-    <div className="flex flex-col gap-2" aria-label="Loading">
+    <div role="status" className="flex flex-col gap-2" aria-label="Loading">
       {[0, 1, 2].map((row) => (
         <Skeleton key={row} className="h-16 w-full" />
       ))}
@@ -51,7 +51,7 @@ export function CodeRows({
               focused(line) && "bg-primary/10",
             )}
           >
-            <span className="w-8 shrink-0 pr-3 text-right text-muted-foreground/70 select-none">
+            <span className="w-8 shrink-0 pr-3 text-right text-muted-foreground select-none">
               {line}
             </span>
             <code className={WRAPPED_CODE}>

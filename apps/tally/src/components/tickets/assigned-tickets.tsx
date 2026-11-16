@@ -51,7 +51,7 @@ function FilterPill({
       type="button"
       aria-pressed={pressed}
       onClick={onPress}
-      className="inline-flex min-h-11 items-center gap-2 rounded-pill border border-line bg-surface px-4 text-sm font-bold whitespace-nowrap text-muted-foreground outline-none hover:text-foreground focus-visible:ring-4 focus-visible:ring-tint-blue aria-pressed:border-transparent aria-pressed:bg-tint-blue aria-pressed:text-ink-blue"
+      className="inline-flex min-h-11 items-center gap-2 rounded-pill border border-line bg-surface px-4 text-sm font-bold whitespace-nowrap text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:border-transparent aria-pressed:bg-tint-blue aria-pressed:text-ink-blue"
     >
       {children}
     </button>
@@ -186,15 +186,25 @@ export function AssignedTickets({ api = realApi }: { api?: TallyApi }) {
   const { stories, problems, syncing, sync } = useAssignedTickets(api);
   const total = stories?.length ?? 0;
   return (
-    <main className="app-main">
+    <main id="main" className="app-main">
       <header className="flex flex-wrap items-center gap-4">
         <h1 className="flex items-center gap-3 font-display text-4xl font-semibold tracking-tight">
-          Tickets
+          Tickets <span className="sr-only">(</span>
           <span className="rounded-pill bg-tint-blue px-3 font-mono text-base text-ink-blue tabular-nums">
             {total}
           </span>
+          <span className="sr-only">)</span>
         </h1>
-        <Button variant="neon" onClick={sync} disabled={syncing} className="ml-auto">
+        <span role="status" className="sr-only">
+          {syncing ? "Syncing tickets…" : ""}
+        </span>
+        <Button
+          variant="neon"
+          onClick={sync}
+          disabled={syncing}
+          focusableWhenDisabled
+          className="ml-auto"
+        >
           {syncing ? "Syncing tickets…" : "Sync tickets"}
         </Button>
       </header>

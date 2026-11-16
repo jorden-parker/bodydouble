@@ -96,7 +96,11 @@ function ReplyConfirmDialog({
       <p className="text-sm text-muted-foreground">{targetLine(target)}</p>
       <p className="text-sm font-medium text-muted-foreground">Preview</p>
       <Markdown text={body} className="wrap-anywhere" />
-      {failure && <p className="text-sm text-destructive">{failure}</p>}
+      {failure && (
+        <p role="alert" className="text-sm text-destructive">
+          {failure}
+        </p>
+      )}
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onNotYet}>
           Not yet

@@ -31,6 +31,9 @@ export function OpenPullRequestForm() {
         <div className="flex gap-s-2">
           <Input
             id="pr"
+            name="pullRequest"
+            autoComplete="off"
+            spellCheck={false}
             value={text}
             onChange={(event) => setText(event.target.value)}
             placeholder="https://github.com/owner/repo/pull/123 or owner/repo#123"

@@ -181,6 +181,7 @@ function NoteEditor({
     <div className="flex min-w-0 flex-1 flex-col gap-2">
       {note.kind !== "parked" && <NoteTagPicker tag={tag} onChange={setTag} />}
       <MarkdownField
+        aria-label="Note text"
         value={body}
         onChange={(event) => setBody(event.target.value)}
         onKeyDown={handleKeyDown}

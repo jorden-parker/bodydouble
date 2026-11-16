@@ -23,7 +23,7 @@
   --primary: var(--text);
   --primary-foreground: var(--bg);
   --accent: var(--surface-2);
-  --ring: var(--neon-blue);
+  --ring: var(--ink-blue);
   --rail: var(--bg-deep);
   --marker: var(--neon-amber);
   --marker-foreground: var(--on-neon);

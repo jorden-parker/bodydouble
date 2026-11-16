@@ -106,7 +106,7 @@
   --muted: var(--surface-2);
   --muted-foreground: var(--text-muted);
   --accent-foreground: var(--text);
-  --destructive: var(--neon-coral);
+  --destructive: var(--ink-coral);
   --border: var(--line-soft);
   --input: var(--line);
 }

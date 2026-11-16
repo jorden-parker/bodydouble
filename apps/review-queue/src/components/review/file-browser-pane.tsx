@@ -337,7 +337,7 @@ function MatchGroups({
                   onClick={() => onOpen({ path, line: match.line })}
                   className="flex w-full gap-3 text-left font-mono text-sm"
                 >
-                  <span className="w-8 shrink-0 text-right text-muted-foreground/70 select-none">
+                  <span className="w-8 shrink-0 text-right text-muted-foreground select-none">
                     {match.line}
                   </span>
                   <span className="min-w-0 wrap-anywhere">{match.text}</span>
@@ -375,6 +375,8 @@ export function FileBrowserPane({
         <ToggleGroupItem value="text">Text</ToggleGroupItem>
       </ToggleGroup>
       <Input
+        autoComplete="off"
+        spellCheck={false}
         aria-label={isText ? "Search file text" : "Filter files"}
         placeholder={isText ? "Search file text" : "Filter files"}
         value={query}

@@ -29,6 +29,7 @@ export function NoteTagPicker({
             key={option}
             variant="ghost"
             size="xs"
+            aria-pressed={option === tag.kind}
             onClick={() => onChange({ ...tag, kind: option })}
             className={cn("rounded-full", option === tag.kind && NOTE_KIND_STYLES[option])}
           >
@@ -77,6 +78,7 @@ export function NoteComposer({ onSave, onCancel }: NoteComposerProps) {
     <div className="flex animate-step-enter flex-col gap-2 border-y bg-card p-3 font-sans">
       <NoteTagPicker tag={tag} onChange={setTag} />
       <MarkdownField
+        aria-label="Note text"
         autoFocus
         value={body}
         onChange={(event) => setBody(event.target.value)}

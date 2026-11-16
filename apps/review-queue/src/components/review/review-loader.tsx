@@ -18,7 +18,9 @@ export function ReviewLoader({ pullRequest }: { pullRequest: PullRequestRef }) {
         <span aria-hidden className="animate-float text-4xl">
           🦦
         </span>
-        <p className="text-lg font-bold">Getting the PR ready…</p>
+        <h1 role="status" className="text-lg font-bold">
+          Getting the PR ready…
+        </h1>
         <p className="max-w-md text-sm text-muted-foreground">
           Fetching, checking out the branch and indexing symbols. The first time for a repo can take
           a minute.

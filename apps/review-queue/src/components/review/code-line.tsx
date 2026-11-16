@@ -109,7 +109,7 @@ function ThreadButton({ count, onOpen }: { count: number; onOpen: () => void }) 
       type="button"
       aria-label={`Show ${count} GitHub ${count === 1 ? "thread" : "threads"}`}
       onClick={onOpen}
-      className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"
+      className="relative after:absolute after:-inset-1.5 flex items-center gap-0.5 text-xs text-muted-foreground tabular-nums hover:text-foreground"
     >
       <MessageSquare className="size-3" aria-hidden />
       {count}
@@ -182,7 +182,7 @@ function LineCode({
 
 function LineNumber({ value }: { value: number | null }) {
   return (
-    <span className={cn(LINE_NUMBER_WIDTH, "pr-2 text-right text-muted-foreground/70 select-none")}>
+    <span className={cn(LINE_NUMBER_WIDTH, "pr-2 text-right text-muted-foreground select-none")}>
       {value ?? ""}
     </span>
   );
@@ -191,12 +191,13 @@ function LineNumber({ value }: { value: number | null }) {
 function NoteButton({ onClick }: { onClick: () => void }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       title="Add a note on this line (c)"
       aria-label="Add a note on this line (c)"
-      className="text-primary opacity-0 transition-[opacity,transform] duration-calm ease-spring group-hover:opacity-100 hover:scale-125 focus-visible:opacity-100 pointer-coarse:opacity-100"
+      className="relative after:absolute after:-inset-1.5 text-primary opacity-0 transition-[opacity,transform] duration-calm ease-spring group-hover:opacity-100 hover:scale-125 focus-visible:opacity-100 pointer-coarse:opacity-100"
     >
-      <MessageSquarePlus className="size-3.5" />
+      <MessageSquarePlus aria-hidden className="size-3.5" />
     </button>
   );
 }

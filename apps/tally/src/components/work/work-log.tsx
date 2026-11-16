@@ -196,7 +196,7 @@ function TallyMarks({ count }: { count: number }) {
           />
         ))}
       </span>
-      {count}
+      <span aria-hidden="true">{count}</span>
     </p>
   );
 }
@@ -263,9 +263,14 @@ function CopyButton({ text }: { text: string }) {
       () => setLabel("Copy failed"),
     );
   return (
-    <Button variant="neon" size="lg" onClick={copy}>
-      {label}
-    </Button>
+    <>
+      <Button variant="neon" size="lg" onClick={copy}>
+        {label}
+      </Button>
+      <span role="status" className="sr-only">
+        {label === "Copy Markdown" ? "" : label}
+      </span>
+    </>
   );
 }
 
@@ -352,7 +357,7 @@ export function WorkLog({ api = realApi, now = currentTime }: WorkLogProps) {
   const dayIndex = (weekday + 6) % 7;
 
   return (
-    <main className="app-main">
+    <main id="main" className="app-main">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="font-display text-4xl font-semibold tracking-tight">Work Log</h1>
         <div className="flex flex-wrap items-center gap-3">

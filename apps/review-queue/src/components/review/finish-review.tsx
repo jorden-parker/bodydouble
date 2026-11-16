@@ -95,7 +95,11 @@ function DraftSummaryButton({
         <Sparkles />
         {drafting ? "Drafting…" : "Draft from my notes"}
       </Button>
-      {draftError && <p className="text-sm text-fg-muted">{draftError}</p>}
+      {draftError && (
+        <p role="alert" className="text-sm text-ink-coral">
+          {draftError}
+        </p>
+      )}
     </div>
   );
 }
@@ -132,7 +136,7 @@ function NoteChecklist({ notes, selected, flagged, onToggle }: NoteChecklistProp
               <PathLabel path={note.path} line={note.line} startLine={note.startLine} />
             )}
             {flagged.has(note.id) && (
-              <span className="text-sm text-neon-coral">Line no longer in the diff</span>
+              <span className="text-sm text-ink-coral">Line no longer in the diff</span>
             )}
           </span>
         </label>
@@ -252,6 +256,7 @@ export function FinishReview({
           />
         )}
         <MarkdownField
+          aria-labelledby="summary-heading"
           value={summary}
           onChange={(changeEvent) => setSummary(changeEvent.target.value)}
           rows={3}
@@ -270,7 +275,11 @@ export function FinishReview({
         </p>
         <p>Against {headSha.slice(0, 7)}</p>
       </section>
-      {error && <p className="text-sm text-neon-coral">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-ink-coral">
+          {error}
+        </p>
+      )}
       <div className="flex flex-wrap justify-end gap-3">
         <Button variant="ghost" onClick={onCancel} className="min-h-11">
           Not yet

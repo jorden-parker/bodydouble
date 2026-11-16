@@ -165,13 +165,16 @@ export function TokenInput({
         <input
           id={id}
           type="text"
+          name="repository"
           placeholder="owner/repo"
+          spellCheck={false}
+          autoCapitalize="none"
           autoComplete="off"
           aria-describedby={describedBy}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={handleKey}
-          className="min-h-11 min-w-0 flex-1 bg-transparent px-s-2 font-mono text-sm text-fg outline-none placeholder:text-fg-faint"
+          className="min-h-11 min-w-0 flex-1 bg-transparent px-s-2 font-mono text-sm text-fg placeholder:text-fg-faint"
         />
         <button
           type="button"

@@ -240,7 +240,7 @@ function ThreadHeader({
           data-map-header={section.id}
           aria-expanded={open}
           onClick={onToggle}
-          className="flex min-w-0 cursor-pointer items-center gap-1 rounded-md text-left"
+          className="flex min-h-6 min-w-0 cursor-pointer items-center gap-1 rounded-md text-left"
         >
           <ChevronRight
             aria-hidden

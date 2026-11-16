@@ -61,7 +61,7 @@ function ExplanationPanel({
 function ExplanationError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="flex flex-col items-start gap-2 text-sm text-muted-foreground">
-      <p>Local model unavailable ({message}).</p>
+      <p role="status">Local model unavailable ({message}).</p>
       <Button variant="outline" size="sm" onClick={onRetry}>
         Try again
       </Button>
@@ -97,5 +97,9 @@ export function StepExplanation(props: StepExplanationProps) {
   if (state.status === "ready")
     return <ExplanationPanel explanation={state.explanation} onAskMore={props.onAskMore} />;
   if (state.status === "error") return <ExplanationError message={state.message} onRetry={retry} />;
-  return <p className="text-sm text-muted-foreground">Local model is reading this step…</p>;
+  return (
+    <p role="status" className="text-sm text-muted-foreground">
+      Local model is reading this step…
+    </p>
+  );
 }

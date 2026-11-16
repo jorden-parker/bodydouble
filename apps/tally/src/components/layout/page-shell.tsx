@@ -11,7 +11,7 @@ type PageShellProps = {
 
 export function PageShell({ title, description, actions, children }: PageShellProps) {
   return (
-    <main className="app-main">
+    <main id="main" className="app-main">
       <header className="flex flex-none flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
           <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">

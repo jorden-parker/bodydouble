@@ -116,6 +116,23 @@ describe("SettingsForm", () => {
     expect(within(preview).getByText("Weeks start Sunday")).toBeDefined();
   });
 
+  it("describes the week start and time zone fields with their hints", async () => {
+    render(<SettingsForm api={fakeApi()} />);
+
+    const timeZone = await screen.findByLabelText("Time Zone");
+    expect(timeZone.getAttribute("name")).toBe("timeZone");
+    expect(timeZone.getAttribute("autocomplete")).toBe("off");
+    expect(timeZone.getAttribute("spellcheck")).toBe("false");
+    expect(timeZone.getAttribute("aria-describedby")).toBeTruthy();
+    expect(
+      document.getElementById(timeZone.getAttribute("aria-describedby") ?? "")?.textContent,
+    ).toBe("Decides which day a review or ticket counts toward.");
+    const weekStart = screen.getByRole("radiogroup", { name: "Week Starts On" });
+    expect(
+      document.getElementById(weekStart.getAttribute("aria-describedby") ?? "")?.textContent,
+    ).toBe("Your weekly counts begin on this day.");
+  });
+
   it("says what happens with no sources", async () => {
     await renderLoaded({ fetchSettings: async () => makeSettings({ allowList: [] }) });
 

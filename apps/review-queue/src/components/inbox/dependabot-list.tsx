@@ -145,8 +145,8 @@ export async function DependabotList() {
       {outcome.error ? (
         <div className="grid gap-s-2 rounded-md border border-ink-coral/40 p-s-4 text-sm">
           <p>
-            🔌 Couldn&apos;t reach GitHub through <code className="font-mono">gh</code>. Is it
-            installed and logged in?
+            <span aria-hidden="true">🔌</span> Couldn&apos;t reach GitHub through{" "}
+            <code className="font-mono">gh</code>. Is it installed and logged in?
           </p>
           <p className="font-mono text-fg-muted">{outcome.error}</p>
         </div>

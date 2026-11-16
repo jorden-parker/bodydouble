@@ -155,7 +155,10 @@ describe("Dashboard", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Sync now" }));
 
-    expect(screen.getByRole("button", { name: "Counting sheep…" })).toBeDefined();
+    const syncButton = screen.getByRole("button", { name: "Counting sheep…" });
+    expect(syncButton.getAttribute("aria-disabled")).toBe("true");
+    expect(syncButton.hasAttribute("disabled")).toBe(false);
+    expect(screen.getByRole("status").textContent).toBe("Counting sheep…");
     finishSync({ errors: {}, uncountedReviewRepos: [] });
     expect(await screen.findByRole("button", { name: "Sync now" })).toBeDefined();
   });

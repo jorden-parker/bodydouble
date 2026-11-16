@@ -94,6 +94,7 @@ export function Panels({ children, className }: { children: ReactNode; className
             size="icon"
             aria-label="Previous section"
             disabled={currentIndex === 0}
+            focusableWhenDisabled
             onClick={() => setRequestedIndex(currentIndex - 1)}
           >
             <ArrowLeftIcon aria-hidden="true" />
@@ -112,6 +113,7 @@ export function Panels({ children, className }: { children: ReactNode; className
             size="icon"
             aria-label="Next section"
             disabled={currentIndex === lastIndex}
+            focusableWhenDisabled
             onClick={() => setRequestedIndex(currentIndex + 1)}
           >
             <ArrowRightIcon aria-hidden="true" />

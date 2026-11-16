@@ -40,6 +40,35 @@ describe("AssignedTickets", () => {
     expect(screen.getByText(/Completed Thu 29 Oct/)).toBeDefined();
   });
 
+  it("names the page heading with its ticket count", async () => {
+    renderTickets();
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Tickets (3)" })).toBeDefined();
+  });
+
+  it("keeps the sync button focusable and announces the sync while it runs", async () => {
+    let finishSync: () => void = () => {};
+    const runSync = vi.fn(
+      () =>
+        new Promise<{ errors: Record<string, string>; uncountedReviewRepos: string[] }>(
+          (resolve) => {
+            finishSync = () => resolve({ errors: {}, uncountedReviewRepos: [] });
+          },
+        ),
+    );
+    renderTickets(fakeApi({ fetchAssignedStories: async () => STORIES, runSync }));
+    await screen.findByRole("region", { name: "In Progress" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync tickets" }));
+
+    const syncButton = screen.getByRole("button", { name: "Syncing tickets…" });
+    expect(syncButton.getAttribute("aria-disabled")).toBe("true");
+    expect(syncButton.hasAttribute("disabled")).toBe(false);
+    expect(screen.getByRole("status").textContent).toBe("Syncing tickets…");
+    finishSync();
+    expect(await screen.findByRole("button", { name: "Sync tickets" })).toBeDefined();
+  });
+
   it("shows the sc id, story type and estimate on each card", async () => {
     renderTickets();
 

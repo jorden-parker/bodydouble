@@ -153,5 +153,12 @@ describe("FinishReview", () => {
     );
     await user.click(screen.getByRole("button", { name: "Post review" }));
     expect(await screen.findByText(/a\.ts:99/)).toBeTruthy();
+    expect((await screen.findByRole("alert")).textContent).toMatch(/a\.ts:99/);
+  });
+
+  it("labels the summary field", () => {
+    renderDialog({});
+
+    expect(screen.getByRole("textbox", { name: "Summary" })).toBeDefined();
   });
 });

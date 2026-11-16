@@ -64,7 +64,11 @@ function changesContext(context: StepViewContext, interdiff: Interdiff): StepVie
 
 function ChangesBody({ state, context }: { state: ChangesState; context: StepViewContext }) {
   if (state.status === "loading") {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return (
+      <p role="status" className="text-sm text-muted-foreground">
+        Loading…
+      </p>
+    );
   }
   if (state.status === "error") {
     return <Callout tone="error">Couldn&apos;t load the changes: {state.message}</Callout>;

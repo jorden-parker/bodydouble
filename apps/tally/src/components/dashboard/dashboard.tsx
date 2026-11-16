@@ -145,12 +145,18 @@ export function Dashboard({ api = realApi, now = currentTime }: DashboardProps) 
       actions={
         <>
           <RangeSwitch range={range} onChange={setRange} />
-          <Button onClick={sync} disabled={syncing} size="lg" className="px-3">
+          <Button
+            onClick={sync}
+            disabled={syncing}
+            focusableWhenDisabled
+            size="lg"
+            className="px-3"
+          >
             <RefreshCwIcon data-icon="inline-start" className={syncing ? "animate-spin" : ""} />
             {syncing ? "Counting sheep…" : "Sync now"}
           </Button>
-          <span className="text-sm text-muted-foreground">
-            {formatSynced(summary?.lastSyncedAt ?? null, now())}
+          <span role="status" className="text-sm text-muted-foreground">
+            {syncing ? "Counting sheep…" : formatSynced(summary?.lastSyncedAt ?? null, now())}
           </span>
         </>
       }

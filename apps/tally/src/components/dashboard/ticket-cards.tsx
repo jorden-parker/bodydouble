@@ -94,7 +94,7 @@ function TicketCard({ ticket, labels }: { ticket: Ticket; labels: StatusLabels }
   const label = `sc-${ticket.id}`;
   return (
     <article aria-label={label} className="flex">
-      <Card className="flex-1 transition-colors hover:ring-foreground/25">
+      <Card className="flex-1 transition-colors hover:ring-1 hover:ring-foreground/25">
         <CardHeader className="flex items-center justify-between gap-3 text-muted-foreground">
           <span className="flex items-center gap-2">
             <span className="font-mono text-xs">{label}</span>

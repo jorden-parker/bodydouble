@@ -67,12 +67,13 @@ function WeekStartChoice({
     <div
       role="radiogroup"
       aria-labelledby="week-start-label"
+      aria-describedby="week-start-hint"
       className="inline-flex gap-1 rounded-pill border border-line bg-background p-1"
     >
       {WEEK_STARTS.map((option) => (
         <label
           key={option.value}
-          className="inline-flex min-h-11 cursor-pointer items-center rounded-pill px-4 text-sm font-bold text-muted-foreground has-[:checked]:bg-tint-blue has-[:checked]:text-ink-blue has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-tint-blue"
+          className="inline-flex min-h-11 cursor-pointer items-center rounded-pill px-4 text-sm font-bold text-muted-foreground has-[:checked]:bg-tint-blue has-[:checked]:text-ink-blue has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
         >
           <input
             type="radio"
@@ -142,7 +143,7 @@ function SourcesContent({
                 type="button"
                 aria-label={`Remove ${source}`}
                 onClick={() => onRemove(source)}
-                className="grid size-11 place-items-center rounded-pill outline-none hover:bg-tint-pink focus-visible:ring-4 focus-visible:ring-tint-pink"
+                className="grid size-11 place-items-center rounded-pill outline-none hover:bg-tint-pink focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <XIcon aria-hidden="true" className="size-4" />
               </button>
@@ -200,19 +201,25 @@ function CalendarContent({
         <p id="week-start-label" className="font-display text-base font-semibold">
           Week Starts On
         </p>
-        <p className="text-sm text-muted-foreground">Your weekly counts begin on this day.</p>
+        <p id="week-start-hint" className="text-sm text-muted-foreground">
+          Your weekly counts begin on this day.
+        </p>
         <WeekStartChoice value={weekStart} onChange={onWeekStartChange} />
       </div>
       <div className="flex flex-col gap-3">
         <Label htmlFor="time-zone" className="font-display text-base font-semibold">
           Time Zone
         </Label>
-        <p className="text-sm text-muted-foreground">
+        <p id="time-zone-hint" className="text-sm text-muted-foreground">
           Decides which day a review or ticket counts toward.
         </p>
         <Input
           id="time-zone"
+          name="timeZone"
           list="time-zones"
+          autoComplete="off"
+          spellCheck={false}
+          aria-describedby="time-zone-hint"
           value={timeZone}
           onChange={(event) => onTimeZoneChange(event.target.value)}
         />

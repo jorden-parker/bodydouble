@@ -15,10 +15,10 @@
   --primary-foreground: var(--bg);
   --accent: var(--surface-3);
   --destructive-surface: var(--tint-coral);
-  --ring: var(--neon-blue);
+  --ring: var(--ink-blue);
 
-  --series-reviewed: var(--neon-blue);
-  --series-created: var(--neon-amber);
+  --series-reviewed: var(--ink-pink);
+  --series-created: var(--ink-amber);
   --story-feature: var(--neon-amber);
   --story-bug: var(--neon-coral);
   --story-chore: var(--neon-violet);

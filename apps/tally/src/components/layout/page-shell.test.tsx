@@ -18,6 +18,7 @@ describe("PageShell", () => {
     expect(screen.getByText("Every PR")).toBeDefined();
     expect(screen.getByRole("button", { name: "Go" })).toBeDefined();
     expect(screen.getByText("body")).toBeDefined();
+    expect(screen.getByRole("main").id).toBe("main");
   });
 
   it("accepts a title with its own styled parts", () => {

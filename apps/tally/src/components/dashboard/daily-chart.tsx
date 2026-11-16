@@ -58,11 +58,11 @@ function Legend() {
   return (
     <ul aria-label="Legend" className="flex gap-5 text-sm">
       <li className="flex items-center gap-2">
-        <ScribbleSwatch className="text-neon-pink" />
+        <ScribbleSwatch className="text-reviewed" />
         Reviewed
       </li>
       <li className="flex items-center gap-2">
-        <ScribbleSwatch className="text-neon-amber" />
+        <ScribbleSwatch className="text-created" />
         Created
       </li>
     </ul>
@@ -72,7 +72,7 @@ function Legend() {
 function TableView({ points }: DailyChartProps) {
   return (
     <details className="text-sm">
-      <summary className="w-fit cursor-pointer rounded-md text-muted-foreground hover:text-foreground">
+      <summary className="inline-flex min-h-6 w-fit cursor-pointer items-center rounded-md text-muted-foreground hover:text-foreground">
         View as table
       </summary>
       <table className="mt-3 w-full max-w-md text-left [&_td]:py-1 [&_th]:py-1">
@@ -191,13 +191,13 @@ export function DailyChart({ points }: DailyChartProps) {
                     x={barsStart}
                     value={point.reviewed}
                     scale={scale}
-                    className="fill-neon-pink"
+                    className="fill-reviewed"
                   />
                   <SeriesBar
                     x={barsStart + BAR_WIDTH + BAR_GAP}
                     value={point.created}
                     scale={scale}
-                    className="fill-neon-amber"
+                    className="fill-created"
                   />
                   <rect
                     role="img"

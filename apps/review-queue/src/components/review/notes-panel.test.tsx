@@ -63,10 +63,12 @@ describe("NotesPanel editing", () => {
   it("edits a note's text and kind", async () => {
     const onEdit = renderPanel([NIT_NOTE]);
     await userEvent.click(screen.getByRole("button", { name: "Edit note" }));
-    const textarea = screen.getByDisplayValue("typo");
+    const textarea = screen.getByRole("textbox", { name: "Note text" });
+    expect(textarea).toBe(screen.getByDisplayValue("typo"));
     await userEvent.clear(textarea);
     await userEvent.type(textarea, "leaks");
     await userEvent.click(screen.getByRole("button", { name: "Issue" }));
+    expect(screen.getByRole("button", { name: "Issue" }).getAttribute("aria-pressed")).toBe("true");
     await userEvent.click(screen.getByRole("button", { name: "blocking" }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(onEdit).toHaveBeenCalledWith(1, { kind: "issue", decorations: ["blocking"] }, "leaks");

@@ -72,6 +72,7 @@ describe("WorkLog", () => {
     const timeline = await screen.findByRole("region", { name: "Timeline" });
     expect(within(timeline).getByRole("heading", { level: 3, name: "Thu 29 Oct" })).toBeDefined();
     expect(within(timeline).getByRole("img", { name: "2 things" })).toBeDefined();
+    expect(within(timeline).getByText("2", { selector: "[aria-hidden='true']" })).toBeDefined();
     expect(within(timeline).getByRole("link", { name: "Ship it" }).getAttribute("href")).toContain(
       "example.test",
     );
@@ -202,6 +203,7 @@ describe("WorkLog", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Copy Markdown" }));
 
     await screen.findByRole("button", { name: "Copied" });
+    expect(screen.getByRole("status").textContent).toBe("Copied");
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining("# Work log: 2026-10-01"));
   });
 

@@ -1,8 +1,16 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { Progress } from "./progress";
 
 describe("Progress", () => {
+  it("tells assistive tech how far along it is", () => {
+    render(<Progress value={40} aria-label="Steps read" />);
+
+    expect(
+      screen.getByRole("progressbar", { name: "Steps read" }).getAttribute("aria-valuenow"),
+    ).toBe("40");
+  });
+
   it("fills the indicator with the whimsy spectrum without endless motion", () => {
     const { container } = render(<Progress value={40} />);
     const indicator = container.querySelector('[data-slot="progress-indicator"]');

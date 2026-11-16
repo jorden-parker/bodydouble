@@ -68,18 +68,18 @@ describe("Panels", () => {
     expect(container.querySelector(".panel.is-current")?.textContent).toBe("ticket list");
   });
 
-  it("disables the pager buttons at either end", () => {
+  it("disables the pager buttons at either end without dropping keyboard focus", () => {
     overflowing(true);
     renderPanels();
 
-    expect(
-      (screen.getByRole("button", { name: "Previous section" }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+    const previous = screen.getByRole("button", { name: "Previous section" });
+    expect(previous.getAttribute("aria-disabled")).toBe("true");
+    expect(previous.hasAttribute("disabled")).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Next section" }));
     fireEvent.click(screen.getByRole("button", { name: "Next section" }));
-    expect(
-      (screen.getByRole("button", { name: "Next section" }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+    const next = screen.getByRole("button", { name: "Next section" });
+    expect(next.getAttribute("aria-disabled")).toBe("true");
+    expect(next.hasAttribute("disabled")).toBe(false);
   });
 
   it("goes back to spread once the panels fit again", () => {

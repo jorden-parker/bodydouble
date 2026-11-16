@@ -148,8 +148,14 @@ function FileHeader({
           <FileActionsButton onAsk={(action) => onAskFile(file.path, action)} />
         )}
         <span className="flex gap-1.5 font-medium">
-          <span className="text-add-foreground">+{file.additions}</span>
-          <span className="text-del-foreground">−{file.deletions}</span>
+          <span className="text-add-foreground">
+            +{file.additions}
+            <span className="sr-only"> additions</span>
+          </span>
+          <span className="text-del-foreground">
+            −{file.deletions}
+            <span className="sr-only"> deletions</span>
+          </span>
         </span>
         <span className="text-muted-foreground">{file.status}</span>
       </span>

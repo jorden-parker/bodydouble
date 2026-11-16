@@ -39,6 +39,8 @@ export function FocusTimer({ onFinished }: { onFinished: () => void }) {
       variant="ghost"
       size="sm"
       hint="25 minute focus timer"
+      aria-label={`Focus timer, ${clock(remaining)} left`}
+      aria-pressed={running}
       onClick={toggle}
       className={cn("font-mono tabular-nums", running && "bg-accent text-accent-foreground")}
     >

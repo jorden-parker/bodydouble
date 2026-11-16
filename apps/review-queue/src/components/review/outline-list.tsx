@@ -32,7 +32,7 @@ function ExpandToggle({ row, onToggle }: { row: OutlineRow; onToggle: () => void
       type="button"
       aria-label={`${row.expanded ? "Collapse" : "Expand"} ${row.symbol.name}`}
       onClick={onToggle}
-      className="flex w-5 shrink-0 justify-center text-muted-foreground hover:text-foreground"
+      className="relative after:absolute after:-inset-1.5 flex w-5 shrink-0 justify-center text-muted-foreground hover:text-foreground"
     >
       <Chevron className="size-3.5" />
     </button>
