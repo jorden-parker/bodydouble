@@ -138,9 +138,8 @@ describe("review workspace renders", () => {
     expect(screen.getByText(/^0 of 3 · ~\d+ min left$/)).toBeTruthy();
   });
 
-  it("links the menu to the pull request on GitHub", async () => {
-    const { user } = await renderWorkspace();
-    await user.click(screen.getByRole("button", { name: "More actions" }));
+  it("links the top bar to the pull request on GitHub without opening the menu", async () => {
+    await renderWorkspace();
     const link = screen.getByRole("link", { name: "Open acme/app#7 on GitHub" });
     expect(link.getAttribute("href")).toBe("https://github.com/acme/app/pull/7");
   });

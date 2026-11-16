@@ -69,16 +69,6 @@ function TopBarMenu({ review, workspace }: Pick<WorkspaceTopBarProps, "review" |
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="flex w-64 flex-col gap-0.5 p-1">
-        <a
-          href={review.pr.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`Open ${prKey(review.pr.ref)} on GitHub`}
-          className="control-target inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted"
-        >
-          <ExternalLink aria-hidden className="size-4" />
-          Open on GitHub
-        </a>
         <div className="px-1 py-1">
           <LinkedIssueChip issues={workspace.linkedIssues.issues} />
         </div>
@@ -149,6 +139,18 @@ export function WorkspaceTopBar({ review, session, workspace }: WorkspaceTopBarP
         <Coffee />
         <span className="hidden sm:inline">Pause</span>
         <span className="sr-only sm:hidden">Pause</span>
+      </HintButton>
+      <HintButton
+        variant="ghost"
+        size="sm"
+        hint="Open on GitHub"
+        aria-label={`Open ${prKey(review.pr.ref)} on GitHub`}
+        asChild
+      >
+        <a href={review.pr.url} target="_blank" rel="noopener noreferrer">
+          <ExternalLink aria-hidden />
+          <span className="hidden sm:inline">GitHub</span>
+        </a>
       </HintButton>
       <TopBarMenu review={review} workspace={workspace} />
     </header>
