@@ -1,0 +1,21 @@
+{
+  "name": "bodydouble",
+  "private": true,
+  "packageManager": "bun@1.3.14",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "format:check": "turbo run format:check",
+    "prepare": "git config core.hooksPath .githooks"
+  },
+  "devDependencies": {
+    "turbo": "^2.11.11"
+  }
+}

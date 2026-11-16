@@ -1,0 +1,8 @@
+{
+  "name": "@bodydouble/neon-pond",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./neon-pond.css": "./neon-pond.css"
+  }
+}
