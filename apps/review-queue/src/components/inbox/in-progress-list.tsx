@@ -46,12 +46,15 @@ export function InProgressRow({
     </>
   );
   return (
-    <li className="flex min-w-0 items-center">
+    <li
+      className={cn(
+        "flex min-w-0 items-center",
+        ref &&
+          "transition-colors duration-calm hover:bg-surface-2 has-[a:focus-visible]:bg-surface-2",
+      )}
+    >
       {ref ? (
-        <Link
-          href={prPath(ref)}
-          className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2"
-        >
+        <Link href={prPath(ref)} className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3">
           {body}
         </Link>
       ) : (
@@ -64,6 +67,7 @@ export function InProgressRow({
             size="icon-sm"
             hint="Open on GitHub"
             aria-label={`Open ${prKey(ref)} on GitHub`}
+            className="hover:bg-surface-3"
             asChild
           >
             <a href={gitHubPullRequestUrl(ref)} target="_blank" rel="noopener noreferrer">

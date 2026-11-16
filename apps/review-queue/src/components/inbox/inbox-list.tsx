@@ -42,14 +42,11 @@ function PausedNote({ pause }: { pause: PauseState }) {
 function InboxRow({ entry }: { entry: QueueEntry }) {
   const { request, progress } = entry;
   return (
-    <li className="flex min-w-0 items-center">
-      <Link
-        href={prPath(request.ref)}
-        className="flex min-w-0 flex-1 items-start gap-3 px-4 py-3 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2"
-      >
+    <li className="group flex min-w-0 items-center transition-colors duration-calm hover:bg-surface-2 has-[a:focus-visible]:bg-surface-2">
+      <Link href={prPath(request.ref)} className="flex min-w-0 flex-1 items-start gap-3 px-4 py-3">
         <span
           aria-hidden="true"
-          className="grid size-8 shrink-0 place-items-center rounded-full border border-line-soft bg-surface-2 text-label font-medium text-fg-muted"
+          className="grid size-8 shrink-0 place-items-center rounded-full border border-line-soft bg-surface text-label font-medium text-fg-muted"
         >
           {initialsOf(request.author)}
         </span>
@@ -68,12 +65,12 @@ function InboxRow({ entry }: { entry: QueueEntry }) {
             <ProgressBadges entry={entry} />
           </span>
         </span>
-        <span className="hidden shrink-0 self-center sm:inline-flex">
-          <Button variant="soft" size="sm" asChild>
-            <span>
-              Start <ArrowRight />
-            </span>
-          </Button>
+        <span className="hidden shrink-0 items-center gap-1 self-center text-label font-medium text-fg-muted transition-colors duration-calm group-hover:text-fg sm:inline-flex">
+          Start
+          <ArrowRight
+            aria-hidden="true"
+            className="size-3.5 transition-transform duration-calm ease-calm motion-safe:group-hover:translate-x-0.5"
+          />
         </span>
       </Link>
       <div className="shrink-0 pr-2">
@@ -82,6 +79,7 @@ function InboxRow({ entry }: { entry: QueueEntry }) {
           size="icon-sm"
           hint="Open on GitHub"
           aria-label={`Open ${prKey(request.ref)} on GitHub`}
+          className="hover:bg-surface-3"
           asChild
         >
           <a href={request.url} target="_blank" rel="noopener noreferrer">

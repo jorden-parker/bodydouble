@@ -41,10 +41,20 @@ beforeEach(() => {
 });
 
 describe("InboxList rows", () => {
-  it("tints each queued pull request row on hover", async () => {
+  it("tints the whole queued pull request row on hover, not only its link", async () => {
     await renderInbox();
-    const classes = screen.getByRole("link", { name: /Add retry/ }).classList;
-    expect(classes.contains("hover:bg-surface-2")).toBe(true);
+    const link = screen.getByRole("link", { name: /Add retry/ });
+    const row = link.closest("li") as HTMLElement;
+    expect(row.classList.contains("hover:bg-surface-2")).toBe(true);
+    expect(row.classList.contains("has-[a:focus-visible]:bg-surface-2")).toBe(true);
+    expect(link.className).not.toMatch(/hover:bg-/);
+  });
+
+  it("shows Start as a quiet label, not a button that hovers on its own", async () => {
+    await renderInbox();
+    const start = screen.getByText("Start");
+    expect(start.closest('[data-slot="button"]')).toBeNull();
+    expect(start.classList.contains("group-hover:text-fg")).toBe(true);
   });
 
   it("starts each queued pull request with a Start button inside its row link", async () => {
