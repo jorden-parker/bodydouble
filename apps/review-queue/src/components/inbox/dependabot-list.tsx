@@ -160,7 +160,7 @@ async function BotPullRequestList({
           <p className="font-mono text-label text-fg-muted wrap-anywhere">{outcome.error}</p>
         </div>
       ) : count === 0 ? (
-        <EmptyState emoji="🌴">
+        <EmptyState>
           {hasRepositories ? (
             `No ${botName} pull requests are open. Nothing to update.`
           ) : (

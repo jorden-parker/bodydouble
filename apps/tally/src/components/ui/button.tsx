@@ -7,7 +7,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        neon: "bg-foreground text-background hover:opacity-90",
+        neon: "bg-foreground text-background hover:opacity-80",
         soft: "border-line bg-surface-2 text-foreground hover:bg-surface-3",
         ghost:
           "text-muted-foreground hover:bg-surface-2 hover:text-foreground aria-expanded:bg-surface-2 aria-expanded:text-foreground",

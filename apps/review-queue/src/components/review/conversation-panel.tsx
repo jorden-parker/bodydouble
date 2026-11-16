@@ -169,7 +169,7 @@ function ConversationEmpty({
   const nothing =
     conversation.reviews.length + threads.length + receipts.length + replyReceipts.length === 0;
   if (!nothing) return null;
-  return <EmptyState emoji="💬">Nothing from GitHub on this pull request yet.</EmptyState>;
+  return <EmptyState>Nothing from GitHub on this pull request yet.</EmptyState>;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

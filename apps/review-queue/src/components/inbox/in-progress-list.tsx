@@ -185,7 +185,7 @@ export function InProgressList({
   );
   return (
     <section className="flex min-w-0 flex-col gap-3">
-      <h2 ref={headingRef} tabIndex={-1} className="text-heading">
+      <h2 ref={headingRef} tabIndex={-1} className="text-eyebrow">
         In progress <span className="tabular-nums text-fg-muted">({sessions.length})</span>
       </h2>
       <InProgressFeature
@@ -195,7 +195,7 @@ export function InProgressList({
       />
       {others.length > 0 && (
         <div className="flex min-w-0 flex-col gap-3">
-          <h3 className="text-heading">
+          <h3 className="text-eyebrow">
             Also in Progress <span className="tabular-nums text-fg-muted">({others.length})</span>
           </h3>
           <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line-soft">

@@ -115,7 +115,7 @@ function NoteChecklist({ notes, selected, flagged, onToggle }: NoteChecklistProp
   return (
     <div className="flex flex-col gap-3">
       <h3 className="text-heading text-fg">Notes to post ({selected.length})</h3>
-      {notes.length === 0 && <EmptyState emoji="📝">No notes.</EmptyState>}
+      {notes.length === 0 && <EmptyState>No notes.</EmptyState>}
       {notes.map((note) => (
         <label
           key={note.id}

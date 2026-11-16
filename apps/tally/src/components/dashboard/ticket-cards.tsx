@@ -165,7 +165,7 @@ function CardSection({
 
 function UnlinkedPullRequest({ item }: { item: OpenItem }) {
   return (
-    <li className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
+    <li className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 transition-colors hover:bg-surface-2">
       <a href={item.url} target="_blank" rel="noreferrer" className={TITLE_LINK_CLASS}>
         <InlineMarkdown text={item.title} />
       </a>
@@ -194,7 +194,7 @@ function UnlinkedPullRequests({ items }: { items: OpenItem[] }) {
   return (
     <section aria-label="Open PRs without a ticket" className="flex min-w-0 flex-col gap-3">
       <SectionHeading title="Open PRs without a ticket" level={3} />
-      <ul className="divide-y divide-line-soft rounded-xl border border-line-soft bg-surface">
+      <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line-soft bg-surface">
         {items.map((item) => (
           <UnlinkedPullRequest key={item.externalId} item={item} />
         ))}

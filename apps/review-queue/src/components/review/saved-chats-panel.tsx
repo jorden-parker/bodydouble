@@ -25,7 +25,7 @@ export function SavedChatsPanel({
 }: SavedChatsPanelProps) {
   if (chats.length === 0) {
     return (
-      <EmptyState emoji="✨">
+      <EmptyState>
         Chats with the local model are kept here. Select lines or use a file’s “Actions” to start
         one.
       </EmptyState>

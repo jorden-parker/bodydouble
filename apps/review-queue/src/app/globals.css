@@ -11,6 +11,7 @@
   --primary-foreground: var(--bg);
   --accent: var(--surface-2);
   --ring: var(--ink-blue);
+  --app-gradient: var(--neon-gradient);
   --rail: var(--bg-deep);
   --marker: var(--neon-amber);
   --marker-foreground: var(--on-neon);
@@ -24,8 +25,8 @@
   --callout: var(--surface-2);
   --callout-foreground: var(--text);
   --whimsy-from: var(--ink-blue);
-  --whimsy-via: var(--ink-pink);
-  --whimsy-to: var(--ink-amber);
+  --whimsy-via: var(--ink-violet);
+  --whimsy-to: var(--ink-pink);
 }
 
 @theme inline {
@@ -78,10 +79,10 @@
   --text-heading: 1rem;
   --text-heading--line-height: 1.5;
   --text-heading--font-weight: 600;
-  --text-title: 1.5rem;
-  --text-title--line-height: 1.25;
+  --text-title: 2rem;
+  --text-title--line-height: 1.15;
   --text-title--font-weight: 600;
-  --text-title--letter-spacing: -0.02em;
+  --text-title--letter-spacing: -0.04em;
   --text-metric: 2rem;
   --text-metric--line-height: 1.2;
   --text-metric--font-weight: 600;
@@ -197,7 +198,7 @@
 }
 
 @utility bg-whimsy {
-  background-color: var(--text);
+  background-image: var(--app-gradient);
 }
 
 .code-token {
@@ -221,6 +222,11 @@
   .app--workspace {
     height: 100dvh;
     overflow: hidden;
+  }
+  /* The page band bleeds to 100vw; clip the scrollbar-width overhang and recess the whole canvas. */
+  .app:not(.app--workspace) {
+    background: var(--bg-deep);
+    overflow-x: clip;
   }
   .app-body {
     display: flex;
@@ -284,36 +290,82 @@
     display: none;
   }
   .app-bar__link {
+    position: relative;
     display: inline-flex;
     flex: none;
     align-items: center;
+    margin-block: var(--s-2);
+    padding-inline: var(--s-2);
+    border-radius: var(--r-md);
     color: var(--text-muted);
     font-size: var(--text-sm);
     font-weight: 500;
     text-decoration: none;
     white-space: nowrap;
-    transition: color var(--t-fast) var(--ease-out);
+    transition:
+      color var(--t-fast) var(--ease-out),
+      background-color var(--t-fast) var(--ease-out);
   }
   .app-bar__link:hover {
     color: var(--text);
+    background-color: var(--surface-2);
   }
   .app-bar__link.is-current {
     color: var(--text);
-    box-shadow: inset 0 -2px 0 var(--text);
+  }
+  .app-bar__link.is-current::after {
+    content: "";
+    position: absolute;
+    inset-inline: var(--s-2);
+    bottom: 0;
+    height: 2px;
+    border-radius: var(--r-pill);
+    background: var(--app-gradient);
   }
 
   .page-shell {
+    --page-width: 1200px;
+    flex: 1;
     width: 100%;
-    max-width: 1200px;
+    max-width: var(--page-width);
     margin-inline: auto;
-    padding: var(--s-5) var(--s-4);
+    padding: 0 var(--s-4) var(--s-6);
   }
   .page-shell--narrow {
-    max-width: 720px;
+    --page-width: 720px;
   }
   @media (width >= 640px) {
     .page-shell {
-      padding: var(--s-6) var(--s-5);
+      padding-inline: var(--s-5);
+    }
+  }
+
+  .page-band {
+    position: relative;
+    overflow: hidden;
+    margin-inline: calc(50% - 50vw);
+    border-bottom: 1px solid var(--line-soft);
+    background: var(--bg);
+  }
+  .page-band::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    @apply bg-dot-grid;
+  }
+  .page-band__inner {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-4);
+    max-width: var(--page-width);
+    margin-inline: auto;
+    padding: var(--s-6) var(--s-4);
+  }
+  @media (width >= 640px) {
+    .page-band__inner {
+      padding: var(--s-7) var(--s-5);
     }
   }
 }

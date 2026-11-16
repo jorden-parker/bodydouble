@@ -5,15 +5,15 @@
   color-scheme: dark;
 
   --bg: oklch(0.145 0 0);
-  --bg-deep: oklch(0.12 0 0);
+  --bg-deep: oklch(0 0 0);
   --surface: oklch(0.165 0 0);
   --surface-2: oklch(0.2 0 0);
   --surface-3: oklch(0.24 0 0);
   --line: oklch(0.29 0 0);
-  --line-soft: oklch(0.225 0 0);
+  --line-soft: oklch(0.24 0 0);
   --text: oklch(0.95 0 0);
   --text-muted: oklch(0.72 0 0);
-  --text-faint: oklch(0.62 0 0);
+  --text-faint: oklch(0.65 0 0);
 
   --neon-blue: oklch(0.68 0.15 255);
   --neon-pink: oklch(0.7 0.15 350);
@@ -39,14 +39,15 @@
   --tint-violet: color-mix(in oklch, var(--neon-violet) 12%, transparent);
 
   --glow-strength: 0;
-  --grid-dot: transparent;
+  --grid-dot: color-mix(in oklch, var(--text) 16%, transparent);
+  --lift: 0 0 0 1px var(--line), 0 8px 24px -8px oklch(0 0 0 / 0.7);
 }
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     color-scheme: light;
     --bg: oklch(1 0 0);
-    --bg-deep: oklch(0.98 0 0);
+    --bg-deep: oklch(0.985 0 0);
     --surface: oklch(1 0 0);
     --surface-2: oklch(0.97 0 0);
     --surface-3: oklch(0.94 0 0);
@@ -61,6 +62,9 @@
     --ink-mint: oklch(0.5 0.12 165);
     --ink-coral: oklch(0.52 0.19 25);
     --ink-violet: oklch(0.5 0.18 300);
+    --lift:
+      0 0 0 1px var(--line-soft), 0 2px 2px oklch(0 0 0 / 0.04),
+      0 8px 16px -4px oklch(0 0 0 / 0.08);
   }
 }
 
@@ -81,13 +85,22 @@
   --r-xl: 12px;
   --r-pill: 999px;
 
-  --neon-gradient: linear-gradient(var(--text), var(--text));
-  --tally-gradient: linear-gradient(var(--text), var(--text));
+  --neon-gradient: linear-gradient(
+    90deg,
+    var(--neon-blue),
+    var(--neon-violet),
+    var(--neon-pink)
+  );
+  --tally-gradient: linear-gradient(
+    90deg,
+    var(--neon-amber),
+    var(--neon-coral),
+    var(--neon-pink)
+  );
 
   --glow-blue: 0 0 0 1px var(--line);
   --glow-pink: 0 0 0 1px var(--line);
   --glow-amber: 0 0 0 1px var(--line);
-  --lift: none;
 
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -168,6 +181,40 @@
   background-image: var(--tally-gradient);
 }
 
+/* Shared Geist-with-whimsy primitives. Each app sets --app-gradient to its own gradient. */
+@utility bg-app-gradient {
+  background-image: var(--app-gradient);
+}
+
+@utility text-app-gradient {
+  background-image: var(--app-gradient);
+  background-clip: text;
+  color: transparent;
+}
+
+@utility bg-dot-grid {
+  background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
+  background-size: 16px 16px;
+  mask-image: linear-gradient(to bottom, black, transparent);
+}
+
+@utility text-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+@utility press {
+  transition: transform var(--t-fast) var(--ease-spring);
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
 @keyframes bob {
   0%,
   100% {
@@ -226,7 +273,7 @@
     position: absolute;
     inset: 0 auto 0 0;
     width: var(--progress);
-    background: var(--text);
+    background: var(--stream-accent-gradient, var(--app-gradient, var(--text)));
     transition: width var(--t-med) var(--ease-out);
   }
   .stream__stops {

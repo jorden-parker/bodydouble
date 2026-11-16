@@ -25,7 +25,7 @@ export const SEVERITY_CHECKBOX: Record<Severity, string> = {
 
 export function HotspotList({ hotspots, checked, onOpen, onToggleChecked }: HotspotListProps) {
   if (hotspots.length === 0) {
-    return <EmptyState emoji="🌤️">Nothing unusual spotted. Still read carefully.</EmptyState>;
+    return <EmptyState>Nothing unusual spotted. Still read carefully.</EmptyState>;
   }
   const remaining = hotspots.filter((hotspot) => !checked.includes(hotspot.id)).length;
   return (

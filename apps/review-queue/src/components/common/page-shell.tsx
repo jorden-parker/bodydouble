@@ -24,19 +24,21 @@ type PageHeaderProps = {
 
 export function PageHeader({ title, lede, action, backHref, backLabel }: PageHeaderProps) {
   return (
-    <header className="flex flex-col gap-4">
-      {backHref && (
-        <Button variant="ghost" size="sm" asChild className="-ml-3 w-fit">
-          <Link href={backHref}>
-            <ArrowLeft /> {backLabel}
-          </Link>
-        </Button>
-      )}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="min-w-0 text-title wrap-anywhere">{title}</h1>
-        {action}
-      </div>
-      {lede && <p className="max-w-prose text-sm text-fg-muted">{lede}</p>}
-    </header>
+    <div className="page-band">
+      <header className="page-band__inner">
+        {backHref && (
+          <Button variant="ghost" size="sm" asChild className="-ml-3 w-fit">
+            <Link href={backHref}>
+              <ArrowLeft /> {backLabel}
+            </Link>
+          </Button>
+        )}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="min-w-0 text-title text-balance wrap-anywhere">{title}</h1>
+          {action}
+        </div>
+        {lede && <p className="max-w-prose text-sm text-fg-muted">{lede}</p>}
+      </header>
+    </div>
   );
 }

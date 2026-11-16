@@ -15,7 +15,8 @@
   --primary-foreground: var(--bg);
   --accent: var(--surface-3);
   --destructive-surface: var(--tint-coral);
-  --ring: var(--text);
+  --app-gradient: var(--tally-gradient);
+  --ring: var(--ink-blue);
 
   --series-reviewed: var(--text);
   --series-created: var(--text-faint);

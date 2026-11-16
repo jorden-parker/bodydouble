@@ -155,7 +155,7 @@ export function ContextList({ symbols, stepId, ...handlers }: ContextListProps) 
       <TrailButtons {...handlers} />
       <FilterBar filter={filter} onChange={setFilter} />
       {visible.length === 0 ? (
-        <EmptyState emoji="🧭">
+        <EmptyState>
           Click any name in the diff to peek it. It lands here so you can find it again.
         </EmptyState>
       ) : (

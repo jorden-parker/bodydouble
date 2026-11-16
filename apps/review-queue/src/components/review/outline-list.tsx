@@ -104,7 +104,7 @@ function FileOutline({ file, onOpen }: { file: OutlineFile; onOpen: OpenSymbol }
 
 export function OutlineList({ files, onOpen }: { files: OutlineFile[]; onOpen: OpenSymbol }) {
   if (files.length === 0) {
-    return <EmptyState emoji="🗂️">No code files in this step to outline.</EmptyState>;
+    return <EmptyState>No code files in this step to outline.</EmptyState>;
   }
   return (
     <div className="flex flex-col gap-4">

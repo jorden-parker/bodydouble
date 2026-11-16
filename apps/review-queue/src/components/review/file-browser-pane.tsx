@@ -204,7 +204,7 @@ function FlatResults({
 }) {
   const matches = filterPaths(paths, query);
   if (matches.length === 0) {
-    return <EmptyState emoji="🔎">No file matches &ldquo;{query}&rdquo;.</EmptyState>;
+    return <EmptyState>No file matches &ldquo;{query}&rdquo;.</EmptyState>;
   }
   const shown = matches.slice(0, MAX_FLAT_RESULTS);
   const hidden = matches.length - shown.length;
@@ -276,7 +276,7 @@ function NameResults({
   if (failed) return <Callout tone="error">Could not list the files.</Callout>;
   if (!paths) return <p className="text-sm text-muted-foreground">Loading files…</p>;
   if (paths.length === 0) {
-    return <EmptyState emoji="📂">This commit has no tracked files.</EmptyState>;
+    return <EmptyState>This commit has no tracked files.</EmptyState>;
   }
   return <FileList paths={paths} query={query} inPullRequest={inPullRequest} onOpen={onOpen} />;
 }
@@ -304,7 +304,7 @@ function TextResults({
     return <Callout tone="error">Could not search the files.</Callout>;
   }
   if (search.results.length === 0) {
-    return <EmptyState emoji="🔎">No text matches &ldquo;{settledQuery}&rdquo;.</EmptyState>;
+    return <EmptyState>No text matches &ldquo;{settledQuery}&rdquo;.</EmptyState>;
   }
   return (
     <>

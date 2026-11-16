@@ -128,7 +128,7 @@ function QueueSection({
   return (
     <section className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-heading">
+        <h2 className="text-eyebrow">
           {title} <span className="tabular-nums text-fg-muted">({count})</span>
         </h2>
         {action}
@@ -169,7 +169,7 @@ function RequestQueue({
   if (requests.length === 0) {
     return (
       <QueueSection title={title} count={0} action={action}>
-        <EmptyState emoji="🌴">{emptyMessage}</EmptyState>
+        <EmptyState>{emptyMessage}</EmptyState>
       </QueueSection>
     );
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { EmptyNote, LoadingNote, ProblemAlert } from "@/components/layout/page-shell";
+import { EmptyNote, LoadingNote, PageBand, ProblemAlert } from "@/components/layout/page-shell";
 import { Panel } from "@/components/neon/panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -186,8 +186,8 @@ export function AssignedTickets({ api = realApi }: { api?: TallyApi }) {
   const { stories, problems, syncing, sync } = useAssignedTickets(api);
   const total = stories?.length ?? 0;
   return (
-    <main id="main" className="app-main">
-      <header className="flex flex-wrap items-center gap-4">
+    <>
+      <PageBand>
         <h1 className="page-title flex items-center gap-2">
           Tickets <span className="sr-only">(</span>
           <span className="rounded-md bg-surface-3 px-2 font-mono text-sm tabular-nums">
@@ -207,15 +207,17 @@ export function AssignedTickets({ api = realApi }: { api?: TallyApi }) {
         >
           {syncing ? "Syncing tickets…" : "Sync tickets"}
         </Button>
-      </header>
-      <ProblemAlert messages={problems} />
-      {stories === null ? (
-        problems.length === 0 ? (
-          <LoadingNote />
-        ) : null
-      ) : (
-        <TicketLanes stories={stories} />
-      )}
-    </main>
+      </PageBand>
+      <main id="main" className="app-main">
+        <ProblemAlert messages={problems} />
+        {stories === null ? (
+          problems.length === 0 ? (
+            <LoadingNote />
+          ) : null
+        ) : (
+          <TicketLanes stories={stories} />
+        )}
+      </main>
+    </>
   );
 }

@@ -443,7 +443,7 @@ function chatPane({ workspace }: PaneProps): PaneContent {
   }
   return {
     body: (
-      <EmptyState emoji="💬">
+      <EmptyState>
         No chat open. Select lines and press <Kbd>i</Kbd>, or open a saved chat.
       </EmptyState>
     ),
@@ -769,10 +769,10 @@ function NoSteps({
   orientation: OrientationState;
 }) {
   if (review.steps.length === 0) {
-    return <EmptyState emoji="🫥">This PR has no file changes.</EmptyState>;
+    return <EmptyState>This PR has no file changes.</EmptyState>;
   }
   if (orientation.status !== "loading") return null;
-  return <EmptyState emoji="🧭">{ORDERING_MESSAGE}</EmptyState>;
+  return <EmptyState>{ORDERING_MESSAGE}</EmptyState>;
 }
 
 function navigablePaths(steps: Step[], files: ReadonlyMap<string, PreparedFile>): string[] {

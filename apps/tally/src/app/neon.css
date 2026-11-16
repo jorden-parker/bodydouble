@@ -1,6 +1,46 @@
 .app {
   min-height: 100dvh;
   overflow: visible;
+  background: var(--bg-deep);
+}
+
+.page-band {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--bg);
+}
+
+.page-band::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  @apply bg-dot-grid;
+}
+
+.page-band__inner {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-4);
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding: var(--s-7) var(--s-4) var(--s-6);
+}
+
+@media (min-width: 640px) {
+  .page-band__inner {
+    padding-inline: var(--s-5);
+  }
+}
+
+.page-band__inner--narrow {
+  max-width: 720px;
 }
 
 .app-main {
@@ -32,12 +72,13 @@
 }
 
 .page-title {
-  font-size: 1.5rem;
-  line-height: 2rem;
+  font-size: 2rem;
+  line-height: 2.5rem;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.04em;
   min-width: 0;
   overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .app-nav {
@@ -49,8 +90,24 @@
   display: none;
 }
 
-.app-tab-current {
-  box-shadow: inset 0 -2px 0 var(--text);
+.app-tab-current::after {
+  content: "";
+  position: absolute;
+  inset-inline: var(--s-3);
+  bottom: 0;
+  height: 2px;
+  border-radius: var(--r-pill);
+  background: var(--app-gradient);
+}
+
+.app-brand:hover > .tally-mark {
+  animation: bob 500ms var(--ease-spring) 1;
+}
+
+.empty-note > .tally-mark {
+  display: block;
+  margin: 0 auto var(--s-3);
+  animation: bob 2.4s ease-in-out infinite;
 }
 
 .tally-mark {

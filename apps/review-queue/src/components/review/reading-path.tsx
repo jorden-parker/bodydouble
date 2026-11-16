@@ -145,7 +145,7 @@ function StepItem({ step, index, path }: StepItemProps) {
 export const ORDERING_MESSAGE = "Local model is ordering the steps…";
 
 export function ReadingPath(props: ReadingPathProps) {
-  if (props.ordering) return <EmptyState emoji="🧭">{ORDERING_MESSAGE}</EmptyState>;
+  if (props.ordering) return <EmptyState>{ORDERING_MESSAGE}</EmptyState>;
   const doneCount = props.steps.filter((step) => props.doneSteps.includes(step.id)).length;
   return (
     <div className="flex flex-col gap-4">

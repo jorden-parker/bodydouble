@@ -22,17 +22,17 @@ export function AppBar() {
       >
         Skip to content
       </a>
-      <header className="sticky top-0 z-40 h-14 flex-none border-b border-line-soft bg-background">
+      <header className="sticky top-0 z-40 h-14 flex-none border-b border-line-soft bg-background/85 backdrop-blur-md">
         <div className="mx-auto flex h-full w-full max-w-[1200px] items-center gap-2 px-4 sm:gap-6 sm:px-6">
           <Link
             href="/"
             aria-label="Tally home"
-            className="flex min-h-11 flex-none items-center gap-2 rounded-md text-foreground no-underline"
+            className="app-brand flex min-h-11 flex-none items-center gap-2 rounded-md text-foreground no-underline"
           >
             <TallyMark size="small" />
             <span className="hidden text-sm font-semibold tracking-tight sm:inline">Tally</span>
           </Link>
-          <nav aria-label="Main" className="app-nav flex h-full min-w-0 flex-1 items-stretch">
+          <nav aria-label="Main" className="app-nav flex h-full min-w-0 flex-1 items-center">
             {PAGES.map(({ href, label }) => {
               const isCurrent = pathname === href;
               return (
@@ -41,7 +41,7 @@ export function AppBar() {
                   href={href}
                   aria-current={isCurrent ? "page" : undefined}
                   className={cn(
-                    "inline-flex flex-none items-center px-2 text-[0.8125rem] font-medium sm:px-3 whitespace-nowrap text-muted-foreground no-underline transition-colors hover:text-foreground sm:text-sm",
+                    "relative inline-flex h-11 flex-none items-center rounded-md px-2 text-[0.8125rem] font-medium sm:px-3 whitespace-nowrap text-muted-foreground no-underline transition-[color,background-color] hover:bg-surface-2 hover:text-foreground sm:text-sm",
                     isCurrent && "app-tab-current text-foreground",
                   )}
                 >

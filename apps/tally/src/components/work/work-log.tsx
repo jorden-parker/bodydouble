@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { EmptyNote, LoadingNote, ProblemAlert } from "@/components/layout/page-shell";
+import { EmptyNote, LoadingNote, PageBand, ProblemAlert } from "@/components/layout/page-shell";
 import { Panel } from "@/components/neon/panels";
 import { Stream } from "@/components/neon/stream";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -199,7 +199,7 @@ function DraftRowItem({ row }: { row: DraftRow }) {
   const status = row.reviewStatus === null ? [] : [REVIEW_STATUS_LABELS[row.reviewStatus]];
   const line = [`Opened ${formatLongDay(row.day)}`, row.repo, ...status].join(SEPARATOR);
   return (
-    <li className="flex flex-col gap-1 py-3">
+    <li className="flex flex-col gap-1 py-3 transition-colors hover:bg-surface-2">
       <RowLink row={row} />
       <span className="text-sm text-muted-foreground">{line}</span>
     </li>
@@ -352,8 +352,8 @@ export function WorkLog({ api = realApi, now = currentTime }: WorkLogProps) {
   const dayIndex = (weekday + 6) % 7;
 
   return (
-    <main id="main" className="app-main">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <>
+      <PageBand>
         <h1 className="page-title">Work log</h1>
         <div className="flex flex-wrap items-center gap-3">
           <DateField
@@ -367,10 +367,12 @@ export function WorkLog({ api = realApi, now = currentTime }: WorkLogProps) {
             onChange={(endDay) => setPeriod({ ...period, to: endDay })}
           />
         </div>
-      </header>
-      <ProblemAlert messages={problem === null ? [] : [problem]} />
-      {report ? <Report report={report} dayIndex={dayIndex} /> : null}
-      {report === null && problem === null ? <LoadingNote /> : null}
-    </main>
+      </PageBand>
+      <main id="main" className="app-main">
+        <ProblemAlert messages={problem === null ? [] : [problem]} />
+        {report ? <Report report={report} dayIndex={dayIndex} /> : null}
+        {report === null && problem === null ? <LoadingNote /> : null}
+      </main>
+    </>
   );
 }

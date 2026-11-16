@@ -55,7 +55,7 @@ export function ChangeMapList({ sections, onOpen, parts, listRef }: ChangeMapLis
   const [filters, setFilters] = useState<MapFilters>({ hideRead: false, hideIncidental: false });
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   if (sections.length === 0) {
-    return <EmptyState emoji="🗺️">No changed symbols to map.</EmptyState>;
+    return <EmptyState>No changed symbols to map.</EmptyState>;
   }
   const setOpen = (id: string, open: boolean) =>
     setCollapsed((current) => withMembership(current, id, !open));

@@ -65,6 +65,12 @@ describe("PageHeader", () => {
     expect(screen.getByRole("link", { name: "Review Queue" }).getAttribute("href")).toBe("/");
   });
 
+  it("sets the header in a full-width band that the title sits inside", () => {
+    render(<PageHeader title="Settings" />);
+    const band = screen.getByRole("heading", { level: 1 }).closest(".page-band");
+    expect(band).not.toBeNull();
+  });
+
   it("sets the title at the page-title scale", () => {
     render(<PageHeader title="Settings" />);
     expect(screen.getByRole("heading", { level: 1 }).classList.contains("text-title")).toBe(true);

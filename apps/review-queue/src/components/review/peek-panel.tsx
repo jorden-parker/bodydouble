@@ -137,8 +137,7 @@ function DefinitionBlock(props: PanelBodyProps & { definition: DefinitionWithCod
 function Definitions(props: PanelBodyProps) {
   const { definitions } = props.peek;
   if (!definitions) return <LoadingRows />;
-  if (definitions.length === 0)
-    return <EmptyState emoji="🔭">No definition found in this repo.</EmptyState>;
+  if (definitions.length === 0) return <EmptyState>No definition found in this repo.</EmptyState>;
   return (
     <div className="flex flex-col gap-4">
       {definitions.map((definition) => (
@@ -192,7 +191,7 @@ function ReferenceFile({
 function References({ peek, inPullRequest, onGoTo }: PanelBodyProps) {
   if (!peek.references) return <LoadingRows />;
   if (peek.references.length === 0)
-    return <EmptyState emoji="🍃">No references found. A lonely symbol.</EmptyState>;
+    return <EmptyState>No references found. A lonely symbol.</EmptyState>;
   return (
     <div className="flex flex-col gap-4">
       {groupReferencesByFile(peek.references, inPullRequest).map((group) => (

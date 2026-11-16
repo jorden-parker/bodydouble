@@ -72,7 +72,7 @@ export function NotesPanel({
       <div className="flex flex-col gap-2">
         <h3 className="text-label font-semibold">Notes on code ({lineNotes.length})</h3>
         {lineNotes.length === 0 ? (
-          <EmptyState emoji="💬">Hover a line and click the speech bubble, or press c.</EmptyState>
+          <EmptyState>Hover a line and click the speech bubble, or press c.</EmptyState>
         ) : (
           <ul className="flex flex-col gap-0.5">
             {lineNotes.map((note) => (
