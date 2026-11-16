@@ -72,4 +72,41 @@ describe("parseUnifiedDiff", () => {
     const [file] = parseUnifiedDiff(`${MODIFIED}\\ No newline at end of file\n`);
     expect(file.hunks[0].lines).toHaveLength(5);
   });
+
+  it("keeps a file whose name git quoted apart from the file before it", () => {
+    const quotedDiff = [
+      String.raw`diff --git "a/docs/caf\303\251 \"menu\".md" "b/docs/caf\303\251 \"menu\".md"`,
+      "new file mode 100644",
+      "--- /dev/null",
+      String.raw`+++ "b/docs/caf\303\251 \"menu\".md"`,
+      "@@ -0,0 +1 @@",
+      "+flat white",
+      "",
+    ].join("\n");
+
+    const files = parseUnifiedDiff(`${MODIFIED}${quotedDiff}`);
+
+    expect(files.map((file) => [file.path, file.status, file.additions, file.deletions])).toEqual([
+      ["src/a.ts", "modified", 2, 1],
+      ['docs/café "menu".md', "added", 1, 0],
+    ]);
+  });
+
+  it("reads quoted names on a rename", () => {
+    const renamedDiff = [
+      String.raw`diff --git "a/old\tname.txt" b/plain.txt`,
+      "similarity index 100%",
+      String.raw`rename from "old\tname.txt"`,
+      "rename to plain.txt",
+      "",
+    ].join("\n");
+
+    const [file] = parseUnifiedDiff(renamedDiff);
+
+    expect([file.oldPath, file.path, file.status]).toEqual([
+      "old\tname.txt",
+      "plain.txt",
+      "renamed",
+    ]);
+  });
 });

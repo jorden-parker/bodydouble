@@ -40,7 +40,7 @@ function facts(): PullRequestFacts {
     reviewDecision: null,
     checks: "passing",
     createdAt: new Date(NOW - 3_600_000).toISOString(),
-    isMerged: false,
+    isClosed: false,
   };
 }
 

@@ -143,6 +143,38 @@ describe("POST submit", () => {
     );
   });
 
+  it("does not post an identical review twice on the same commit", async () => {
+    const repeatedReview = { ...VALID, summary: "Once only" };
+    expect((await POST(request(repeatedReview), context())).status).toBe(200);
+
+    const response = await POST(request(repeatedReview), context());
+
+    expect(response.status).toBe(200);
+    expect(github.sent).toHaveLength(1);
+    const session = await response.json();
+    expect(
+      session.submissions.filter((receipt: { body: string }) => receipt.body === "Once only"),
+    ).toHaveLength(1);
+  });
+
+  it("posts again on the same commit when new notes are chosen", async () => {
+    const repeatedReview = { ...VALID, summary: "With a later note" };
+    await POST(request(repeatedReview), context());
+    const note = sessionStore().addNote(KEY, {
+      side: "new",
+      startLine: null,
+      path: "a.ts",
+      line: 2,
+      kind: "nitpick",
+      decorations: [],
+      body: "one more thing",
+    });
+
+    await POST(request({ ...repeatedReview, noteIds: [note.id] }), context());
+
+    expect(github.sent).toHaveLength(2);
+  });
+
   it("refuses when the head moved since the review was loaded", async () => {
     github.head = "sha2";
     const response = await POST(request(VALID), context());
@@ -151,9 +183,11 @@ describe("POST submit", () => {
   });
 
   it("refuses a second submit after the head moved, even though the first one posted", async () => {
-    expect((await POST(request(VALID), context())).status).toBe(200);
+    expect((await POST(request({ ...VALID, summary: "Before the push" }), context())).status).toBe(
+      200,
+    );
     github.head = "sha2";
-    const response = await POST(request(VALID), context());
+    const response = await POST(request({ ...VALID, summary: "Before the push" }), context());
     expect(response.status).toBe(409);
     expect(github.sent).toHaveLength(1);
   });
@@ -191,9 +225,9 @@ describe("POST submit", () => {
     });
     github.failure = "gh api failed: gh: Bad Gateway (HTTP 502)";
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
-    const response = await POST(request(VALID), context());
+    const response = await POST(request({ ...VALID, summary: "While GitHub is down" }), context());
     expect(response.status).toBe(502);
-    expect(await response.json()).toEqual({ error: "GitHub request failed" });
+    expect((await response.json()).error).toMatch(/may still have been posted/);
     expect(logged).toHaveBeenCalledOnce();
     logged.mockRestore();
     expect(sessionStore().getSession(KEY).notes).toHaveLength(1);
@@ -212,7 +246,7 @@ describe("POST submit", () => {
     github.failure =
       "gh api repos/acme/app/pulls/7/reviews failed: gh: Validation Failed (HTTP 422)";
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
-    const response = await POST(request(VALID), context());
+    const response = await POST(request({ ...VALID, summary: "With a refused line" }), context());
     expect(response.status).toBe(422);
     expect(await response.json()).toEqual({ error: expect.stringContaining("not in the diff") });
     expect(sessionStore().getSession(KEY).notes).toContainEqual(

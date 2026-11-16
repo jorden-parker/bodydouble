@@ -1,9 +1,36 @@
 import type { DiffLine, FileDiff, Hunk } from "@/lib/types";
 
-const FILE_HEADER = /^diff --git a\/(.+) b\/(.+)$/;
+const FILE_HEADER =
+  /^diff --git (?:"a\/((?:[^"\\]|\\.)*)"|a\/(.+)) (?:"b\/((?:[^"\\]|\\.)*)"|b\/(.+))$/;
+const QUOTED_ESCAPE = /((?:\\[0-7]{3})+)|\\(.)/g;
+const NAMED_ESCAPES: Record<string, string> = { n: "\n", t: "\t", r: "\r" };
 const HUNK_HEADER = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@ ?(.*)$/;
 
 type Cursor = { oldLine: number; newLine: number };
+
+function decodeOctalBytes(octalRun: string): string {
+  const bytes = octalRun
+    .split("\\")
+    .slice(1)
+    .map((digits) => Number.parseInt(digits, 8));
+  return new TextDecoder().decode(Uint8Array.from(bytes));
+}
+
+function unescapeQuotedPath(quotedBody: string): string {
+  return quotedBody.replace(QUOTED_ESCAPE, (_escape, octalRun?: string, escaped?: string) =>
+    octalRun === undefined
+      ? (NAMED_ESCAPES[escaped ?? ""] ?? escaped ?? "")
+      : decodeOctalBytes(octalRun),
+  );
+}
+
+function unquotePath(name: string): string {
+  return name.startsWith('"') && name.endsWith('"') ? unescapeQuotedPath(name.slice(1, -1)) : name;
+}
+
+function readHeaderPath(quotedBody: string | undefined, plainPath: string | undefined): string {
+  return quotedBody === undefined ? (plainPath ?? "") : unescapeQuotedPath(quotedBody);
+}
 
 function newFile(oldPath: string, path: string): FileDiff {
   return {
@@ -25,10 +52,10 @@ function applyMetadata(file: FileDiff, line: string): void {
   if (line.startsWith("new file mode")) file.status = "added";
   if (line.startsWith("deleted file mode")) file.status = "deleted";
   if (line.startsWith("rename from ")) {
-    file.oldPath = line.slice("rename from ".length);
+    file.oldPath = unquotePath(line.slice("rename from ".length));
     file.status = "renamed";
   }
-  if (line.startsWith("rename to ")) file.path = line.slice("rename to ".length);
+  if (line.startsWith("rename to ")) file.path = unquotePath(line.slice("rename to ".length));
   if (line.startsWith("Binary files ")) file.binary = true;
 }
 
@@ -56,7 +83,10 @@ export function parseUnifiedDiff(text: string): FileDiff[] {
   for (const line of text.split("\n")) {
     const fileMatch = line.match(FILE_HEADER);
     if (fileMatch) {
-      file = newFile(fileMatch[1], fileMatch[2]);
+      file = newFile(
+        readHeaderPath(fileMatch[1], fileMatch[2]),
+        readHeaderPath(fileMatch[3], fileMatch[4]),
+      );
       files.push(file);
       hunk = null;
       continue;

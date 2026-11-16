@@ -1,14 +1,20 @@
 import { type ChildProcessWithoutNullStreams, execFile, spawn } from "node:child_process";
 import { commandEnvironment, withoutRepositoryVariables } from "./git-env";
 
-export type RunOptions = { cwd?: string; input?: string };
+export type RunOptions = { cwd?: string; input?: string; timeoutMs?: number };
 
 export type Runner = (command: string, args: string[], options?: RunOptions) => Promise<string>;
 
 const MAX_OUTPUT_BYTES = 256 * 1024 * 1024;
+const GH_TIMEOUT_MS = 120_000;
+
+export function defaultTimeoutMs(command: string): number {
+  return command === "gh" ? GH_TIMEOUT_MS : 0;
+}
 
 export const runCommand: Runner = (command, args, options = {}) =>
   new Promise((resolve, reject) => {
+    const timeoutMs = options.timeoutMs ?? defaultTimeoutMs(command);
     const child = execFile(
       command,
       args,
@@ -17,10 +23,12 @@ export const runCommand: Runner = (command, args, options = {}) =>
         env: commandEnvironment(command, args, process.env),
         maxBuffer: MAX_OUTPUT_BYTES,
         encoding: "utf8",
+        timeout: timeoutMs,
       },
       (error, stdout, stderr) => {
         if (error) {
-          reject(new Error(`${command} ${args.join(" ")} failed: ${stderr || error.message}`));
+          const reason = error.killed ? `timed out after ${timeoutMs} ms` : stderr || error.message;
+          reject(new Error(`${command} ${args.join(" ")} failed: ${reason}`));
           return;
         }
         resolve(stdout);

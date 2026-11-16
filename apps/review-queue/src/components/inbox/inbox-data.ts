@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { cache } from "react";
-import type { PullRequestFacts, ReviewRequest } from "@/lib/github/gh";
+import { REVIEW_REQUEST_LIMIT, type PullRequestFacts, type ReviewRequest } from "@/lib/github/gh";
 import type { LlmConfig } from "@/lib/llm/client";
 import { gitHubPullRequestUrl, parsePullRequestRef, prKey } from "@/lib/pr-ref";
 import { storedOrientationFor } from "@/lib/review/orientation-service";
@@ -32,6 +32,7 @@ export type Inbox = {
   requestsError: string | null;
   entries: QueueEntry[];
   repositoryError: string | null;
+  isRepositoryListCapped: boolean;
   dependabot: BumpCounts | null;
   smartlingCount: number | null;
   hasRepositories: boolean;
@@ -77,7 +78,7 @@ function buildSessionEntries(
 ): QueueEntry[] {
   return sessions.flatMap((session) => {
     const ref = parsePullRequestRef(session.key);
-    if (!ref || facts[session.key]?.isMerged === true) return [];
+    if (!ref || facts[session.key]?.isClosed === true) return [];
     const request: ReviewRequest = {
       ref,
       title: session.title ?? session.key,
@@ -158,6 +159,8 @@ export const loadInbox = cache(async (): Promise<Inbox> => {
     ),
     repositoryError:
       repositories.status === "rejected" ? failureMessage(repositories.reason) : null,
+    isRepositoryListCapped:
+      repositories.status === "fulfilled" && repositories.value.length === REVIEW_REQUEST_LIMIT,
     dependabot:
       dependabot.status === "fulfilled"
         ? bumpCounts(dependabot.value.map((request) => request.title))
@@ -166,7 +169,7 @@ export const loadInbox = cache(async (): Promise<Inbox> => {
     hasRepositories: savedRepositories(store).length > 0,
     snoozes: readSnoozes(store),
     archived: attachIntents(buildSessionEntries(archived, facts, progress), store, config),
-    posted: posted.filter((review) => facts[review.key]?.isMerged !== true),
+    posted: posted.filter((review) => facts[review.key]?.isClosed !== true),
     isPrepareNextOn: savedPreparationSetting(store),
   };
 });

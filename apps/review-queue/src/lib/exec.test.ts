@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { runCommand, spawnProcess } from "./exec";
+import { defaultTimeoutMs, runCommand, spawnProcess } from "./exec";
 
 describe("runCommand", () => {
   afterEach(() => vi.unstubAllEnvs());
@@ -22,6 +22,19 @@ describe("runCommand", () => {
     await expect(runCommand("git", ["no-such-command"])).rejects.toThrow(
       /git no-such-command failed/,
     );
+  });
+
+  it("stops a command that outlives its time limit and says so", async () => {
+    const hungCommand = runCommand(process.execPath, ["-e", "setTimeout(() => {}, 5000)"], {
+      timeoutMs: 50,
+    });
+
+    await expect(hungCommand).rejects.toThrow(/timed out after 50 ms/);
+  });
+
+  it("limits gh calls by default and leaves git, which may clone for minutes, unlimited", () => {
+    expect(defaultTimeoutMs("gh")).toBe(120_000);
+    expect(defaultTimeoutMs("git")).toBe(0);
   });
 });
 

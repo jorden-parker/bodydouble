@@ -37,7 +37,7 @@ function facts(overrides: Partial<PullRequestFacts> = {}): PullRequestFacts {
     reviewDecision: null,
     checks: "passing",
     createdAt: new Date(NOW - 2 * 24 * HOUR).toISOString(),
-    isMerged: false,
+    isClosed: false,
     ...overrides,
   };
 }
@@ -61,6 +61,7 @@ function inboxWith(overrides: Partial<Inbox> = {}): Inbox {
     requestsError: null,
     entries: [],
     repositoryError: null,
+    isRepositoryListCapped: false,
     dependabot: null,
     smartlingCount: null,
     hasRepositories: true,
@@ -164,6 +165,12 @@ describe("QueueScreen", () => {
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toContain("/session");
     expect(JSON.parse(String(init.body))).toEqual({ type: "wake" });
+  });
+
+  it("says when the repository list stopped at the first 100", async () => {
+    inboxState.inbox = inboxWith({ isRepositoryListCapped: true });
+    render(await Screen());
+    expect(screen.getByText("Showing the first 100")).toBeTruthy();
   });
 
   it("says the pond is clear when nothing waits and GitHub answered", async () => {

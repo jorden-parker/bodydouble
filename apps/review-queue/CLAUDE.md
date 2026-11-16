@@ -57,7 +57,8 @@ most 6 000 characters (`CHANGES_CHAR_BUDGET`, `lib/llm/changes-summary.ts`); the
 answer is cached by baseline and head SHA, and a larger interdiff makes no call.
 `changes?sha=` returns the interdiff from the baseline (404 when there is none),
 `head` returns the current head, and `submit` answers 409 when the PR head no
-longer matches the `headSha` being posted.
+longer matches the `headSha` being posted. A review with no line comments whose
+verdict and summary already have a receipt on that head is not posted again.
 
 **PR conversation and receipts** (`lib/github/conversation.ts`, `gh.ts`,
 `components/review/conversation-*`). The `conversation` route reads up to five
@@ -239,18 +240,20 @@ browser marks `Sec-Fetch-Site: same-site` or `cross-site` is refused for every
 method, so another localhost port cannot read or write with the cookie; a
 request without that header is judged by the cookie alone (curl).
 
-**Shell-outs** all go through `lib/exec.ts` (`Runner`). It drops the repository
-variables git exports inside hooks (`lib/git-env.ts`), so checkouts never touch
-an enclosing repo. Every git command except the network subcommands (`clone`,
-`fetch`, `ls-remote`, `pull`, `push`) runs with `GIT_CONFIG_GLOBAL` set to the
-null device and `GIT_CONFIG_NOSYSTEM=1` (`commandEnvironment`), so the
-reviewer's own git config cannot change the output the parsers read; the network
-subcommands keep that config. The network subcommands also answer GitHub's
-credential request from the `gh` login (`gh auth git-credential`, set through
-`GIT_CONFIG_COUNT`) and run with `GIT_TERMINAL_PROMPT=0`, so a private repo
-needs no git setup beyond `gh` and a missing login fails at once. Modules take a
-`run` parameter so tests can inject fakes, and `ReviewDeps` injects
-`fetchPullRequest` and `store` the same way.
+**Shell-outs** all go through `lib/exec.ts` (`Runner`). A `gh` call is stopped
+after 120 seconds (`defaultTimeoutMs`); git has no limit, because a first clone
+can take minutes. It drops the repository variables git exports inside hooks
+(`lib/git-env.ts`), so checkouts never touch an enclosing repo. Every git
+command except the network subcommands (`clone`, `fetch`, `ls-remote`, `pull`,
+`push`) runs with `GIT_CONFIG_GLOBAL` set to the null device and
+`GIT_CONFIG_NOSYSTEM=1` (`commandEnvironment`), so the reviewer's own git config
+cannot change the output the parsers read; the network subcommands keep that
+config. The network subcommands also answer GitHub's credential request from the
+`gh` login (`gh auth git-credential`, set through `GIT_CONFIG_COUNT`) and run
+with `GIT_TERMINAL_PROMPT=0`, so a private repo needs no git setup beyond `gh`
+and a missing login fails at once. Modules take a `run` parameter so tests can
+inject fakes, and `ReviewDeps` injects `fetchPullRequest` and `store` the same
+way.
 
 **Client** (`src/components/review/`). `review-loader.tsx` →
 `review-workspace.tsx`, which lays out three regions under one top bar
@@ -288,7 +291,7 @@ started, not started, then checks passing, smaller, older. Each row is
 `queue-row.tsx`, and the rows' own buttons carry the keys `j`/`k`, `s`, `e` and
 `r` (`queue-keys.ts`, `use-queue-keys.ts`). Drafts are never listed
 (`--draft=false`). `loadFacts` in `inbox-data.ts` reads size, checks, head SHA,
-merged state and age for every PR through one aliased GraphQL call
+closed state and age for every PR through one aliased GraphQL call
 (`listPullRequestFacts`, cached 60 s). `?repository=owner/name` filters the
 queue (`repository-filter.tsx`). `openPullRequests` in `services.ts` makes one
 `gh search prs` call per view for all repositories, cached for 60 s;

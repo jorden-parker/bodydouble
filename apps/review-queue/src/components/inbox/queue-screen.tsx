@@ -217,7 +217,7 @@ export async function QueueScreen({ searchParams }: { searchParams?: RepositoryS
           ))}
         </Section>
       )}
-      {inbox.waitingCount === REVIEW_REQUEST_LIMIT && (
+      {(inbox.waitingCount === REVIEW_REQUEST_LIMIT || inbox.isRepositoryListCapped) && (
         <p className="text-label text-fg-muted">Showing the first {REVIEW_REQUEST_LIMIT}</p>
       )}
       {!inbox.hasRepositories && (

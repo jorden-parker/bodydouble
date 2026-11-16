@@ -45,7 +45,7 @@ function facts(overrides: Partial<PullRequestFacts> = {}): PullRequestFacts {
     reviewDecision: null,
     checks: "passing",
     createdAt: new Date(NOW - 3_600_000).toISOString(),
-    isMerged: false,
+    isClosed: false,
     ...overrides,
   };
 }
@@ -87,6 +87,17 @@ describe("loadInbox", () => {
     expect(inbox.requestsError).toBeNull();
   });
 
+  it("says when the repository list stopped at the search limit", async () => {
+    expect((await loadInbox()).isRepositoryListCapped).toBe(false);
+
+    fakes.openPullRequests = async (authorship) =>
+      authorship === "others"
+        ? Array.from({ length: 100 }, (_, index) => request("acme/app", index + 1))
+        : [];
+
+    expect((await loadInbox()).isRepositoryListCapped).toBe(true);
+  });
+
   it("reports a failed review-request search and keeps the rest of the inbox", async () => {
     fakes.reviewRequests = async () => {
       throw new Error("gh: not logged in");
@@ -106,7 +117,7 @@ describe("loadInbox", () => {
     expect(inbox.entries.every((entry) => entry.facts === null)).toBe(true);
   });
 
-  it("adds started sessions that are not in any list, and drops merged ones", async () => {
+  it("adds started sessions that are not in any list, and drops closed or merged ones", async () => {
     fakes.store.rememberTitle("acme/old#5", "Old work");
     fakes.store.setStepDone("acme/old#5", "s1", true);
     fakes.store.rememberTitle("acme/gone#6", "Merged work");
@@ -115,7 +126,7 @@ describe("loadInbox", () => {
       Object.fromEntries(
         refs.map((ref) => {
           const { owner, repo, number } = ref as { owner: string; repo: string; number: number };
-          return [`${owner}/${repo}#${number}`, facts({ isMerged: number === 6 })];
+          return [`${owner}/${repo}#${number}`, facts({ isClosed: number === 6 })];
         }),
       );
     const inbox = await loadInbox();

@@ -231,7 +231,7 @@ export type PullRequestFacts = {
   reviewDecision: string | null;
   checks: ChecksState;
   createdAt: string;
-  isMerged: boolean;
+  isClosed: boolean;
 };
 
 type RawFacts = {
@@ -241,11 +241,11 @@ type RawFacts = {
   headRefOid: string;
   reviewDecision: string | null;
   createdAt: string;
-  merged: boolean;
+  closed: boolean;
   commits: { nodes: { commit: { statusCheckRollup: { state: string } | null } }[] };
 };
 
-const FACTS_FIELDS = `additions deletions changedFiles headRefOid reviewDecision createdAt merged
+const FACTS_FIELDS = `additions deletions changedFiles headRefOid reviewDecision createdAt closed
   commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }`;
 
 const CHECK_STATES: Record<string, ChecksState> = {
@@ -271,7 +271,7 @@ function factsFromRaw(raw: RawFacts): PullRequestFacts {
     reviewDecision: raw.reviewDecision,
     checks: state ? (CHECK_STATES[state] ?? "none") : "none",
     createdAt: raw.createdAt,
-    isMerged: raw.merged,
+    isClosed: raw.closed,
   };
 }
 

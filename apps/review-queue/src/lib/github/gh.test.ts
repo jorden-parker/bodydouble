@@ -460,7 +460,7 @@ describe("listPullRequestFacts", () => {
     headRefOid: "f".repeat(40),
     reviewDecision: "APPROVED",
     createdAt: "2026-11-01T09:00:00Z",
-    merged: false,
+    closed: false,
     commits: { nodes: [{ commit: { statusCheckRollup: { state: "SUCCESS" } } }] },
     ...overrides,
   });
@@ -470,7 +470,7 @@ describe("listPullRequestFacts", () => {
       JSON.stringify({
         data: {
           pr0: { pullRequest: rawFacts() },
-          pr1: { pullRequest: rawFacts({ merged: true, reviewDecision: null }) },
+          pr1: { pullRequest: rawFacts({ closed: true, reviewDecision: null }) },
           pr2: null,
         },
       }),
@@ -488,15 +488,16 @@ describe("listPullRequestFacts", () => {
         reviewDecision: "APPROVED",
         checks: "passing",
         createdAt: "2026-11-01T09:00:00Z",
-        isMerged: false,
+        isClosed: false,
       },
-      "acme/web#3": expect.objectContaining({ isMerged: true, reviewDecision: null }),
+      "acme/web#3": expect.objectContaining({ isClosed: true, reviewDecision: null }),
     });
     expect(calls).toHaveLength(1);
     expect(calls[0].args.slice(0, 3)).toEqual(["api", "graphql", "-f"]);
     expect(calls[0].args[3]).toContain(
       'pr0: repository(owner: "acme", name: "app") { pullRequest(number: 7) {',
     );
+    expect(calls[0].args[3]).toMatch(/createdAt closed\b/);
   });
 
   it("maps the checks rollup to passing, running, failing or none", async () => {

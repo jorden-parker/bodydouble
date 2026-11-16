@@ -1,12 +1,13 @@
 import { z } from "zod";
-import { getPullRequest, submitReview } from "@/lib/github/gh";
+import { getPullRequest, submitReview, type ReviewSubmission } from "@/lib/github/gh";
 import { logServerError } from "@/lib/log";
 import { prKey } from "@/lib/pr-ref";
-import { GITHUB_FAILURE_MESSAGE, withPullRequest } from "@/lib/review/route-context";
+import { withPullRequest } from "@/lib/review/route-context";
 import { jsonError, parseJsonBody } from "@/lib/http";
 import { findPrepared } from "@/lib/review/prepare";
 import { notesOffTheDiff, offTheDiffMessage } from "@/lib/review/note-targets";
 import { sessionStore } from "@/lib/review/services";
+import type { Session } from "@/lib/session/store";
 import { buildSubmission, isPostable } from "@/lib/review/submission";
 import type { Note, PullRequestRef } from "@/lib/types";
 
@@ -15,6 +16,9 @@ const STALE_HEAD_MESSAGE =
 
 const LINE_REFUSED_MESSAGE =
   "GitHub refused a line comment because that line is not in the diff. Deselect notes made against earlier commits and try again.";
+
+const UNCONFIRMED_MESSAGE =
+  "GitHub did not confirm the review. It may still have been posted, so check the pull request before you try again.";
 
 const SubmitSchema = z.object({
   event: z.enum(["APPROVE", "REQUEST_CHANGES", "COMMENT"]),
@@ -37,7 +41,19 @@ function githubStatusOf(error: unknown): number | null {
 function githubFailure(error: unknown): Response {
   logServerError("submit review", error);
   if (githubStatusOf(error) === 422) return jsonError(LINE_REFUSED_MESSAGE, 422);
-  return jsonError(GITHUB_FAILURE_MESSAGE, 502);
+  return jsonError(UNCONFIRMED_MESSAGE, 502);
+}
+
+function isAlreadyPosted(session: Session, submission: ReviewSubmission, headSha: string): boolean {
+  return (
+    submission.comments.length === 0 &&
+    session.submissions.some(
+      (receipt) =>
+        receipt.headSha === headSha &&
+        receipt.event === submission.event &&
+        receipt.body === submission.body,
+    )
+  );
 }
 
 export const POST = withPullRequest(async (request, ref) => {
@@ -61,6 +77,8 @@ export const POST = withPullRequest(async (request, ref) => {
     if (current.headSha !== input.headSha) {
       return jsonError(STALE_HEAD_MESSAGE, 409);
     }
+    const session = store.getSession(key);
+    if (isAlreadyPosted(session, submission, input.headSha)) return Response.json(session);
     posted = await submitReview(ref, submission);
   } catch (error) {
     return githubFailure(error);

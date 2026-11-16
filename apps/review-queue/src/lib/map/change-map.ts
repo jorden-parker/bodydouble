@@ -73,7 +73,7 @@ function nodeForLine(
 ): ChangeNode {
   const definition = innermostDefinition(definitions, line);
   return definition
-    ? symbolNode(path, role, definition, hunkIndex)
+    ? symbolNode(path, role, definition, definitions, hunkIndex)
     : fileNode(path, role, line, [hunkIndex]);
 }
 
@@ -86,14 +86,28 @@ function innermostDefinition(
     .sort((a, b) => a.endLine - a.line - (b.endLine - b.line))[0];
 }
 
+function symbolId(
+  path: string,
+  definition: SymbolDefinition,
+  definitions: SymbolDefinition[],
+): string {
+  const isNameShared = definitions.some(
+    (otherDefinition) =>
+      otherDefinition.name === definition.name && otherDefinition.line !== definition.line,
+  );
+  const id = `${path}#${definition.name}`;
+  return isNameShared ? `${id}@${definition.line}` : id;
+}
+
 function symbolNode(
   path: string,
   role: FileRole,
   definition: SymbolDefinition,
+  definitions: SymbolDefinition[],
   hunkIndex: number,
 ): ChangeNode {
   return {
-    id: `${path}#${definition.name}`,
+    id: symbolId(path, definition, definitions),
     path,
     name: definition.name,
     kind: definition.kind,

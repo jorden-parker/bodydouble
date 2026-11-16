@@ -45,6 +45,23 @@ describe("buildChangeMap", () => {
     expect(map.nodes[0].hunkIndexes).toEqual([0, 1]);
   });
 
+  it("keeps two definitions that share a name in one file as separate nodes", () => {
+    const diffs = [fileDiff("shop.ts", [addedHunk(["one"], 3), addedHunk(["two"], 13)])];
+    const definitions = lookup({
+      "shop.ts": [
+        ["save", 2, 5],
+        ["save", 12, 15],
+      ],
+    });
+
+    const map = buildChangeMap(diffs, definitions, NO_STEPS);
+
+    expect(map.nodes.map((node) => [node.id, node.line, node.hunkIndexes])).toEqual([
+      ["shop.ts#save@2", 2, [0]],
+      ["shop.ts#save@12", 12, [1]],
+    ]);
+  });
+
   it("assigns a changed line to the innermost enclosing definition", () => {
     const diffs = [fileDiff("a.ts", [addedHunk(["inside"], 6)])];
     const definitions = lookup({

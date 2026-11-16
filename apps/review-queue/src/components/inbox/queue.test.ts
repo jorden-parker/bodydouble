@@ -26,7 +26,7 @@ function facts(overrides: Partial<PullRequestFacts> = {}): PullRequestFacts {
     reviewDecision: null,
     checks: "passing",
     createdAt: new Date(NOW - DAY).toISOString(),
-    isMerged: false,
+    isClosed: false,
     ...overrides,
   };
 }
