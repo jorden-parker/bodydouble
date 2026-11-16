@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { dayKey } from "@/lib/metrics/buckets";
 import {
   groupByDay,
-  type DraftRow,
+  type OpenRow,
   type WorkReport,
   type WorkRow,
   type WorkTotals,
@@ -147,7 +147,7 @@ function Totals({ totals }: { totals: WorkTotals }) {
   );
 }
 
-function RowLink({ row }: { row: WorkRow | DraftRow }) {
+function RowLink({ row }: { row: WorkRow | OpenRow }) {
   return (
     <a
       href={row.url}
@@ -195,7 +195,7 @@ function TallyMarks({ count }: { count: number }) {
   );
 }
 
-function DraftRowItem({ row }: { row: DraftRow }) {
+function OpenRowItem({ row }: { row: OpenRow }) {
   const status = row.reviewStatus === null ? [] : [REVIEW_STATUS_LABELS[row.reviewStatus]];
   const line = [`Opened ${formatLongDay(row.day)}`, row.repo, ...status].join(SEPARATOR);
   return (
@@ -300,26 +300,30 @@ function Summary({ report, dayIndex }: { report: WorkReport; dayIndex: number })
   );
 }
 
-function Drafts({ drafts }: { drafts: DraftRow[] }) {
+type OpenPullRequestsProps = { title: string; emptyNote: string; rows: OpenRow[] };
+
+function OpenPullRequests({ title, emptyNote, rows }: OpenPullRequestsProps) {
   return (
-    <div className="flex flex-col gap-2">
-      <h2 className="flex items-center gap-2 text-base font-semibold">
-        Drafts in progress <span className="sr-only">(</span>
-        <span className="rounded-md bg-surface-3 px-2 font-mono text-xs tabular-nums">
-          {drafts.length}
-        </span>
-        <span className="sr-only">)</span>
-      </h2>
-      {drafts.length === 0 ? (
-        <EmptyNote>No drafts on the go.</EmptyNote>
-      ) : (
-        <ul className="flex flex-col divide-y divide-line-soft">
-          {drafts.map((row) => (
-            <DraftRowItem key={row.externalId} row={row} />
-          ))}
-        </ul>
-      )}
-    </div>
+    <Panel title={title}>
+      <div className="flex flex-col gap-2">
+        <h2 className="flex items-center gap-2 text-base font-semibold">
+          {title} <span className="sr-only">(</span>
+          <span className="rounded-md bg-surface-3 px-2 font-mono text-xs tabular-nums">
+            {rows.length}
+          </span>
+          <span className="sr-only">)</span>
+        </h2>
+        {rows.length === 0 ? (
+          <EmptyNote>{emptyNote}</EmptyNote>
+        ) : (
+          <ul className="flex flex-col divide-y divide-line-soft">
+            {rows.map((row) => (
+              <OpenRowItem key={row.externalId} row={row} />
+            ))}
+          </ul>
+        )}
+      </div>
+    </Panel>
   );
 }
 
@@ -333,9 +337,16 @@ function Report({ report, dayIndex }: { report: WorkReport; dayIndex: number }) 
         <Panel title="Summary">
           <Summary report={report} dayIndex={dayIndex} />
         </Panel>
-        <Panel title="Drafts in progress">
-          <Drafts drafts={report.drafts} />
-        </Panel>
+        <OpenPullRequests
+          title="Up for review"
+          emptyNote="Nothing up for review."
+          rows={report.upForReview}
+        />
+        <OpenPullRequests
+          title="Drafts in progress"
+          emptyNote="No drafts on the go."
+          rows={report.drafts}
+        />
       </div>
       <Panel title="Timeline">
         <h2 className="text-base font-semibold">Timeline</h2>

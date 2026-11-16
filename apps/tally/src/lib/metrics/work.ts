@@ -6,7 +6,7 @@ import { allowedEvents, openPullRequests, type DayRange } from "./summary";
 
 export type WorkRow = WorkItem & { day: string };
 
-export type DraftRow = OpenItem & { day: string };
+export type OpenRow = OpenItem & { day: string };
 
 export type WorkTotals = {
   prsMerged: number;
@@ -26,7 +26,8 @@ export type WorkReport = DayRange & {
   totals: WorkTotals;
   prs: WorkRow[];
   tickets: WorkRow[];
-  drafts: DraftRow[];
+  upForReview: OpenRow[];
+  drafts: OpenRow[];
 };
 
 export type WorkReportInput = {
@@ -93,8 +94,16 @@ export function workReport({ items, openItems, settings, period }: WorkReportInp
     .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
   const prs = rows.filter((row) => row.kind === "pr_merged");
   const tickets = rows.filter((row) => row.kind === "story_completed");
-  const drafts = openPullRequests(openItems, allowList)
-    .filter((item) => item.isDraft)
-    .map((item) => ({ ...item, day: dayKey(item.openedAt, timeZone) }));
-  return { ...period, totals: totalsOf(prs, tickets), prs, tickets, drafts };
+  const open = openPullRequests(openItems, allowList).map((item) => ({
+    ...item,
+    day: dayKey(item.openedAt, timeZone),
+  }));
+  return {
+    ...period,
+    totals: totalsOf(prs, tickets),
+    prs,
+    tickets,
+    upForReview: open.filter((item) => !item.isDraft),
+    drafts: open.filter((item) => item.isDraft),
+  };
 }

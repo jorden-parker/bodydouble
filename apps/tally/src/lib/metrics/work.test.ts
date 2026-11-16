@@ -214,4 +214,25 @@ describe("workReport", () => {
     ]);
     expect(result.totals.prsMerged).toBe(0);
   });
+
+  it("lists current allowed PRs up for review whatever the period, apart from drafts", () => {
+    const result = report(
+      [],
+      [
+        draft(),
+        draft({
+          externalId: "ready",
+          isDraft: false,
+          openedAt: "2025-01-01T08:00:00Z",
+          reviewStatus: "awaiting_review",
+        }),
+        draft({ externalId: "blocked", isDraft: false, repo: "stranger/lib" }),
+      ],
+    );
+
+    expect(
+      result.upForReview.map((item) => [item.externalId, item.day, item.reviewStatus]),
+    ).toEqual([["ready", "2025-01-01", "awaiting_review"]]);
+    expect(result.totals.prsMerged).toBe(0);
+  });
 });

@@ -3,7 +3,7 @@ import { plural } from "@/lib/text";
 import {
   cycleTimeMs,
   groupByDay,
-  type DraftRow,
+  type OpenRow,
   type WorkReport,
   type WorkRow,
   type WorkTotals,
@@ -63,7 +63,7 @@ function workLine(row: WorkRow): string {
   return `- ${[link(row), ...detailParts(row)].join(SEPARATOR)}`;
 }
 
-function draftLine(row: DraftRow): string {
+function openLine(row: OpenRow): string {
   const status = row.reviewStatus === null ? null : REVIEW_STATUS_LABELS[row.reviewStatus];
   const parts = known([link(row), row.repo, `opened ${row.day}`, status?.toLowerCase() ?? null]);
   return `- ${parts.join(SEPARATOR)}`;
@@ -125,13 +125,14 @@ function byDay(rows: WorkRow[]): string {
 }
 
 export function workMarkdown(report: WorkReport): string {
-  const { from, to, totals, prs, tickets, drafts } = report;
+  const { from, to, totals, prs, tickets, upForReview, drafts } = report;
   return [
     `# Work log: ${from} to ${to}\n`,
     `${leadSentence(totals)}.\n`,
     section("Summary", summaryLines(totals).join("\n")),
     section(`PRs merged (${prs.length})`, byDay(prs)),
     section(`Tickets completed (${tickets.length})`, byDay(tickets)),
-    section(`Drafts in progress (${drafts.length})`, drafts.map(draftLine).join("\n")),
+    section(`Up for review (${upForReview.length})`, upForReview.map(openLine).join("\n")),
+    section(`Drafts in progress (${drafts.length})`, drafts.map(openLine).join("\n")),
   ].join("\n");
 }

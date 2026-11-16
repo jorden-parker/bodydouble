@@ -124,8 +124,9 @@ zone and week start. `completedTickets` lists the completed role whose
 completion day falls in the current range. `src/lib/metrics/work.ts`
 `workReport` does the same for the work log, over any date range and not limited
 to the sync window. It leaves missing details out of totals rather than counting
-them as zero. Current drafts are listed whatever the range, because `open_items`
-has no history.
+them as zero. Current open PRs are listed whatever the range, because
+`open_items` has no history: drafts under "Drafts in progress" and the rest
+under "Up for review".
 
 **Frontend.** Pages are thin; logic lives in `src/components`. Components take
 optional `api` (`TallyApi`, `src/components/api.ts`) and `now` props that

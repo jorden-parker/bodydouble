@@ -97,6 +97,10 @@ describe("workMarkdown", () => {
 
 - [Ship tally](https://example.test/Ship%20tally) · sc-Ship tally · feature · 3 points · finished in 2 days
 
+## Up for review (1)
+
+- [Count the sheep](https://example.test/Count%20the%20sheep) · acme/web · opened 2026-10-28 · awaiting review
+
 ## Drafts in progress (1)
 
 - [Tidy the proxy](https://example.test/Tidy%20the%20proxy) · acme/api · opened 2026-10-20
@@ -138,6 +142,7 @@ describe("workMarkdown", () => {
       ...report,
       prs: [],
       tickets: [],
+      upForReview: [],
       drafts: [],
       totals: {
         ...report.totals,
@@ -152,6 +157,7 @@ describe("workMarkdown", () => {
     expect(markdown).toContain("0 PRs merged and 0 tickets completed.");
     expect(markdown).toContain("- PRs merged: 0\n- Tickets completed: 0\n");
     expect(markdown).toContain("## PRs merged (0)\n\nNone\n");
+    expect(markdown).toContain("## Up for review (0)\n\nNone\n");
     expect(markdown).toContain("## Drafts in progress (0)\n\nNone\n");
     expect(markdown).not.toContain("Not counted");
   });

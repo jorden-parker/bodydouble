@@ -104,12 +104,30 @@ describe("WorkLog", () => {
   });
 
   it("says when the timeline is empty", async () => {
-    const fetchWork = async () => ({ ...makeWorkReport(), prs: [], tickets: [], drafts: [] });
+    const fetchWork = async () => ({
+      ...makeWorkReport(),
+      prs: [],
+      tickets: [],
+      upForReview: [],
+      drafts: [],
+    });
     render(<WorkLog api={fakeApi({ fetchWork })} now={now} />);
 
     const timeline = await screen.findByRole("region", { name: "Timeline" });
     expect(within(timeline).getByText("A quiet stretch. Nothing here.")).toBeDefined();
+    expect(screen.getByText("Nothing up for review.")).toBeDefined();
     expect(screen.getByText("No drafts on the go.")).toBeDefined();
+  });
+
+  it("lists PRs up for review with when they were opened and their review status", async () => {
+    render(<WorkLog api={fakeApi()} now={now} />);
+
+    const upForReview = await screen.findByRole("region", { name: "Up for review" });
+    expect(within(upForReview).getByRole("heading", { name: "Up for review (1)" })).toBeDefined();
+    expect(within(upForReview).getByRole("link", { name: "Count the sheep" })).toBeDefined();
+    expect(
+      within(upForReview).getByText("Opened Wed 28 Oct · acme/web · Awaiting review"),
+    ).toBeDefined();
   });
 
   it("lists drafts in progress with when they were opened and their review status", async () => {

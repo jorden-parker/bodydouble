@@ -156,6 +156,13 @@ export function makeWorkReport(period: DayRange = WORK_PERIOD): WorkReport {
     },
     prs: [makeWorkRow("pr_merged", "Ship it")],
     tickets: [makeWorkRow("story_completed", "Ship tally")],
+    upForReview: [
+      {
+        ...makeOpenItem("github", "Count the sheep", "acme/web"),
+        reviewStatus: "awaiting_review",
+        day: "2026-10-28",
+      },
+    ],
     drafts: [{ ...draft, isDraft: true, day: "2026-10-20" }],
   };
 }

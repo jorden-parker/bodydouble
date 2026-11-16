@@ -10,8 +10,8 @@ to you.
 
 The **Work log** page is your evidence of what you shipped. Pick any dates to
 see every merged PR with its size and time to merge, every completed ticket with
-its type, points and time to finish, and your current draft PRs. Copy the report
-as Markdown or download it for a review.
+its type, points and time to finish, and your open PRs, split into those up for
+review and drafts. Copy the report as Markdown or download it for a review.
 
 ## Requirements
 
