@@ -1,4 +1,5 @@
-import { buildHref, ChoiceLinks } from "./choice-links";
+import { buildHref } from "./choice-links";
+import { ChoiceMenu } from "./choice-menu";
 import { QUEUE_SORTS, type QueueSort } from "./queue";
 
 const SORT_LABELS: Record<QueueSort, string> = {
@@ -13,7 +14,7 @@ export function sortParameterOf(sort: QueueSort): string | undefined {
   return sort === "recommended" ? undefined : sort;
 }
 
-export function SortLinks({
+export function SortMenu({
   sort,
   repository,
   hasEntriesToOrder,
@@ -24,7 +25,8 @@ export function SortLinks({
 }) {
   if (!hasEntriesToOrder && sort === "recommended") return null;
   return (
-    <ChoiceLinks
+    <ChoiceMenu
+      title="Sort"
       label="Sort pull requests"
       choices={QUEUE_SORTS.map((option) => ({
         label: SORT_LABELS[option],

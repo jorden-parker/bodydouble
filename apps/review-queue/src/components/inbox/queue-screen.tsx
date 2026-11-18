@@ -13,7 +13,7 @@ import type { RecentSubmission } from "@/lib/session/store";
 import { type BumpCounts } from "./bump";
 import { isPondClear, loadInbox } from "./inbox-data";
 import { type QueueEntry, layoutQueue, describeSnooze, parseQueueSort } from "./queue";
-import { SortLinks, sortParameterOf } from "./sort-links";
+import { SortMenu, sortParameterOf } from "./sort-menu";
 import { IdlePreparation } from "./idle-preparation";
 import { QueueFrame } from "./queue-frame";
 import { UpNext } from "./queue-hero";
@@ -180,7 +180,7 @@ export async function QueueScreen({ searchParams }: { searchParams?: RepositoryS
           basePath="/"
           sortParameter={sortParameterOf(sort)}
         />
-        <SortLinks
+        <SortMenu
           sort={sort}
           repository={chosen ?? undefined}
           hasEntriesToOrder={entries.length >= 2}

@@ -295,7 +295,7 @@ closed state and age for every PR through one aliased GraphQL call
 (`listPullRequestFacts`, cached 60 s). `?repository=owner/name` filters the
 queue (`repository-filter.tsx`). `?sort=` (`recommended`, `oldest`, `newest`,
 `smallest`, `updated`) orders the PRs inside each section (`queue.ts`; the sort
-links are in `sort-links.tsx`). `openPullRequests` in `services.ts` makes one
+menu is in `sort-menu.tsx`). `openPullRequests` in `services.ts` makes one
 `gh search prs` call per view for all repositories, cached for 60 s;
 `POST /api/inbox/refresh` clears the GitHub cache for Refresh. Snooze, wake
 (`wake`, the Wake button in Later) and archive are session actions (`snooze`,

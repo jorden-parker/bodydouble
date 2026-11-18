@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PullRequestFacts, ReviewRequest } from "@/lib/github/gh";
@@ -115,6 +116,10 @@ const waitingEntries = [
     progress: null,
   },
 ];
+
+async function openSortMenu() {
+  await userEvent.click(screen.getByRole("button", { name: /^Sort:/ }));
+}
 
 describe("QueueScreen", () => {
   beforeEach(() => {
@@ -238,6 +243,7 @@ describe("QueueScreen", () => {
   it("marks only the chosen sort link with aria-current", async () => {
     inboxState.inbox = inboxWith({ entries: waitingEntries });
     render(await Screen({ sort: "oldest" }));
+    await openSortMenu();
     const sortNav = screen.getByRole("navigation", { name: "Sort pull requests" });
     expect(
       within(sortNav).getByRole("link", { name: "Oldest first" }).getAttribute("aria-current"),
@@ -266,6 +272,7 @@ describe("QueueScreen", () => {
   it("chooses Recommended when the URL has no sort", async () => {
     inboxState.inbox = inboxWith({ entries: waitingEntries });
     render(await Screen());
+    await openSortMenu();
     const sortNav = screen.getByRole("navigation", { name: "Sort pull requests" });
     expect(
       within(sortNav).getByRole("link", { name: "Recommended" }).getAttribute("aria-current"),
@@ -280,6 +287,7 @@ describe("QueueScreen", () => {
       ],
     });
     render(await Screen({ repository: "acme/app", sort: "oldest" }));
+    await openSortMenu();
     const sortNav = screen.getByRole("navigation", { name: "Sort pull requests" });
     expect(within(sortNav).getByRole("link", { name: "Smallest first" }).getAttribute("href")).toBe(
       "/?repository=acme%2Fapp&sort=smallest",
@@ -299,6 +307,7 @@ describe("QueueScreen", () => {
   it("points Recommended at / when no repository is chosen", async () => {
     inboxState.inbox = inboxWith({ entries: waitingEntries });
     render(await Screen({ sort: "newest" }));
+    await openSortMenu();
     const sortNav = screen.getByRole("navigation", { name: "Sort pull requests" });
     expect(within(sortNav).getByRole("link", { name: "Recommended" }).getAttribute("href")).toBe(
       "/",
@@ -312,6 +321,7 @@ describe("QueueScreen", () => {
     first.unmount();
     render(await Screen({ sort: "bogus" }));
     expect(readWaitingTitles()).toEqual(recommended);
+    await openSortMenu();
     const sortNav = screen.getByRole("navigation", { name: "Sort pull requests" });
     expect(
       within(sortNav).getByRole("link", { name: "Recommended" }).getAttribute("aria-current"),
