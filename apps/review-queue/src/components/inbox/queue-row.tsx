@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import type { PullRequestFacts, ReviewRequest } from "@/lib/github/gh";
 import { prKey, prPath } from "@/lib/pr-ref";
 import type { PauseState, ProgressSummary } from "@/lib/session/store";
+import { DateBadge } from "./date-badge";
 import { initialsOf, type QueueEntry, sizeOf } from "./queue";
 import { useSessionChange } from "./use-session-change";
 import { relativeTime } from "./time";
@@ -98,12 +99,8 @@ export function ReferenceLine({
       {request.author && <span className="whitespace-nowrap">by {request.author}</span>}
       {createdAt && (
         <>
-          <time dateTime={createdAt} className="whitespace-nowrap">
-            created {relativeTime(createdAt, now)}
-          </time>
-          <time dateTime={request.updatedAt} className="whitespace-nowrap">
-            updated {relativeTime(request.updatedAt, now)}
-          </time>
+          <DateBadge kind="created" iso={createdAt} now={now} />
+          <DateBadge kind="updated" iso={request.updatedAt} now={now} />
         </>
       )}
     </span>
