@@ -7,7 +7,13 @@ import { openPullRequests, sessionStore } from "@/lib/review/services";
 import { savedRepositories } from "@/lib/settings/repository-settings";
 import { bumpFrom } from "./bump";
 import { failureMessage, buildQueueEntries, readSnoozes } from "./inbox-data";
-import { isEntrySnoozed, rankQueue, type QueueEntry, describeSnooze } from "./queue";
+import {
+  isEntrySnoozed,
+  parseQueueSort,
+  rankQueue,
+  type QueueEntry,
+  describeSnooze,
+} from "./queue";
 import { QueueFrame } from "./queue-frame";
 import { QueueRow } from "./queue-row";
 import {
@@ -16,6 +22,7 @@ import {
   RepositoryFilter,
   type RepositorySearchParams,
 } from "./repository-filter";
+import { SortMenu, sortParameterOf } from "./sort-menu";
 
 type BotListProps = { searchParams?: RepositorySearchParams };
 
@@ -37,13 +44,14 @@ async function BotPullRequestList({
   await connection();
   const store = sessionStore();
   const chosen = await chosenRepository(searchParams);
+  const sort = parseQueueSort((await searchParams)?.sort);
   const outcome = await openPullRequests(authorship).then(
     (requests) => ({ requests, error: null }),
     (failure: unknown) => ({ requests: [], error: failureMessage(failure) }),
   );
   const hasRepositories = savedRepositories(store).length > 0;
   const shown = filterByRepository(outcome.requests, chosen);
-  const entries = rankQueue(await buildQueueEntries(shown));
+  const entries = rankQueue(await buildQueueEntries(shown), sort);
   const snoozes = readSnoozes(store);
   const loadedAt = new Date().toISOString();
   const now = Date.parse(loadedAt);
@@ -72,11 +80,20 @@ async function BotPullRequestList({
           {outcome.requests.length === REVIEW_REQUEST_LIMIT && (
             <p className="text-label text-fg-muted">Showing the first {REVIEW_REQUEST_LIMIT}</p>
           )}
-          <RepositoryFilter
-            requests={outcome.requests}
-            chosen={chosen}
-            basePath={`/${authorship}`}
-          />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 empty:hidden">
+            <RepositoryFilter
+              requests={outcome.requests}
+              chosen={chosen}
+              basePath={`/${authorship}`}
+              sortParameter={sortParameterOf(sort)}
+            />
+            <SortMenu
+              sort={sort}
+              repository={chosen ?? undefined}
+              hasEntriesToOrder={entries.length >= 2}
+              basePath={`/${authorship}`}
+            />
+          </div>
           <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line-soft">
             {entries.map((entry) => {
               const key = prKey(entry.request.ref);

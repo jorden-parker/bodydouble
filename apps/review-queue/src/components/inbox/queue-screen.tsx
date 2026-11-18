@@ -184,6 +184,7 @@ export async function QueueScreen({ searchParams }: { searchParams?: RepositoryS
           sort={sort}
           repository={chosen ?? undefined}
           hasEntriesToOrder={entries.length >= 2}
+          basePath="/"
         />
       </div>
       {layout.upNext && (

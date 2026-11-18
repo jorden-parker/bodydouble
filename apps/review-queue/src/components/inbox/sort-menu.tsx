@@ -18,10 +18,12 @@ export function SortMenu({
   sort,
   repository,
   hasEntriesToOrder,
+  basePath,
 }: {
   sort: QueueSort;
   repository: string | undefined;
   hasEntriesToOrder: boolean;
+  basePath: string;
 }) {
   if (!hasEntriesToOrder && sort === "recommended") return null;
   return (
@@ -30,7 +32,7 @@ export function SortMenu({
       label="Sort pull requests"
       choices={QUEUE_SORTS.map((option) => ({
         label: SORT_LABELS[option],
-        href: buildHref("/", { repository, sort: sortParameterOf(option) }),
+        href: buildHref(basePath, { repository, sort: sortParameterOf(option) }),
         isChosen: option === sort,
       }))}
     />
