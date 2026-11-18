@@ -67,6 +67,9 @@ caches them on `globalThis`. Route handlers in `src/app/api` stay thin and call
   (`src/lib/github/search.ts`) gathers the searches started in the same tick and
   sends them as one aliased GraphQL document, and does the same for each further
   page, so start searches together (`Promise.all`), never one after another.
+  GitHub cuts a request off after about 10 seconds, so when the shared request
+  times out (HTTP 502 or 504) `searchAll` sends those searches one request each
+  and keeps doing so for that `Runner`, which is five requests a sync again.
 - Each search is still settled separately. When GitHub answers only part of the
   request, the answered searches keep their data and `SyncResult.errors.github`
   names every search that failed. When the request itself fails, the message

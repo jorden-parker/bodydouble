@@ -135,6 +135,27 @@ describe("searchAll", () => {
     });
   });
 
+  it("sends the searches apart once GitHub times the shared request out, and keeps doing so", async () => {
+    const requestSizes: number[] = [];
+    const run: Runner = async (command, args) => {
+      const size = args.filter((arg) => /^search\d+=/.test(arg)).length;
+      requestSizes.push(size);
+      if (size > 1) throw new CommandError(command, args, "gh: HTTP 502", "");
+      return JSON.stringify({ data: { search0: page([argValue(args, "search0")]) } });
+    };
+    const searchBoth = () =>
+      Promise.all([
+        searchAll<string>(run, searchFor("mine")),
+        searchAll<string>(run, searchFor("theirs")),
+      ]);
+
+    expect(await searchBoth()).toEqual([["is:pr mine"], ["is:pr theirs"]]);
+    expect(requestSizes).toEqual([2, 1, 1]);
+
+    expect(await searchBoth()).toEqual([["is:pr mine"], ["is:pr theirs"]]);
+    expect(requestSizes).toEqual([2, 1, 1, 1, 1]);
+  });
+
   it("stops after the page limit even when GitHub reports more pages", async () => {
     let pageCalls = 0;
     const run: Runner = async () => {

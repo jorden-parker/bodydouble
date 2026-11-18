@@ -21,8 +21,11 @@ type Answer = {
 
 export const MAX_SEARCH_PAGES = 10;
 
+const TIMED_OUT = /HTTP 50[24]|timed out|timeout/i;
+
 const loginLookups = new WeakMap<Runner, Promise<string>>();
 const waitingSearches = new WeakMap<Runner, WaitingSearch[]>();
+const runnersSearchingApart = new WeakSet<Runner>();
 
 async function lookUpLogin(run: Runner): Promise<string> {
   const output = await run("gh", ["api", "user", "-q", ".login"]);
@@ -101,16 +104,30 @@ function describeFailure(answer: Answer, label: string, alias: string): string {
   return `The search for ${label} failed, so that part was not refreshed. ${own?.message ?? ""}`.trim();
 }
 
-async function sendWaitingSearches(run: Runner): Promise<void> {
-  const waiting = waitingSearches.get(run) ?? [];
-  waitingSearches.delete(run);
-  const answer = await ask(run, waiting);
-  waiting.forEach(({ search, resolve, reject }, index) => {
+function isTimedOut(answer: Answer): boolean {
+  return !answer.data && TIMED_OUT.test(answer.errors?.[0]?.message ?? "");
+}
+
+async function sendSearches(run: Runner, searches: WaitingSearch[]): Promise<void> {
+  const answer = await ask(run, searches);
+  if (searches.length > 1 && isTimedOut(answer)) {
+    runnersSearchingApart.add(run);
+    await Promise.all(searches.map((search) => sendSearches(run, [search])));
+    return;
+  }
+  searches.forEach(({ search, resolve, reject }, index) => {
     const alias = aliasOf(index);
     const page = answer.data?.[alias];
     if (page) resolve(page);
     else reject(new Error(describeFailure(answer, search.label, alias)));
   });
+}
+
+async function sendWaitingSearches(run: Runner): Promise<void> {
+  const waiting = waitingSearches.get(run) ?? [];
+  waitingSearches.delete(run);
+  const requests = runnersSearchingApart.has(run) ? waiting.map((search) => [search]) : [waiting];
+  await Promise.all(requests.map((searches) => sendSearches(run, searches)));
 }
 
 function fetchPage<T>(run: Runner, search: Search, after: string | null): Promise<SearchPage<T>> {
