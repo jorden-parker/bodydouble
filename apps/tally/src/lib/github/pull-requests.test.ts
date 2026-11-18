@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Runner } from "@/lib/exec";
+import { answerEachSearch } from "@/test/answer-each-search";
 import { fetchAuthoredPrs, fetchOpenAuthoredPrs, fetchPullRequestsToReview } from "./pull-requests";
 
 function searchPage(nodes: unknown[]) {
@@ -14,12 +15,12 @@ function argValue(args: string[], name: string): string | undefined {
 
 function graphqlRunner(pages: (search: string) => unknown[]) {
   const searches: string[] = [];
-  const run: Runner = async (_command, args) => {
+  const run: Runner = answerEachSearch(async (_command, args) => {
     if (args[1] === "user") return "jorden-parker\n";
     const search = argValue(args, "search") ?? "";
     searches.push(search);
     return searchPage(pages(search));
-  };
+  });
   return { run, searches };
 }
 
@@ -108,7 +109,7 @@ describe("fetchAuthoredPrs", () => {
     const firstPage = Array.from({ length: 100 }, (_, index) =>
       authoredPullRequest(index + 1, "2026-10-29T08:00:00Z", null),
     );
-    const run: Runner = async (_command, args) => {
+    const run: Runner = answerEachSearch(async (_command, args) => {
       if (args[1] === "user") return "jorden-parker\n";
       const isSecondPage = argValue(args, "after") === "cursor-1";
       return JSON.stringify({
@@ -121,7 +122,7 @@ describe("fetchAuthoredPrs", () => {
           },
         },
       });
-    };
+    });
 
     const { created } = await fetchAuthoredPrs(run, "2026-09-01");
 

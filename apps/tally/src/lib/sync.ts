@@ -119,8 +119,10 @@ async function syncGitHub(
       ),
     );
   }
-  const failure = results.find((settled) => settled.status === "rejected");
-  if (failure) result.errors.github = errorMessage(failure.reason);
+  const failures = results.flatMap((settled) =>
+    settled.status === "rejected" ? [errorMessage(settled.reason)] : [],
+  );
+  if (failures.length > 0) result.errors.github = [...new Set(failures)].join(" ");
   return pullRequests;
 }
 

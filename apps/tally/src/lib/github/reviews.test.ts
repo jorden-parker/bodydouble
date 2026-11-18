@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Runner } from "@/lib/exec";
 import { fetchReviewedPrs } from "./reviews";
+import { answerEachSearch } from "@/test/answer-each-search";
 
 const SINCE = "2026-09-01";
 
@@ -25,11 +26,11 @@ function argValue(args: string[], name: string): string | undefined {
 
 function runnerFor(pages: (after: string | undefined) => string) {
   const graphqlCalls: string[][] = [];
-  const run: Runner = async (_command, args) => {
+  const run: Runner = answerEachSearch(async (_command, args) => {
     if (args[0] === "api" && args[1] === "user") return "jorden-parker\n";
     graphqlCalls.push(args);
     return pages(argValue(args, "after"));
-  };
+  });
   return { run, graphqlCalls };
 }
 
@@ -67,7 +68,6 @@ describe("fetchReviewedPrs", () => {
     expect(argValue(graphqlCalls[0], "search")).toBe(
       "is:pr reviewed-by:jorden-parker -author:jorden-parker updated:>=2026-09-01",
     );
-    expect(argValue(graphqlCalls[0], "login")).toBe("jorden-parker");
   });
 
   it("skips pending reviews and reviews from before the window", async () => {
@@ -113,6 +113,8 @@ describe("fetchReviewedPrs", () => {
 
     await fetchReviewedPrs(run, SINCE);
 
-    expect(argValue(graphqlCalls[0] ?? [], "query")).toContain("reviews(author: $login, last: 50)");
+    expect(argValue(graphqlCalls[0] ?? [], "query")).toContain(
+      'reviews(author: "jorden-parker", last: 50)',
+    );
   });
 });

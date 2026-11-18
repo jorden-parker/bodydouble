@@ -9,6 +9,7 @@ import { loadOpenItems } from "@/lib/store/open-items";
 import { loadSettings, loadSnapshots, saveSettings } from "@/lib/store/settings";
 import { loadTickets } from "@/lib/store/tickets";
 import { completedWork } from "@/lib/store/work";
+import { answerEachSearch } from "@/test/answer-each-search";
 import { syncAll } from "./sync";
 
 const NOW = new Date("2026-10-30T12:00:00Z");
@@ -102,19 +103,37 @@ function searchOf(args: string[]): string {
   return args.find((arg) => arg.startsWith("search="))?.slice("search=".length) ?? "";
 }
 
+const answerOneSearch: Runner = async (_command, args) => {
+  if (args[0] === "api" && args[1] === "user") return "jorden-parker\n";
+  if (isAuthoredSearch(args)) return authoredSearchPage();
+  const search = searchOf(args);
+  if (search.includes("updated:")) return reviewSearchPage();
+  if (search.includes("review-requested:")) return searchPage(TO_REVIEW);
+  if (search.includes("reviewed-by:")) return searchPage([]);
+  return searchPage(OPEN_AUTHORED);
+};
+
+function gitHubFailingWhen(isFailing: (args: string[]) => boolean, message: string): Runner {
+  return answerEachSearch(async (command, args) => {
+    if (isFailing(args)) throw new Error(message);
+    return answerOneSearch(command, args);
+  });
+}
+
 function fakeGitHub(): { run: Runner; calls: string[][] } {
   const calls: string[][] = [];
-  const run: Runner = async (_command, args) => {
+  const answer = answerEachSearch(answerOneSearch);
+  const run: Runner = async (command, args) => {
     calls.push(args);
-    if (args[0] === "api" && args[1] === "user") return "jorden-parker\n";
-    if (isAuthoredSearch(args)) return authoredSearchPage();
-    const search = searchOf(args);
-    if (search.includes("updated:")) return reviewSearchPage();
-    if (search.includes("review-requested:")) return searchPage(TO_REVIEW);
-    if (search.includes("reviewed-by:")) return searchPage([]);
-    return searchPage(OPEN_AUTHORED);
+    return answer(command, args);
   };
   return { run, calls };
+}
+
+function searchesIn(calls: string[][]): string[] {
+  return calls.flatMap((args) =>
+    args.flatMap((arg) => (/^search\d+=/.test(arg) ? [arg.slice(arg.indexOf("=") + 1)] : [])),
+  );
 }
 
 function isOpenAuthoredSearch(args: string[]): boolean {
@@ -122,9 +141,9 @@ function isOpenAuthoredSearch(args: string[]): boolean {
 }
 
 function withOpenAuthoredPrs(openPrs: unknown[]): Runner {
-  const { run } = fakeGitHub();
-  return async (command, args) =>
-    isOpenAuthoredSearch(args) ? searchPage(openPrs) : run(command, args);
+  return answerEachSearch(async (command, args) =>
+    isOpenAuthoredSearch(args) ? searchPage(openPrs) : answerOneSearch(command, args),
+  );
 }
 
 function shortcutStory(id: number, name: string, overrides: Record<string, unknown> = {}) {
@@ -326,13 +345,12 @@ describe("syncAll", () => {
     const healthy = fakeGitHub().run;
     await syncAll({ db, run: healthy, shortcut: fakeShortcut, now: () => NOW });
 
-    const failing: Runner = async (command, args) => {
-      if (isOpenAuthoredSearch(args)) throw new Error("search failed");
-      return healthy(command, args);
-    };
+    const failing = gitHubFailingWhen(isOpenAuthoredSearch, "search failed");
     const result = await syncAll({ db, run: failing, shortcut: fakeShortcut, now: () => NOW });
 
-    expect(result.errors.github).toBe("search failed");
+    expect(result.errors.github).toBe(
+      "The search for my open pull requests failed, so that part was not refreshed. search failed",
+    );
     expect(storedOpenPrUrls()).toEqual([
       "https://github.com/acme/web/pull/6",
       "https://github.com/acme/api/pull/5",
@@ -343,10 +361,7 @@ describe("syncAll", () => {
     const healthy = fakeGitHub().run;
     await syncAll({ db, run: healthy, shortcut: fakeShortcut, now: () => NOW });
 
-    const failing: Runner = async (command, args) => {
-      if (isOpenAuthoredSearch(args)) throw new Error("search failed");
-      return healthy(command, args);
-    };
+    const failing = gitHubFailingWhen(isOpenAuthoredSearch, "search failed");
     await syncAll({ db, run: failing, shortcut: fakeShortcut, now: () => NOW });
 
     expect(loadOpenItems(db).map((openItem) => openItem.reviewStatus)).toEqual([
@@ -360,21 +375,22 @@ describe("syncAll", () => {
 
     await syncAll({ db, run, shortcut: fakeShortcut, now: () => NOW });
 
-    const searches = calls.map(searchOf);
+    const searches = searchesIn(calls);
     expect(searches).toContain("is:pr author:jorden-parker updated:>=2026-08-31 sort:updated-desc");
     expect(searches).toContain(
       "is:pr reviewed-by:jorden-parker -author:jorden-parker updated:>=2026-08-31",
     );
   });
 
-  it("spends one login lookup and five searches on GitHub per sync", async () => {
+  it("spends one login lookup and one request for all five searches per sync", async () => {
     const { run, calls } = fakeGitHub();
 
     await syncAll({ db, run, shortcut: fakeShortcut, now: () => NOW });
 
     expect(calls.filter((args) => args[1] === "user")).toHaveLength(1);
-    expect(calls.filter((args) => args[1] === "graphql")).toHaveLength(5);
-    expect(calls).toHaveLength(6);
+    expect(calls.filter((args) => args[1] === "graphql")).toHaveLength(1);
+    expect(searchesIn(calls)).toHaveLength(5);
+    expect(calls).toHaveLength(2);
   });
 
   it("does not call GitHub while the allow-list is empty", async () => {
@@ -420,17 +436,28 @@ describe("syncAll", () => {
   });
 
   it("keeps reviews when another GitHub call fails", async () => {
-    const { run: healthyGitHub } = fakeGitHub();
-    const run: Runner = async (command, args) => {
-      if (isAuthoredSearch(args)) throw new Error("authored search failed");
-      return healthyGitHub(command, args);
-    };
+    const run = gitHubFailingWhen(isAuthoredSearch, "authored search failed");
 
     const result = await syncAll({ db, run, shortcut: fakeShortcut, now: () => NOW });
 
-    expect(result.errors.github).toBe("authored search failed");
+    expect(result.errors.github).toBe(
+      "The search for pull requests I opened failed, so that part was not refreshed. authored search failed",
+    );
     expect(storedEvents().map((event) => event.kind)).toContain("pr_reviewed");
     expect(loadSettings(db).lastSyncedAt).toBeNull();
+  });
+
+  it("names every GitHub search that failed", async () => {
+    const run = gitHubFailingWhen(
+      (args) => isAuthoredSearch(args) || isOpenAuthoredSearch(args),
+      "no answer",
+    );
+
+    const result = await syncAll({ db, run, shortcut: fakeShortcut, now: () => NOW });
+
+    expect(result.errors.github).toBe(
+      "The search for pull requests I opened failed, so that part was not refreshed. no answer The search for my open pull requests failed, so that part was not refreshed. no answer",
+    );
   });
 
   it("stores my assigned stories as tickets with the review status of their PRs", async () => {

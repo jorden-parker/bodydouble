@@ -63,8 +63,14 @@ caches them on `globalThis`. Route handlers in `src/app/api` stay thin and call
 
 - GitHub and Shortcut run independently, and failures are captured per source in
   `SyncResult.errors`. `lastSyncedAt` only advances when both succeed.
-- Each GitHub call is settled separately, so one failure keeps the other calls'
-  data and is reported in `SyncResult.errors`. `SyncResult.uncountedReviewRepos`
+- The five GitHub searches travel in one request. `searchAll`
+  (`src/lib/github/search.ts`) gathers the searches started in the same tick and
+  sends them as one aliased GraphQL document, and does the same for each further
+  page, so start searches together (`Promise.all`), never one after another.
+- Each search is still settled separately. When GitHub answers only part of the
+  request, the answered searches keep their data and `SyncResult.errors.github`
+  names every search that failed. When the request itself fails, the message
+  says nothing from GitHub was refreshed. `SyncResult.uncountedReviewRepos`
   names repos whose reviews the allow-list dropped; those events are never
   stored.
 - GitHub sync is skipped while the allow-list is empty.
@@ -73,7 +79,7 @@ caches them on `globalThis`. Route handlers in `src/app/api` stay thin and call
   minutes) after a sync starts, or `RATE_LIMIT_COOLDOWN_MS` (15 minutes) when
   GitHub's error names a rate limit. `fetchLogin` asks `gh api user` once per
   `Runner`, and `searchAll` reads at most `MAX_SEARCH_PAGES` pages of 100. A
-  sync is five GraphQL searches when each fits one page; a test in
+  sync is one GraphQL request when each search fits one page; a test in
   `sync.test.ts` pins that budget.
 - Created and merged PRs come from one paged GraphQL search
   (`src/lib/github/search.ts`) over my PRs updated in the window, because
@@ -93,11 +99,13 @@ caches them on `globalThis`. Route handlers in `src/app/api` stay thin and call
   and titles (`sc-1234`), and `linkPullRequests` attaches any PR that names a
   story Shortcut did not attach itself. Shortcut's own attachments win.
 - All remote access goes through `Runner` (`src/lib/exec.ts`): `gh` for GitHub
-  and `short api` for Shortcut. Every command is stopped after 120 seconds, and
-  the Shortcut story search reads at most `MAX_STORY_PAGES` pages. `short` comes
-  from `node_modules/.bin`, so start the server through `bun run`. The CLI uses
-  its own `short install` credentials or an inherited `SHORTCUT_API_TOKEN`,
-  which Next loads from `.env.local`.
+  and `short api` for Shortcut. A failed command rejects with `CommandError`,
+  which keeps the bare reason and what the command printed, because
+  `gh api graphql` prints the searches it could answer before it exits 1. Every
+  command is stopped after 120 seconds, and the Shortcut story search reads at
+  most `MAX_STORY_PAGES` pages. `short` comes from `node_modules/.bin`, so start
+  the server through `bun run`. The CLI uses its own `short install` credentials
+  or an inherited `SHORTCUT_API_TOKEN`, which Next loads from `.env.local`.
 - `createShortcutGet` keeps the `/api/v3/...` path shape and translates it to
   `short api` arguments.
 
@@ -135,8 +143,10 @@ under "Up for review".
 **Frontend.** Pages are thin; logic lives in `src/components`. Components take
 optional `api` (`TallyApi`, `src/components/api.ts`) and `now` props that
 default to the real implementations, and `src/test/fake-api.ts` provides the
-test double. `/work` renders `src/components/work/work-log.tsx`, which exports
-Markdown from `src/lib/metrics/work-markdown.ts`. `/tickets` renders
+test double. `src/test/answer-each-search.ts` lets a fake `Runner` that answers
+one search at a time stand in for the bundled request. `/work` renders
+`src/components/work/work-log.tsx`, which exports Markdown from
+`src/lib/metrics/work-markdown.ts`. `/tickets` renders
 `src/components/tickets/assigned-tickets.tsx`, which filters and groups by
 status through `src/lib/metrics/status-groups.ts`. `use-dashboard.ts` owns
 dashboard state and triggers one automatic sync per load when data is older than

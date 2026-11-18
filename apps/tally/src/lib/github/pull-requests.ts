@@ -34,30 +34,17 @@ type OpenPullRequest = SearchedPullRequest & {
 
 export type ReviewablePullRequest = OpenItem & { headRefName: string; author: string };
 
-const AUTHORED_QUERY = `query($search: String!, $after: String) {
-  search(query: $search, type: ISSUE, first: 100, after: $after) {
-    pageInfo { hasNextPage endCursor }
-    nodes {
-      ... on PullRequest {
-        title
+const AUTHORED_FIELDS = `title
         url
         createdAt
         mergedAt
         additions
         deletions
         changedFiles
-        repository { nameWithOwner }
-      }
-    }
-  }
-}`;
+        repository { nameWithOwner }`;
 
-const OPEN_QUERY = `query($search: String!, $login: String!, $after: String) {
-  search(query: $search, type: ISSUE, first: 100, after: $after) {
-    pageInfo { hasNextPage endCursor }
-    nodes {
-      ... on PullRequest {
-        title
+function openFields(login: string): string {
+  return `title
         url
         createdAt
         isDraft
@@ -66,11 +53,8 @@ const OPEN_QUERY = `query($search: String!, $login: String!, $after: String) {
         repository { nameWithOwner }
         reviewDecision
         reviews { totalCount }
-        myReviews: reviews(author: $login, last: 1) { nodes { state } }
-      }
-    }
-  }
-}`;
+        myReviews: reviews(author: ${JSON.stringify(login)}, last: 1) { nodes { state } }`;
+}
 
 function toEvent(
   kind: TallyEvent["kind"],
@@ -137,9 +121,14 @@ function toReviewablePullRequest(
 async function searchOpenPullRequests(
   run: Runner,
   login: string,
+  label: string,
   filters: string,
 ): Promise<OpenPullRequest[]> {
-  return searchAll<OpenPullRequest>(run, OPEN_QUERY, { search: `is:pr is:open ${filters}`, login });
+  return searchAll<OpenPullRequest>(run, {
+    label,
+    search: `is:pr is:open ${filters}`,
+    fields: openFields(login),
+  });
 }
 
 function distinctByUrl(pullRequests: OpenPullRequest[]): OpenPullRequest[] {
@@ -160,8 +149,11 @@ export async function fetchAuthoredPrs(
   sinceDate: string,
 ): Promise<AuthoredPullRequests> {
   const login = await fetchLogin(run);
-  const search = `is:pr author:${login} updated:>=${sinceDate} sort:updated-desc`;
-  const authored = await searchAll<AuthoredPullRequest>(run, AUTHORED_QUERY, { search });
+  const authored = await searchAll<AuthoredPullRequest>(run, {
+    label: "pull requests I opened",
+    search: `is:pr author:${login} updated:>=${sinceDate} sort:updated-desc`,
+    fields: AUTHORED_FIELDS,
+  });
   const sinceTimestamp = `${sinceDate}T00:00:00Z`;
   return {
     created: authored
@@ -176,18 +168,26 @@ export async function fetchAuthoredPrs(
 
 export async function fetchOpenAuthoredPrs(run: Runner): Promise<ReviewablePullRequest[]> {
   const login = await fetchLogin(run);
-  const open = await searchOpenPullRequests(run, login, `author:${login}`);
+  const open = await searchOpenPullRequests(run, login, "my open pull requests", `author:${login}`);
   return open.map((pullRequest) => toReviewablePullRequest(pullRequest, authorStatus(pullRequest)));
 }
 
 export async function fetchPullRequestsToReview(run: Runner): Promise<ReviewablePullRequest[]> {
   const login = await fetchLogin(run);
-  const requested = await searchOpenPullRequests(run, login, `review-requested:${login}`);
-  const reviewed = await searchOpenPullRequests(
-    run,
-    login,
-    `reviewed-by:${login} -author:${login}`,
-  );
+  const [requested, reviewed] = await Promise.all([
+    searchOpenPullRequests(
+      run,
+      login,
+      "pull requests waiting on my review",
+      `review-requested:${login}`,
+    ),
+    searchOpenPullRequests(
+      run,
+      login,
+      "open pull requests I reviewed",
+      `reviewed-by:${login} -author:${login}`,
+    ),
+  ]);
   return distinctByUrl([...requested, ...reviewed])
     .filter((pullRequest) => myLastReviewState(pullRequest) !== "APPROVED")
     .map((pullRequest) => toReviewablePullRequest(pullRequest, reviewerStatus(pullRequest)));

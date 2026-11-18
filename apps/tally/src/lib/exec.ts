@@ -2,6 +2,18 @@ import { execFile } from "node:child_process";
 
 export type Runner = (command: string, args: string[]) => Promise<string>;
 
+export class CommandError extends Error {
+  constructor(
+    command: string,
+    args: string[],
+    readonly reason: string,
+    readonly printed: string,
+  ) {
+    super(`${command} ${args.join(" ")} failed: ${reason}`);
+    this.name = "CommandError";
+  }
+}
+
 const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
 const COMMAND_TIMEOUT_MS = 120_000;
 
@@ -17,7 +29,7 @@ export function createRunner(timeoutMs: number = COMMAND_TIMEOUT_MS): Runner {
             const reason = error.killed
               ? `timed out after ${timeoutMs} ms`
               : stderr || error.message;
-            reject(new Error(`${command} ${args.join(" ")} failed: ${reason}`));
+            reject(new CommandError(command, args, reason, stdout));
             return;
           }
           resolve(stdout);

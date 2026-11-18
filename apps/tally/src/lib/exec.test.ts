@@ -14,6 +14,15 @@ describe("runCommand", () => {
     await expect(failure).rejects.toThrow(/boom/);
   });
 
+  it("keeps what a failed command printed and its bare reason", async () => {
+    const failure = runCommand(process.execPath, [
+      "-e",
+      "process.stdout.write('partial'); process.stderr.write('boom'); process.exit(1)",
+    ]);
+
+    await expect(failure).rejects.toMatchObject({ printed: "partial", reason: "boom" });
+  });
+
   it("stops a command that outlives the time limit and says so", async () => {
     const run = createRunner(50);
 

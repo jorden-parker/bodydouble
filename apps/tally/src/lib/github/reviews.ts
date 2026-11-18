@@ -11,19 +11,12 @@ type PullRequestNode = {
   reviews: { nodes: ReviewNode[] };
 };
 
-const QUERY = `query($search: String!, $login: String!, $after: String) {
-  search(query: $search, type: ISSUE, first: 100, after: $after) {
-    pageInfo { hasNextPage endCursor }
-    nodes {
-      ... on PullRequest {
-        title
+function reviewedFields(login: string): string {
+  return `title
         url
         repository { nameWithOwner }
-        reviews(author: $login, last: 50) { nodes { url submittedAt } }
-      }
-    }
-  }
-}`;
+        reviews(author: ${JSON.stringify(login)}, last: 50) { nodes { url submittedAt } }`;
+}
 
 function toEvents(pullRequest: PullRequestNode, sinceTimestamp: string): TallyEvent[] {
   return pullRequest.reviews.nodes.flatMap((review) =>
@@ -45,7 +38,10 @@ function toEvents(pullRequest: PullRequestNode, sinceTimestamp: string): TallyEv
 
 export async function fetchReviewedPrs(run: Runner, sinceDate: string): Promise<TallyEvent[]> {
   const login = await fetchLogin(run);
-  const search = `is:pr reviewed-by:${login} -author:${login} updated:>=${sinceDate}`;
-  const pullRequests = await searchAll<PullRequestNode>(run, QUERY, { search, login });
+  const pullRequests = await searchAll<PullRequestNode>(run, {
+    label: "pull requests I reviewed",
+    search: `is:pr reviewed-by:${login} -author:${login} updated:>=${sinceDate}`,
+    fields: reviewedFields(login),
+  });
   return pullRequests.flatMap((pullRequest) => toEvents(pullRequest, `${sinceDate}T00:00:00Z`));
 }
