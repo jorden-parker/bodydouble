@@ -10,7 +10,6 @@ import { prKey, prPath } from "@/lib/pr-ref";
 import { type QueueEntry, estimateReadingMinutes, sizeOf } from "./queue";
 import { ReferenceLine } from "./queue-row";
 import { useSessionChange } from "./use-session-change";
-import { formatDuration } from "./time";
 
 export function UpNext({ entry, reason, now }: { entry: QueueEntry; reason: string; now: number }) {
   const { request, facts } = entry;
@@ -33,10 +32,7 @@ export function UpNext({ entry, reason, now }: { entry: QueueEntry; reason: stri
             Model&apos;s guess: <InlineMarkdown text={entry.intent} />
           </p>
         )}
-        <ReferenceLine
-          request={request}
-          age={facts ? `waiting ${formatDuration(now - Date.parse(facts.createdAt))}` : null}
-        />
+        <ReferenceLine request={request} createdAt={facts?.createdAt ?? null} now={now} />
       </div>
       {facts && (
         <div className="flex flex-wrap gap-2">

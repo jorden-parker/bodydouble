@@ -179,6 +179,24 @@ describe("QueueScreen", () => {
     expect(screen.getAllByText("Checks pass").length).toBeGreaterThan(0);
   });
 
+  it("shows when each PR was created and last updated", async () => {
+    inboxState.inbox = inboxWith({
+      entries: [
+        { request: request(7), facts: facts({ createdAt: daysAgo(5) }), progress: null },
+        {
+          request: { ...request(8), updatedAt: daysAgo(2) },
+          facts: facts({ createdAt: daysAgo(3) }),
+          progress: null,
+        },
+      ],
+    });
+    render(await Screen());
+    expect(screen.getByText("created 5 d ago").getAttribute("datetime")).toBe(daysAgo(5));
+    expect(screen.getByText("updated just now")).toBeTruthy();
+    expect(screen.getByText("created 3 d ago")).toBeTruthy();
+    expect(screen.getByText("updated 2 d ago").getAttribute("datetime")).toBe(daysAgo(2));
+  });
+
   it("puts the model's one-line guess on the row and on Up next", async () => {
     inboxState.inbox = inboxWith({
       entries: [

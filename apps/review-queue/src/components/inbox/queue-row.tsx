@@ -21,7 +21,7 @@ import { prKey, prPath } from "@/lib/pr-ref";
 import type { PauseState, ProgressSummary } from "@/lib/session/store";
 import { initialsOf, type QueueEntry, sizeOf } from "./queue";
 import { useSessionChange } from "./use-session-change";
-import { formatDuration, relativeTime } from "./time";
+import { relativeTime } from "./time";
 
 type Change = ReturnType<typeof useSessionChange>["change"];
 
@@ -83,12 +83,29 @@ function Avatar({ login }: { login: string }) {
   );
 }
 
-export function ReferenceLine({ request, age }: { request: ReviewRequest; age: string | null }) {
+export function ReferenceLine({
+  request,
+  createdAt,
+  now,
+}: {
+  request: ReviewRequest;
+  createdAt: string | null;
+  now: number;
+}) {
   return (
     <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-label text-fg-muted">
       <span className="max-w-full truncate font-mono text-fg">{prKey(request.ref)}</span>
       {request.author && <span className="whitespace-nowrap">by {request.author}</span>}
-      {age && <span className="whitespace-nowrap">{age}</span>}
+      {createdAt && (
+        <>
+          <time dateTime={createdAt} className="whitespace-nowrap">
+            created {relativeTime(createdAt, now)}
+          </time>
+          <time dateTime={request.updatedAt} className="whitespace-nowrap">
+            updated {relativeTime(request.updatedAt, now)}
+          </time>
+        </>
+      )}
     </span>
   );
 }
@@ -105,10 +122,7 @@ function RowIdentity({ entry, now }: { entry: QueueEntry; now: number }) {
           Model&apos;s guess: <InlineMarkdown text={entry.intent} />
         </span>
       )}
-      <ReferenceLine
-        request={request}
-        age={facts ? formatDuration(now - Date.parse(facts.createdAt)) : null}
-      />
+      <ReferenceLine request={request} createdAt={facts?.createdAt ?? null} now={now} />
       {progress?.pause && <PauseNote pause={progress.pause} now={now} />}
     </span>
   );
