@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { AssignedStory } from "@/lib/store/assigned-stories";
+
+vi.mock("@/lib/store/database", () => {
+  throw new Error("status-groups must stay free of the Node-only database module");
+});
+
 import {
   ALL_STATUSES,
   filterByStatus,

@@ -1,8 +1,5 @@
-import {
-  WORKFLOW_STATE_TYPES,
-  type AssignedStory,
-  type WorkflowStateType,
-} from "@/lib/store/assigned-stories";
+import type { AssignedStory } from "@/lib/store/assigned-stories";
+import { WORKFLOW_STATE_TYPES, type WorkflowStateType } from "@/lib/store/workflow-state-types";
 
 export type StatusGrouping = "state" | "type" | "none";
 
