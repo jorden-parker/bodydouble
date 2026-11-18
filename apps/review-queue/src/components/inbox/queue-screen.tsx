@@ -12,15 +12,8 @@ import { VERDICT_LABELS } from "@/lib/review/verdict-labels";
 import type { RecentSubmission } from "@/lib/session/store";
 import { type BumpCounts } from "./bump";
 import { isPondClear, loadInbox } from "./inbox-data";
-import {
-  type QueueEntry,
-  type QueueSort,
-  QUEUE_SORTS,
-  layoutQueue,
-  describeSnooze,
-  parseQueueSort,
-} from "./queue";
-import { buildHref, ChoiceLinks } from "./choice-links";
+import { type QueueEntry, layoutQueue, describeSnooze, parseQueueSort } from "./queue";
+import { SortLinks, sortParameterOf } from "./sort-links";
 import { IdlePreparation } from "./idle-preparation";
 import { QueueFrame } from "./queue-frame";
 import { UpNext } from "./queue-hero";
@@ -164,39 +157,6 @@ function postedEntries(reviews: RecentSubmission[]): (QueueEntry & { review: Rec
     };
     return [{ request, facts: null, progress: null, review }];
   });
-}
-
-const SORT_LABELS: Record<QueueSort, string> = {
-  recommended: "Recommended",
-  oldest: "Oldest first",
-  newest: "Newest first",
-  smallest: "Smallest first",
-};
-
-function sortParameterOf(sort: QueueSort): string | undefined {
-  return sort === "recommended" ? undefined : sort;
-}
-
-function SortLinks({
-  sort,
-  repository,
-  hasEntriesToOrder,
-}: {
-  sort: QueueSort;
-  repository: string | undefined;
-  hasEntriesToOrder: boolean;
-}) {
-  if (!hasEntriesToOrder && sort === "recommended") return null;
-  return (
-    <ChoiceLinks
-      label="Sort pull requests"
-      choices={QUEUE_SORTS.map((option) => ({
-        label: SORT_LABELS[option],
-        href: buildHref("/", { repository, sort: sortParameterOf(option) }),
-        isChosen: option === sort,
-      }))}
-    />
-  );
 }
 
 export async function QueueScreen({ searchParams }: { searchParams?: RepositorySearchParams }) {

@@ -16,7 +16,7 @@ type QueueKind = "paused" | "new-commits" | "started" | "not-started";
 
 export type QueueSize = "S" | "M" | "L";
 
-export const QUEUE_SORTS = ["recommended", "oldest", "newest", "smallest"] as const;
+export const QUEUE_SORTS = ["recommended", "oldest", "newest", "smallest", "updated"] as const;
 
 export type QueueSort = (typeof QUEUE_SORTS)[number];
 
@@ -91,6 +91,10 @@ function createdAtOf(entry: QueueEntry): number {
   return entry.facts ? Date.parse(entry.facts.createdAt) : MISSING;
 }
 
+function updatedAtOf(entry: QueueEntry): number {
+  return Date.parse(entry.request.updatedAt);
+}
+
 function compareNewestFirst(first: number, second: number): number {
   if (first === MISSING || second === MISSING) {
     return Number(first === MISSING) - Number(second === MISSING);
@@ -106,6 +110,7 @@ const SORT_COMPARATORS: Record<QueueSort, QueueComparator> = {
   oldest: (first, second) => createdAtOf(first) - createdAtOf(second),
   newest: (first, second) => compareNewestFirst(createdAtOf(first), createdAtOf(second)),
   smallest: (first, second) => changedLinesOf(first) - changedLinesOf(second),
+  updated: (first, second) => updatedAtOf(second) - updatedAtOf(first),
 };
 
 export function parseQueueSort(value: unknown): QueueSort {

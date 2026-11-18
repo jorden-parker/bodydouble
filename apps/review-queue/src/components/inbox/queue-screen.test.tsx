@@ -250,6 +250,19 @@ describe("QueueScreen", () => {
     ).toBeNull();
   });
 
+  it("orders the Waiting rows by last update for the updated sort", async () => {
+    inboxState.inbox = inboxWith({
+      entries: [
+        { request: { ...request(7), updatedAt: daysAgo(5) }, facts: facts(), progress: null },
+        { request: { ...request(8), updatedAt: daysAgo(1) }, facts: facts(), progress: null },
+        { request: { ...request(9), updatedAt: daysAgo(10) }, facts: facts(), progress: null },
+        { request: { ...request(10), updatedAt: daysAgo(3) }, facts: facts(), progress: null },
+      ],
+    });
+    render(await Screen({ sort: "updated" }));
+    expect(readWaitingTitles()).toEqual(["Change 10", "Change 7", "Change 9"]);
+  });
+
   it("chooses Recommended when the URL has no sort", async () => {
     inboxState.inbox = inboxWith({ entries: waitingEntries });
     render(await Screen());

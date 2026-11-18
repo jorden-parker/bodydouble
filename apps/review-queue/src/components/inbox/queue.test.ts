@@ -127,6 +127,15 @@ describe("rankQueue", () => {
     expect(numbers(rankQueue(entries, "smallest"))).toEqual([3, 2, 1]);
   });
 
+  it("orders each group by last update, most recent first, for the updated sort", () => {
+    const entries = [
+      entry(1, { request: { ...request(1), updatedAt: new Date(NOW - 3 * DAY).toISOString() } }),
+      entry(2, { request: { ...request(2), updatedAt: new Date(NOW - HOUR).toISOString() } }),
+      entry(3, { request: { ...request(3), updatedAt: new Date(NOW - DAY).toISOString() } }),
+    ];
+    expect(numbers(rankQueue(entries, "updated"))).toEqual([2, 3, 1]);
+  });
+
   it("keeps kind rank ahead of the sort", () => {
     const entries = [
       entry(1, { facts: facts({ createdAt: new Date(NOW - 5 * DAY).toISOString() }) }),
@@ -151,6 +160,7 @@ describe("rankQueue", () => {
 describe("parseQueueSort", () => {
   it("keeps a known sort and falls back to recommended for anything else", () => {
     expect(parseQueueSort("oldest")).toBe("oldest");
+    expect(parseQueueSort("updated")).toBe("updated");
     expect(parseQueueSort("sideways")).toBe("recommended");
     expect(parseQueueSort(undefined)).toBe("recommended");
     expect(parseQueueSort(["oldest"])).toBe("recommended");
