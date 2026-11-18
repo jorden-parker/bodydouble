@@ -5,6 +5,18 @@ export type RunOptions = { cwd?: string; input?: string; timeoutMs?: number };
 
 export type Runner = (command: string, args: string[], options?: RunOptions) => Promise<string>;
 
+export class CommandError extends Error {
+  constructor(
+    command: string,
+    args: string[],
+    readonly reason: string,
+    readonly printed: string,
+  ) {
+    super(`${command} ${args.join(" ")} failed: ${reason}`);
+    this.name = "CommandError";
+  }
+}
+
 const MAX_OUTPUT_BYTES = 256 * 1024 * 1024;
 const GH_TIMEOUT_MS = 120_000;
 
@@ -28,7 +40,7 @@ export const runCommand: Runner = (command, args, options = {}) =>
       (error, stdout, stderr) => {
         if (error) {
           const reason = error.killed ? `timed out after ${timeoutMs} ms` : stderr || error.message;
-          reject(new Error(`${command} ${args.join(" ")} failed: ${reason}`));
+          reject(new CommandError(command, args, reason, stdout));
           return;
         }
         resolve(stdout);

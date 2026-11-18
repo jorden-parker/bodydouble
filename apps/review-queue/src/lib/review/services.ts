@@ -7,11 +7,12 @@ import {
   getPullRequest,
   type LinkedIssue,
   listLinkedIssues,
-  listOpenPullRequests,
   listPullRequestFacts,
-  listReviewRequests,
+  loadQueue,
   type PullRequestAuthorship,
   type PullRequestFacts,
+  type QueueListName,
+  type QueueLists,
   type ReviewRequest,
   viewerLogin,
 } from "@/lib/github/gh";
@@ -29,11 +30,11 @@ import type { ReviewDeps } from "./prepare";
 const REVIEW_REQUESTS_TTL_MS = 60_000;
 const PULL_REQUEST_TTL_MS = 30_000;
 const LINKED_ISSUES_TTL_MS = 5 * 60_000;
-const VIEWER_TTL_MS = 60 * 60_000;
 
 const globals = globalThis as {
   reviewQueueStore?: SessionStore;
   reviewQueueGitHubCache?: TtlCache;
+  reviewQueueViewer?: Promise<string>;
 };
 
 export function sessionStore(): SessionStore {
@@ -48,8 +49,25 @@ function githubCache(): TtlCache {
   return globals.reviewQueueGitHubCache;
 }
 
+function queueLists(): Promise<QueueLists> {
+  const repositories = savedRepositories(sessionStore());
+  return githubCache().get(`queue:${repositories.join(",")}`, REVIEW_REQUESTS_TTL_MS, () =>
+    loadQueue(repositories),
+  );
+}
+
+async function queueList(name: QueueListName): Promise<ReviewRequest[]> {
+  const list = (await queueLists())[name];
+  if (list instanceof Error) throw list;
+  return list;
+}
+
 export function reviewRequests(): Promise<ReviewRequest[]> {
-  return githubCache().get("review-requests", REVIEW_REQUESTS_TTL_MS, () => listReviewRequests());
+  return queueList("waiting");
+}
+
+export function openPullRequests(authorship: PullRequestAuthorship): Promise<ReviewRequest[]> {
+  return queueList(authorship);
 }
 
 export function pullRequestFacts(
@@ -63,15 +81,6 @@ export function pullRequestFacts(
 
 export function refreshGitHubCache(): void {
   githubCache().clear();
-}
-
-export function openPullRequests(authorship: PullRequestAuthorship): Promise<ReviewRequest[]> {
-  const repositories = savedRepositories(sessionStore());
-  return githubCache().get(
-    `open-pull-requests:${authorship}:${repositories.join(",")}`,
-    REVIEW_REQUESTS_TTL_MS,
-    () => listOpenPullRequests(repositories, authorship),
-  );
 }
 
 function conversationKey(ref: PullRequestRef): string {
@@ -91,9 +100,11 @@ export function linkedIssues(ref: PullRequestRef): Promise<LinkedIssue[]> {
 }
 
 function viewer(): Promise<string | null> {
-  return githubCache()
-    .get("viewer", VIEWER_TTL_MS, viewerLogin)
-    .catch(() => null);
+  const lookup = (globals.reviewQueueViewer ??= viewerLogin());
+  return lookup.catch(() => {
+    if (globals.reviewQueueViewer === lookup) globals.reviewQueueViewer = undefined;
+    return null;
+  });
 }
 
 export async function conversationView(ref: PullRequestRef): Promise<ConversationView> {

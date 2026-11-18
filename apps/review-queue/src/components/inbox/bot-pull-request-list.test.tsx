@@ -19,7 +19,6 @@ function facts(): PullRequestFacts {
     deletions: 2,
     changedFiles: 1,
     headSha: "head1",
-    reviewDecision: null,
     checks: "passing",
     createdAt: new Date(NOW - 3_600_000).toISOString(),
     isClosed: false,

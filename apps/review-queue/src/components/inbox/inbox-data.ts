@@ -110,20 +110,19 @@ function readSnoozes(store: SessionStore): Record<string, SnoozeUntil> {
   return Object.fromEntries(store.snoozes().map((snooze) => [snooze.key, snooze.until]));
 }
 
-async function buildQueueEntries(requests: ReviewRequest[]): Promise<QueueEntry[]> {
-  const store = sessionStore();
-  const refs = requests.map((request) => request.ref);
-  const facts = await loadFacts(refs);
-  const progress = store.progressSummaries(refs.map(prKey));
-  return requests.map((request) => buildEntry(request, facts, progress));
+function requestsOf(search: PromiseSettledResult<ReviewRequest[]>): ReviewRequest[] {
+  return search.status === "fulfilled" ? search.value : [];
 }
 
-async function loadBotPullRequests(
+function buildBotPullRequests(
   search: PromiseSettledResult<ReviewRequest[]>,
-): Promise<BotPullRequests> {
-  return search.status === "fulfilled"
-    ? { entries: await buildQueueEntries(search.value), error: null }
-    : { entries: [], error: failureMessage(search.reason) };
+  facts: Record<string, PullRequestFacts>,
+  progress: Record<string, ProgressSummary>,
+): BotPullRequests {
+  return {
+    entries: requestsOf(search).map((request) => buildEntry(request, facts, progress)),
+    error: search.status === "rejected" ? failureMessage(search.reason) : null,
+  };
 }
 
 export const loadInbox = cache(async (): Promise<Inbox> => {
@@ -150,12 +149,12 @@ export const loadInbox = cache(async (): Promise<Inbox> => {
   const sessionRefs = [...inProgress, ...archived, ...posted].flatMap(
     (session) => parsePullRequestRef(session.key) ?? [],
   );
-  const refs = dedupeRefs([...listed.map((request) => request.ref), ...sessionRefs]);
-  const [facts, dependabotPullRequests, smartlingPullRequests] = await Promise.all([
-    loadFacts(refs),
-    loadBotPullRequests(dependabot),
-    loadBotPullRequests(smartling),
+  const botRequests = [...requestsOf(dependabot), ...requestsOf(smartling)];
+  const refs = dedupeRefs([
+    ...[...listed, ...botRequests].map((request) => request.ref),
+    ...sessionRefs,
   ]);
+  const facts = await loadFacts(refs);
   const progress = store.progressSummaries(refs.map(prKey));
   const config = await currentLlmConfig();
   return {
@@ -174,7 +173,10 @@ export const loadInbox = cache(async (): Promise<Inbox> => {
       repositories.status === "rejected" ? failureMessage(repositories.reason) : null,
     isRepositoryListCapped:
       repositories.status === "fulfilled" && repositories.value.length === REVIEW_REQUEST_LIMIT,
-    bots: { dependabot: dependabotPullRequests, smartling: smartlingPullRequests },
+    bots: {
+      dependabot: buildBotPullRequests(dependabot, facts, progress),
+      smartling: buildBotPullRequests(smartling, facts, progress),
+    },
     hasRepositories: savedRepositories(store).length > 0,
     snoozes: readSnoozes(store),
     archived: attachIntents(buildSessionEntries(archived, facts, progress), store, config),

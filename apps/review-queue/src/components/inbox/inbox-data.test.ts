@@ -42,7 +42,6 @@ function facts(overrides: Partial<PullRequestFacts> = {}): PullRequestFacts {
     deletions: 2,
     changedFiles: 1,
     headSha: "head1",
-    reviewDecision: null,
     checks: "passing",
     createdAt: new Date(NOW - 3_600_000).toISOString(),
     isClosed: false,
@@ -89,6 +88,18 @@ describe("loadInbox", () => {
     expect(inbox.bots.smartling.entries.map((entry) => entry.request.ref.number)).toEqual([20]);
     expect(inbox.bots.smartling.error).toBeNull();
     expect(inbox.requestsError).toBeNull();
+  });
+
+  it("reads the facts of every list, the bots included, in one call", async () => {
+    const factsCalls: number[] = [];
+    const readFacts = fakes.pullRequestFacts;
+    fakes.pullRequestFacts = async (refs) => {
+      factsCalls.push(refs.length);
+      return readFacts(refs);
+    };
+    const inbox = await loadInbox();
+    expect(factsCalls).toEqual([5]);
+    expect(inbox.bots.smartling.entries[0].facts?.additions).toBe(10);
   });
 
   it("reports a failed bot search on that bot and keeps the rest of the inbox", async () => {

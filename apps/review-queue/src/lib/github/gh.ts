@@ -1,4 +1,4 @@
-import type { Runner } from "@/lib/exec";
+import { CommandError, type Runner } from "@/lib/exec";
 import { conditionalGet, type EtagCache } from "./conditional-get";
 import { githubRun } from "./github-guard";
 import type { PullRequestRef } from "@/lib/types";
@@ -46,48 +46,9 @@ export type ReviewSubmission = {
   }[];
 };
 
-type SearchResult = {
-  number: number;
-  title: string;
-  url: string;
-  repository: { nameWithOwner: string };
-  author: { login: string };
-  updatedAt: string;
-};
-
 const RENDERED_BODY = "Accept: application/vnd.github.full+json";
 
-const SEARCH_FIELDS = "number,title,url,repository,author,updatedAt";
-
 export const REVIEW_REQUEST_LIMIT = 100;
-
-function refFromSearch(result: SearchResult): PullRequestRef {
-  const [owner, repo] = result.repository.nameWithOwner.split("/");
-  return { owner, repo, number: result.number };
-}
-
-function reviewRequestFromSearch(result: SearchResult): ReviewRequest {
-  return {
-    ref: refFromSearch(result),
-    title: result.title,
-    url: result.url,
-    author: result.author.login,
-    updatedAt: result.updatedAt,
-  };
-}
-
-export async function listReviewRequests(run: Runner = githubRun): Promise<ReviewRequest[]> {
-  const output = await run("gh", [
-    "search",
-    "prs",
-    "--review-requested=@me",
-    "--state=open",
-    "--draft=false",
-    `--limit=${REVIEW_REQUEST_LIMIT}`,
-    `--json=${SEARCH_FIELDS}`,
-  ]);
-  return (JSON.parse(output) as SearchResult[]).map(reviewRequestFromSearch);
-}
 
 const BOT_AUTHORS = {
   dependabot: "app/dependabot",
@@ -96,27 +57,40 @@ const BOT_AUTHORS = {
 
 export type PullRequestAuthorship = keyof typeof BOT_AUTHORS | "others";
 
-export async function listOpenPullRequests(
-  repositories: string[],
-  authorship: PullRequestAuthorship,
-  run: Runner = githubRun,
-): Promise<ReviewRequest[]> {
-  if (repositories.length === 0) return [];
-  const authorArgs =
-    authorship === "others"
-      ? ["--", ...Object.values(BOT_AUTHORS).map((author) => `-author:${author}`)]
-      : [`--author=${BOT_AUTHORS[authorship]}`];
-  const output = await run("gh", [
-    "search",
-    "prs",
-    "--state=open",
-    "--draft=false",
-    `--limit=${REVIEW_REQUEST_LIMIT}`,
-    `--json=${SEARCH_FIELDS}`,
-    ...repositories.map((repository) => `--repo=${repository}`),
-    ...authorArgs,
-  ]);
-  return (JSON.parse(output) as SearchResult[]).map(reviewRequestFromSearch);
+type GraphQlAnswer = {
+  data?: Record<string, unknown> | null;
+  errors?: { message: string; path?: (string | number)[] }[];
+};
+
+function answerPrintedBy(failure: unknown): GraphQlAnswer | null {
+  if (!(failure instanceof CommandError)) return null;
+  try {
+    return JSON.parse(failure.printed) as GraphQlAnswer;
+  } catch {
+    return null;
+  }
+}
+
+function reasonOf(failure: unknown): string {
+  if (failure instanceof CommandError) return failure.reason.trim();
+  return failure instanceof Error ? failure.message : String(failure);
+}
+
+async function askGraphQl(query: string, run: Runner): Promise<GraphQlAnswer> {
+  try {
+    return JSON.parse(await run("gh", ["api", "graphql", "-f", `query=${query}`])) as GraphQlAnswer;
+  } catch (failure) {
+    const printed = answerPrintedBy(failure);
+    if (printed?.data) return printed;
+    throw new Error(
+      `GitHub did not answer, so the Queue could not be loaded. ${reasonOf(failure)}`,
+    );
+  }
+}
+
+function errorAt(answer: GraphQlAnswer, alias: string): string {
+  const errors = answer.errors ?? [];
+  return (errors.find((error) => error.path?.[0] === alias) ?? errors[0])?.message ?? "";
 }
 
 export async function getPullRequest(
@@ -228,7 +202,6 @@ export type PullRequestFacts = {
   deletions: number;
   changedFiles: number;
   headSha: string;
-  reviewDecision: string | null;
   checks: ChecksState;
   createdAt: string;
   isClosed: boolean;
@@ -239,13 +212,12 @@ type RawFacts = {
   deletions: number;
   changedFiles: number;
   headRefOid: string;
-  reviewDecision: string | null;
   createdAt: string;
   closed: boolean;
   commits: { nodes: { commit: { statusCheckRollup: { state: string } | null } }[] };
 };
 
-const FACTS_FIELDS = `additions deletions changedFiles headRefOid reviewDecision createdAt closed
+const FACTS_FIELDS = `additions deletions changedFiles headRefOid createdAt closed
   commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }`;
 
 const CHECK_STATES: Record<string, ChecksState> = {
@@ -268,11 +240,30 @@ function factsFromRaw(raw: RawFacts): PullRequestFacts {
     deletions: raw.deletions,
     changedFiles: raw.changedFiles,
     headSha: raw.headRefOid,
-    reviewDecision: raw.reviewDecision,
     checks: state ? (CHECK_STATES[state] ?? "none") : "none",
     createdAt: raw.createdAt,
     isClosed: raw.closed,
   };
+}
+
+const FACTS_PER_CALL = 50;
+
+async function listFactsOf(
+  refs: PullRequestRef[],
+  run: Runner,
+): Promise<[string, PullRequestFacts][]> {
+  const answer = await askGraphQl(`query { ${refs.map(buildFactsField).join(" ")} }`, run);
+  const found = (answer.data ?? {}) as Record<string, { pullRequest: RawFacts | null } | null>;
+  return refs.flatMap((ref, index) => {
+    const raw = found[`pr${index}`]?.pullRequest;
+    return raw ? [[prKey(ref), factsFromRaw(raw)]] : [];
+  });
+}
+
+function inGroupsOf<Entry>(entries: Entry[], size: number): Entry[][] {
+  return Array.from({ length: Math.ceil(entries.length / size) }, (_unused, index) =>
+    entries.slice(index * size, (index + 1) * size),
+  );
 }
 
 export async function listPullRequestFacts(
@@ -280,17 +271,123 @@ export async function listPullRequestFacts(
   run: Runner = githubRun,
 ): Promise<Record<string, PullRequestFacts>> {
   if (refs.length === 0) return {};
-  const query = `query { ${refs.map(buildFactsField).join(" ")} }`;
-  const output = await run("gh", ["api", "graphql", "-f", `query=${query}`]);
-  const factsByAlias = (
-    JSON.parse(output) as { data: Record<string, { pullRequest: RawFacts } | null> }
-  ).data;
-  const facts: Record<string, PullRequestFacts> = {};
-  refs.forEach((ref, index) => {
-    const raw = factsByAlias[`pr${index}`]?.pullRequest;
-    if (raw) facts[prKey(ref)] = factsFromRaw(raw);
-  });
-  return facts;
+  const answers = await Promise.allSettled(
+    inGroupsOf(refs, FACTS_PER_CALL).map((group) => listFactsOf(group, run)),
+  );
+  const answered = answers.flatMap((answer) => (answer.status === "fulfilled" ? answer.value : []));
+  const failure = answers.find((answer) => answer.status === "rejected");
+  if (failure && answered.length === 0) throw failure.reason;
+  return Object.fromEntries(answered);
+}
+
+export type QueueListName = "waiting" | PullRequestAuthorship;
+
+export type QueueLists = Record<QueueListName, ReviewRequest[] | Error>;
+
+type ListedPullRequest = {
+  number: number;
+  title: string;
+  url: string;
+  updatedAt: string;
+  repository: { nameWithOwner: string };
+  author: { __typename: string; login: string } | null;
+};
+
+const LISTED_FIELDS =
+  "number title url updatedAt repository { nameWithOwner } author { __typename login }";
+
+const OPEN_PULL_REQUESTS = "is:pr is:open draft:false";
+
+const LIST_LABELS: Record<QueueListName, string> = {
+  waiting: "the pull requests waiting on your review",
+  others: "the open pull requests of your repositories",
+  dependabot: "the Dependabot pull requests",
+  smartling: "the Smartling pull requests",
+};
+
+function queueSearches(repositories: string[]): Partial<Record<QueueListName, string>> {
+  const waiting = `${OPEN_PULL_REQUESTS} review-requested:@me`;
+  if (repositories.length === 0) return { waiting };
+  const inRepositories = [
+    OPEN_PULL_REQUESTS,
+    ...repositories.map((repository) => `repo:${repository}`),
+  ].join(" ");
+  const notByBots = Object.values(BOT_AUTHORS).map((author) => `-author:${author}`);
+  return {
+    waiting,
+    others: [inRepositories, ...notByBots].join(" "),
+    dependabot: `${inRepositories} author:${BOT_AUTHORS.dependabot}`,
+    smartling: `${inRepositories} author:${BOT_AUTHORS.smartling}`,
+  };
+}
+
+function buildSearchField([name, search]: [string, string]): string {
+  return `${name}: search(query: ${JSON.stringify(search)}, type: ISSUE, first: ${REVIEW_REQUEST_LIMIT}) {
+    nodes { ... on PullRequest { ${LISTED_FIELDS} } }
+  }`;
+}
+
+function buildRepositoryField(repository: string, index: number): string {
+  const [owner, name] = repository.split("/");
+  return `repository${index}: repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(name)}) { id }`;
+}
+
+function authorOf(author: ListedPullRequest["author"]): string {
+  if (!author) return "";
+  return author.__typename === "Bot" ? `${author.login}[bot]` : author.login;
+}
+
+function refOf(listed: ListedPullRequest): PullRequestRef {
+  const [owner, repo] = listed.repository.nameWithOwner.split("/");
+  return { owner, repo, number: listed.number };
+}
+
+function toReviewRequest(listed: ListedPullRequest): ReviewRequest {
+  return {
+    ref: refOf(listed),
+    title: listed.title,
+    url: listed.url,
+    author: authorOf(listed.author),
+    updatedAt: listed.updatedAt,
+  };
+}
+
+function listedAt(answer: GraphQlAnswer, name: QueueListName): ListedPullRequest[] | null {
+  const found = answer.data?.[name] as { nodes: Partial<ListedPullRequest>[] } | null | undefined;
+  if (!found) return null;
+  return found.nodes.filter((node): node is ListedPullRequest => node.number !== undefined);
+}
+
+function describeMissingRepositories(missing: string[]): string {
+  return `GitHub could not find ${missing.join(", ")}, or your login cannot see it, so the pull requests of your repositories are missing here. Fix the repository list in Settings.`;
+}
+
+function describeFailedList(answer: GraphQlAnswer, name: QueueListName): string {
+  return `GitHub could not list ${LIST_LABELS[name]}, so they are missing here. ${errorAt(answer, name)}`.trim();
+}
+
+export async function loadQueue(
+  repositories: string[],
+  run: Runner = githubRun,
+): Promise<QueueLists> {
+  const searches = queueSearches(repositories);
+  const fields = [
+    ...Object.entries(searches).map(buildSearchField),
+    ...repositories.map(buildRepositoryField),
+  ];
+  const answer = await askGraphQl(`query {\n${fields.join("\n")}\n}`, run);
+  const missing = repositories.flatMap((repository, index) =>
+    answer.data?.[`repository${index}`] ? [] : [repository],
+  );
+  const lists: QueueLists = { waiting: [], others: [], dependabot: [], smartling: [] };
+  for (const name of Object.keys(searches) as QueueListName[]) {
+    lists[name] =
+      name !== "waiting" && missing.length > 0
+        ? new Error(describeMissingRepositories(missing))
+        : (listedAt(answer, name)?.map(toReviewRequest) ??
+          new Error(describeFailedList(answer, name)));
+  }
+  return lists;
 }
 
 export async function viewerLogin(run: Runner = githubRun): Promise<string> {

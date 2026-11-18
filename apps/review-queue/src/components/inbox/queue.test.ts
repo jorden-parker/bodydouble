@@ -30,7 +30,6 @@ function facts(overrides: Partial<PullRequestFacts> = {}): PullRequestFacts {
     deletions: 10,
     changedFiles: 4,
     headSha: "head1",
-    reviewDecision: null,
     checks: "passing",
     createdAt: new Date(NOW - DAY).toISOString(),
     isClosed: false,

@@ -240,20 +240,21 @@ browser marks `Sec-Fetch-Site: same-site` or `cross-site` is refused for every
 method, so another localhost port cannot read or write with the cookie; a
 request without that header is judged by the cookie alone (curl).
 
-**Shell-outs** all go through `lib/exec.ts` (`Runner`). A `gh` call is stopped
-after 120 seconds (`defaultTimeoutMs`); git has no limit, because a first clone
-can take minutes. It drops the repository variables git exports inside hooks
-(`lib/git-env.ts`), so checkouts never touch an enclosing repo. Every git
-command except the network subcommands (`clone`, `fetch`, `ls-remote`, `pull`,
-`push`) runs with `GIT_CONFIG_GLOBAL` set to the null device and
-`GIT_CONFIG_NOSYSTEM=1` (`commandEnvironment`), so the reviewer's own git config
-cannot change the output the parsers read; the network subcommands keep that
-config. The network subcommands also answer GitHub's credential request from the
-`gh` login (`gh auth git-credential`, set through `GIT_CONFIG_COUNT`) and run
-with `GIT_TERMINAL_PROMPT=0`, so a private repo needs no git setup beyond `gh`
-and a missing login fails at once. Modules take a `run` parameter so tests can
-inject fakes, and `ReviewDeps` injects `fetchPullRequest` and `store` the same
-way.
+**Shell-outs** all go through `lib/exec.ts` (`Runner`). A failed command rejects
+with `CommandError`, which keeps the bare reason and what the command printed. A
+`gh` call is stopped after 120 seconds (`defaultTimeoutMs`); git has no limit,
+because a first clone can take minutes. It drops the repository variables git
+exports inside hooks (`lib/git-env.ts`), so checkouts never touch an enclosing
+repo. Every git command except the network subcommands (`clone`, `fetch`,
+`ls-remote`, `pull`, `push`) runs with `GIT_CONFIG_GLOBAL` set to the null
+device and `GIT_CONFIG_NOSYSTEM=1` (`commandEnvironment`), so the reviewer's own
+git config cannot change the output the parsers read; the network subcommands
+keep that config. The network subcommands also answer GitHub's credential
+request from the `gh` login (`gh auth git-credential`, set through
+`GIT_CONFIG_COUNT`) and run with `GIT_TERMINAL_PROMPT=0`, so a private repo
+needs no git setup beyond `gh` and a missing login fails at once. Modules take a
+`run` parameter so tests can inject fakes, and `ReviewDeps` injects
+`fetchPullRequest` and `store` the same way.
 
 **Client** (`src/components/review/`). `review-loader.tsx` →
 `review-workspace.tsx`, which lays out three regions under one top bar
@@ -290,22 +291,31 @@ sections above do not already list), Posted and Archived. Ranking is paused, new
 commits, started, not started, then checks passing, smaller, older. Each row is
 `queue-row.tsx`, and the rows' own buttons carry the keys `j`/`k`, `s`, `e` and
 `r` (`queue-keys.ts`, `use-queue-keys.ts`). Drafts are never listed
-(`--draft=false`). `loadFacts` in `inbox-data.ts` reads size, checks, head SHA,
-closed state and age for every PR through one aliased GraphQL call
-(`listPullRequestFacts`, cached 60 s). `?repository=owner/name` filters the
-queue (`repository-filter.tsx`). `?bots=` (`dependabot`, `smartling`, `both`;
-the Show menu in `bot-filter.tsx`) replaces the queue with a flat list of those
-bots' PRs (`bot-pull-request-list.tsx`), and `next.config.ts` redirects the old
-`/dependabot` and `/smartling` pages to it. `?sort=` (`recommended`, `oldest`,
-`newest`, `smallest`, `updated`) orders the PRs inside each section (`queue.ts`;
-the sort menu is in `sort-menu.tsx`). `openPullRequests` in `services.ts` makes
-one `gh search prs` call per view for all repositories, cached for 60 s;
-`POST /api/inbox/refresh` clears the GitHub cache for Refresh. Snooze, wake
-(`wake`, the Wake button in Later) and archive are session actions (`snooze`,
-`wake`, `archive`), and the step total a session shows as "Step N of M" is
-written when its review is marked seen. A row shows the model's one-line intent
-only when its head SHA already has a cached orientation (`attachIntents`, no
-model call).
+(`draft:false`). `loadFacts` in `inbox-data.ts` reads size, checks, head SHA,
+closed state and age for every PR of every list, the bots included, through
+`listPullRequestFacts` (cached 60 s): one aliased GraphQL call per 50 PRs,
+because GitHub cuts a request off after about 10 seconds and size and checks are
+slow to compute. A group that fails leaves its PRs without facts.
+`?repository=owner/name` filters the queue (`repository-filter.tsx`). `?bots=`
+(`dependabot`, `smartling`, `both`; the Show menu in `bot-filter.tsx`) replaces
+the queue with a flat list of those bots' PRs (`bot-pull-request-list.tsx`), and
+`next.config.ts` redirects the old `/dependabot` and `/smartling` pages to it.
+`?sort=` (`recommended`, `oldest`, `newest`, `smallest`, `updated`) orders the
+PRs inside each section (`queue.ts`; the sort menu is in `sort-menu.tsx`). A
+Queue load is two GitHub calls for up to 50 PRs. `loadQueue` in `gh.ts` reads
+all four lists (review requests, the repositories' other PRs, Dependabot,
+Smartling) in one aliased GraphQL search, cached for 60 s in `services.ts`,
+where `reviewRequests` and `openPullRequests` each hand out their list or throw
+its error. The lists ask only for fast fields, so keep size, checks and
+`reviewDecision` out of that query. `gh` prints the lists GitHub could answer
+before it exits 1 (`CommandError.printed`), so one failed list leaves the
+others, and a repository GitHub cannot find fails the three repository lists
+with a message that names it. `POST /api/inbox/refresh` clears the GitHub cache
+for Refresh. Snooze, wake (`wake`, the Wake button in Later) and archive are
+session actions (`snooze`, `wake`, `archive`), and the step total a session
+shows as "Step N of M" is written when its review is marked seen. A row shows
+the model's one-line intent only when its head SHA already has a cached
+orientation (`attachIntents`, no model call).
 
 **UI** (`src/components/ui/`) holds shadcn/ui primitives (Radix base); add more
 with `bunx shadcn@latest add <name>` and delete exports nothing uses so Fallow

@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { RunOptions } from "@/lib/exec";
+import { CommandError, type RunOptions } from "@/lib/exec";
 import {
   getPullRequest,
   listReviewComments,
-  listOpenPullRequests,
-  listReviewRequests,
   listLinkedIssues,
+  loadQueue,
   listPullRequestFacts,
   listReviews,
   postReplyToReviewComment,
@@ -29,32 +28,6 @@ const REF = { owner: "acme", repo: "app", number: 7 };
 const noCache = { getCached: () => null, setCached: () => {} };
 
 describe("github", () => {
-  it("lists PRs requesting my review", async () => {
-    const { run, calls } = fakeRunner(
-      JSON.stringify([
-        {
-          number: 7,
-          title: "Add cache",
-          url: "https://github.com/acme/app/pull/7",
-          repository: { nameWithOwner: "acme/app" },
-          author: { login: "sam" },
-          updatedAt: "2026-10-01T00:00:00Z",
-        },
-      ]),
-    );
-    const requests = await listReviewRequests(run);
-    expect(calls[0].args).toContain("--review-requested=@me");
-    expect(calls[0].args).toContain("--limit=100");
-    expect(calls[0].args).toContain("--draft=false");
-    expect(requests[0]).toEqual({
-      ref: REF,
-      title: "Add cache",
-      url: "https://github.com/acme/app/pull/7",
-      author: "sam",
-      updatedAt: "2026-10-01T00:00:00Z",
-    });
-  });
-
   it("reads PR metadata from the REST API", async () => {
     const body = JSON.stringify({
       title: "Add cache",
@@ -313,70 +286,6 @@ describe("github", () => {
   });
 });
 
-describe("listOpenPullRequests", () => {
-  const SEARCH_RESULT = {
-    number: 7,
-    title: "Bump lodash",
-    url: "https://github.com/acme/app/pull/7",
-    repository: { nameWithOwner: "acme/app" },
-    author: { login: "dependabot[bot]" },
-    updatedAt: "2026-10-01T00:00:00Z",
-  };
-
-  it("searches every repository in one call and returns the open PRs", async () => {
-    const { run, calls } = fakeRunner(JSON.stringify([SEARCH_RESULT]));
-    const requests = await listOpenPullRequests(["acme/app", "acme/lib"], "dependabot", run);
-    expect(calls).toHaveLength(1);
-    expect(calls[0].args).toEqual([
-      "search",
-      "prs",
-      "--state=open",
-      "--draft=false",
-      "--limit=100",
-      "--json=number,title,url,repository,author,updatedAt",
-      "--repo=acme/app",
-      "--repo=acme/lib",
-      "--author=app/dependabot",
-    ]);
-    expect(requests).toEqual([
-      {
-        ref: REF,
-        title: "Bump lodash",
-        url: "https://github.com/acme/app/pull/7",
-        author: "dependabot[bot]",
-        updatedAt: "2026-10-01T00:00:00Z",
-      },
-    ]);
-  });
-
-  it("asks for the Smartling connector's pull requests for the smartling view", async () => {
-    const { run, calls } = fakeRunner("[]");
-    await listOpenPullRequests(["acme/app"], "smartling", run);
-    expect(calls[0].args.slice(-2)).toEqual([
-      "--repo=acme/app",
-      "--author=app/smartling-github-connector",
-    ]);
-  });
-
-  it("excludes dependabot and smartling after every flag for the others view", async () => {
-    const { run, calls } = fakeRunner("[]");
-    await listOpenPullRequests(["acme/app"], "others", run);
-    expect(calls[0].args.slice(-4)).toEqual([
-      "--repo=acme/app",
-      "--",
-      "-author:app/dependabot",
-      "-author:app/smartling-github-connector",
-    ]);
-    expect(calls[0].args).not.toContain("--author=app/dependabot");
-  });
-
-  it("does not search at all when no repositories are selected", async () => {
-    const { run, calls } = fakeRunner("[]");
-    expect(await listOpenPullRequests([], "others", run)).toEqual([]);
-    expect(calls).toHaveLength(0);
-  });
-});
-
 describe("listLinkedIssues", () => {
   const closingIssue = (
     owner: string,
@@ -452,17 +361,182 @@ describe("listLinkedIssues", () => {
   });
 });
 
-describe("listPullRequestFacts", () => {
-  const rawFacts = (overrides: object = {}) => ({
-    additions: 212,
-    deletions: 48,
-    changedFiles: 9,
-    headRefOid: "f".repeat(40),
-    reviewDecision: "APPROVED",
-    createdAt: "2026-11-01T09:00:00Z",
-    closed: false,
-    commits: { nodes: [{ commit: { statusCheckRollup: { state: "SUCCESS" } } }] },
+const rawFacts = (overrides: object = {}) => ({
+  additions: 212,
+  deletions: 48,
+  changedFiles: 9,
+  headRefOid: "f".repeat(40),
+  createdAt: "2026-11-01T09:00:00Z",
+  closed: false,
+  commits: { nodes: [{ commit: { statusCheckRollup: { state: "SUCCESS" } } }] },
+  ...overrides,
+});
+
+function failingWith(reason: string, printed: object | null) {
+  return async (command: string, args: string[]): Promise<string> => {
+    throw new CommandError(command, args, reason, printed === null ? "" : JSON.stringify(printed));
+  };
+}
+
+describe("loadQueue", () => {
+  const listed = (number: number, overrides: object = {}) => ({
+    number,
+    title: `PR ${number}`,
+    url: `https://github.com/acme/app/pull/${number}`,
+    updatedAt: "2026-10-01T00:00:00Z",
+    repository: { nameWithOwner: "acme/app" },
+    author: { __typename: "User", login: "sam" },
     ...overrides,
+  });
+
+  const everyList = (overrides: object = {}) => ({
+    waiting: { nodes: [listed(7)] },
+    others: { nodes: [listed(8)] },
+    dependabot: {
+      nodes: [
+        listed(9, { title: "Bump lodash", author: { __typename: "Bot", login: "dependabot" } }),
+      ],
+    },
+    smartling: { nodes: [] },
+    repository0: { id: "R_1" },
+    repository1: { id: "R_2" },
+    ...overrides,
+  });
+
+  const REPOSITORIES = ["acme/app", "acme/lib"];
+
+  it("loads every Queue list in one GitHub call", async () => {
+    const { run, calls } = fakeRunner(JSON.stringify({ data: everyList() }));
+    const lists = await loadQueue(REPOSITORIES, run);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].args.slice(0, 3)).toEqual(["api", "graphql", "-f"]);
+    const query = calls[0].args[3];
+    expect(query).toContain(
+      'waiting: search(query: "is:pr is:open draft:false review-requested:@me", type: ISSUE, first: 100)',
+    );
+    expect(query).toContain(
+      'others: search(query: "is:pr is:open draft:false repo:acme/app repo:acme/lib -author:app/dependabot -author:app/smartling-github-connector"',
+    );
+    expect(query).toContain(
+      'dependabot: search(query: "is:pr is:open draft:false repo:acme/app repo:acme/lib author:app/dependabot"',
+    );
+    expect(query).toContain(
+      'smartling: search(query: "is:pr is:open draft:false repo:acme/app repo:acme/lib author:app/smartling-github-connector"',
+    );
+    expect(query).toContain('repository1: repository(owner: "acme", name: "lib") { id }');
+    expect(lists.waiting).toEqual([
+      {
+        ref: REF,
+        title: "PR 7",
+        url: "https://github.com/acme/app/pull/7",
+        author: "sam",
+        updatedAt: "2026-10-01T00:00:00Z",
+      },
+    ]);
+    expect(lists.others).toHaveLength(1);
+    expect(lists.dependabot).toMatchObject([
+      { ref: { owner: "acme", repo: "app", number: 9 }, author: "dependabot[bot]" },
+    ]);
+    expect(lists.smartling).toEqual([]);
+  });
+
+  it("leaves the slow size and checks fields out, so a long list cannot time the request out", async () => {
+    const { run, calls } = fakeRunner(JSON.stringify({ data: everyList() }));
+    await loadQueue(REPOSITORIES, run);
+    expect(calls[0].args[3]).not.toMatch(/additions|statusCheckRollup|reviewDecision/);
+  });
+
+  it("searches only for review requests when no repositories are picked", async () => {
+    const { run, calls } = fakeRunner(JSON.stringify({ data: { waiting: { nodes: [] } } }));
+    const lists = await loadQueue([], run);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].args[3]).not.toContain("others:");
+    expect(lists).toEqual({ waiting: [], others: [], dependabot: [], smartling: [] });
+  });
+
+  it("keeps the lists GitHub answered and explains the one it could not", async () => {
+    const run = failingWith("gh: Something went wrong", {
+      data: everyList({ others: null }),
+      errors: [{ message: "Something went wrong", path: ["others"] }],
+    });
+    const lists = await loadQueue(REPOSITORIES, run);
+    expect(lists.waiting).toHaveLength(1);
+    expect(lists.dependabot).toHaveLength(1);
+    expect(lists.others).toEqual(
+      new Error(
+        "GitHub could not list the open pull requests of your repositories, so they are missing here. Something went wrong",
+      ),
+    );
+  });
+
+  it("fails the repository lists, naming a repository GitHub cannot find", async () => {
+    const run = failingWith("gh: Could not resolve to a Repository", {
+      data: everyList({ repository1: null }),
+      errors: [{ message: "Could not resolve to a Repository", path: ["repository1"] }],
+    });
+    const lists = await loadQueue(REPOSITORIES, run);
+    const missing = new Error(
+      "GitHub could not find acme/lib, or your login cannot see it, so the pull requests of your repositories are missing here. Fix the repository list in Settings.",
+    );
+    expect(lists.waiting).toHaveLength(1);
+    expect(lists.others).toEqual(missing);
+    expect(lists.dependabot).toEqual(missing);
+    expect(lists.smartling).toEqual(missing);
+  });
+
+  it("says the Queue was not loaded when GitHub does not answer at all", async () => {
+    const run = failingWith("gh: API rate limit exceeded for user ID 1", null);
+    await expect(loadQueue(REPOSITORIES, run)).rejects.toThrow(
+      "GitHub did not answer, so the Queue could not be loaded. gh: API rate limit exceeded for user ID 1",
+    );
+  });
+});
+
+describe("listPullRequestFacts", () => {
+  it("keeps the facts GitHub returned when one PR cannot be found", async () => {
+    const run = failingWith("gh: Could not resolve to a Repository", {
+      data: { pr0: { pullRequest: rawFacts() }, pr1: null },
+      errors: [{ message: "Could not resolve to a Repository", path: ["pr1"] }],
+    });
+    const facts = await listPullRequestFacts([REF, { owner: "gone", repo: "x", number: 1 }], run);
+    expect(Object.keys(facts)).toEqual(["acme/app#7"]);
+  });
+
+  it("asks for at most 50 PRs per call and keeps the calls that answered", async () => {
+    const refs = Array.from({ length: 230 }, (_unused, index) => ({ ...REF, number: index + 1 }));
+    const sizes: number[] = [];
+    const run = async (_command: string, args: string[]) => {
+      const size = args[3].match(/pullRequest\(/g)?.length ?? 0;
+      sizes.push(size);
+      if (size === 30) throw new Error("gh: HTTP 502");
+      return JSON.stringify({
+        data: Object.fromEntries(
+          Array.from({ length: size }, (_unused, index) => [
+            `pr${index}`,
+            { pullRequest: rawFacts() },
+          ]),
+        ),
+      });
+    };
+    const facts = await listPullRequestFacts(refs, run);
+    expect(sizes).toEqual([50, 50, 50, 50, 30]);
+    expect(Object.keys(facts)).toHaveLength(200);
+    expect(facts["acme/app#200"]).toBeDefined();
+    expect(facts["acme/app#201"]).toBeUndefined();
+  });
+
+  it("fails when no call for facts is answered", async () => {
+    const run = failingWith("gh: HTTP 502", null);
+    await expect(listPullRequestFacts([REF], run)).rejects.toThrow("gh: HTTP 502");
+  });
+
+  it("does not ask for the review decision, which nothing shows", async () => {
+    const { run, calls } = fakeRunner(
+      JSON.stringify({ data: { pr0: { pullRequest: rawFacts() } } }),
+    );
+    const facts = await listPullRequestFacts([REF], run);
+    expect(calls[0].args[3]).not.toContain("reviewDecision");
+    expect(facts["acme/app#7"]).not.toHaveProperty("reviewDecision");
   });
 
   it("returns the facts of each PR, keyed by PR, in one GraphQL call", async () => {
@@ -470,7 +544,7 @@ describe("listPullRequestFacts", () => {
       JSON.stringify({
         data: {
           pr0: { pullRequest: rawFacts() },
-          pr1: { pullRequest: rawFacts({ closed: true, reviewDecision: null }) },
+          pr1: { pullRequest: rawFacts({ closed: true }) },
           pr2: null,
         },
       }),
@@ -485,12 +559,11 @@ describe("listPullRequestFacts", () => {
         deletions: 48,
         changedFiles: 9,
         headSha: "f".repeat(40),
-        reviewDecision: "APPROVED",
         checks: "passing",
         createdAt: "2026-11-01T09:00:00Z",
         isClosed: false,
       },
-      "acme/web#3": expect.objectContaining({ isClosed: true, reviewDecision: null }),
+      "acme/web#3": expect.objectContaining({ isClosed: true }),
     });
     expect(calls).toHaveLength(1);
     expect(calls[0].args.slice(0, 3)).toEqual(["api", "graphql", "-f"]);

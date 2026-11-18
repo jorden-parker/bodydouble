@@ -35,7 +35,6 @@ function facts(overrides: Partial<PullRequestFacts> = {}): PullRequestFacts {
     deletions: 48,
     changedFiles: 9,
     headSha: "head1",
-    reviewDecision: null,
     checks: "passing",
     createdAt: new Date(NOW - 2 * 24 * HOUR).toISOString(),
     isClosed: false,
@@ -267,6 +266,17 @@ describe("QueueScreen", () => {
     render(await Screen());
     expect(screen.getByText(/Couldn.t reach GitHub/)).toBeTruthy();
     expect(screen.queryByText("Nothing waiting for review")).toBeNull();
+  });
+
+  it("shows one failure when every list failed for the same reason", async () => {
+    const reason = "GitHub did not answer, so the Queue could not be loaded. gh: HTTP 502";
+    inboxState.inbox = inboxWith({
+      waitingCount: 0,
+      requestsError: reason,
+      repositoryError: reason,
+    });
+    render(await Screen());
+    expect(screen.getAllByText(reason)).toHaveLength(1);
   });
 
   it("orders the Waiting rows by the sort in the URL", async () => {

@@ -226,8 +226,9 @@ function QueueSections({
   return (
     <>
       {isPondClear(inbox) && <PondClear />}
-      {inbox.requestsError && <GitHubFailure error={inbox.requestsError} />}
-      {inbox.repositoryError && <GitHubFailure error={inbox.repositoryError} />}
+      {[...new Set([inbox.requestsError, inbox.repositoryError])].map(
+        (error) => error && <GitHubFailure key={error} error={error} />,
+      )}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <BotFilterMenu chosen={null} query={query} />
         <RepositoryFilter

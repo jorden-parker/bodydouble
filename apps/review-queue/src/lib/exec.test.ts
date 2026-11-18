@@ -24,6 +24,14 @@ describe("runCommand", () => {
     );
   });
 
+  it("keeps what a failed command printed and its bare reason", async () => {
+    const failure = runCommand(process.execPath, [
+      "-e",
+      "process.stdout.write('partial'); process.stderr.write('boom'); process.exit(1)",
+    ]);
+    await expect(failure).rejects.toMatchObject({ printed: "partial", reason: "boom" });
+  });
+
   it("stops a command that outlives its time limit and says so", async () => {
     const hungCommand = runCommand(process.execPath, ["-e", "setTimeout(() => {}, 5000)"], {
       timeoutMs: 50,
