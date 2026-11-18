@@ -12,7 +12,15 @@ import { VERDICT_LABELS } from "@/lib/review/verdict-labels";
 import type { RecentSubmission } from "@/lib/session/store";
 import { type BumpCounts } from "./bump";
 import { isPondClear, loadInbox } from "./inbox-data";
-import { type QueueEntry, layoutQueue, describeSnooze } from "./queue";
+import {
+  type QueueEntry,
+  type QueueSort,
+  QUEUE_SORTS,
+  layoutQueue,
+  describeSnooze,
+  parseQueueSort,
+} from "./queue";
+import { buildHref, ChoiceLinks } from "./choice-links";
 import { IdlePreparation } from "./idle-preparation";
 import { QueueFrame } from "./queue-frame";
 import { UpNext } from "./queue-hero";
@@ -158,12 +166,46 @@ function postedEntries(reviews: RecentSubmission[]): (QueueEntry & { review: Rec
   });
 }
 
+const SORT_LABELS: Record<QueueSort, string> = {
+  recommended: "Recommended",
+  oldest: "Oldest first",
+  newest: "Newest first",
+  smallest: "Smallest first",
+};
+
+function sortParameterOf(sort: QueueSort): string | undefined {
+  return sort === "recommended" ? undefined : sort;
+}
+
+function SortLinks({
+  sort,
+  repository,
+  hasEntriesToOrder,
+}: {
+  sort: QueueSort;
+  repository: string | undefined;
+  hasEntriesToOrder: boolean;
+}) {
+  if (!hasEntriesToOrder && sort === "recommended") return null;
+  return (
+    <ChoiceLinks
+      label="Sort pull requests"
+      choices={QUEUE_SORTS.map((option) => ({
+        label: SORT_LABELS[option],
+        href: buildHref("/", { repository, sort: sortParameterOf(option) }),
+        isChosen: option === sort,
+      }))}
+    />
+  );
+}
+
 export async function QueueScreen({ searchParams }: { searchParams?: RepositorySearchParams }) {
   const inbox = await loadInbox();
   const chosen = await chosenRepository(searchParams);
+  const sort = parseQueueSort((await searchParams)?.sort);
   const now = Date.parse(inbox.loadedAt);
   const entries = inbox.entries.filter((entry) => isInRepository(entry.request, chosen));
-  const layout = layoutQueue(entries, inbox.snoozes, now);
+  const layout = layoutQueue(entries, inbox.snoozes, now, sort);
   const posted = postedEntries(inbox.posted);
   const latest = posted[0];
   return (
@@ -171,11 +213,19 @@ export async function QueueScreen({ searchParams }: { searchParams?: RepositoryS
       {isPondClear(inbox) && <PondClear />}
       {inbox.requestsError && <GitHubFailure error={inbox.requestsError} />}
       {inbox.repositoryError && <GitHubFailure error={inbox.repositoryError} />}
-      <RepositoryFilter
-        requests={inbox.entries.map((entry) => entry.request)}
-        chosen={chosen}
-        basePath="/"
-      />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 empty:hidden">
+        <RepositoryFilter
+          requests={inbox.entries.map((entry) => entry.request)}
+          chosen={chosen}
+          basePath="/"
+          sortParameter={sortParameterOf(sort)}
+        />
+        <SortLinks
+          sort={sort}
+          repository={chosen ?? undefined}
+          hasEntriesToOrder={entries.length >= 2}
+        />
+      </div>
       {layout.upNext && (
         <UpNext entry={layout.upNext.entry} reason={layout.upNext.reason} now={now} />
       )}

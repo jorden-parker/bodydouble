@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PullRequestFacts, ReviewRequest } from "@/lib/github/gh";
@@ -18,11 +18,11 @@ vi.mock("./inbox-data", () => ({
 const NOW = Date.now();
 const HOUR = 3_600_000;
 
-function request(number: number): ReviewRequest {
+function request(number: number, repo = "app"): ReviewRequest {
   return {
-    ref: { owner: "acme", repo: "app", number },
+    ref: { owner: "acme", repo, number },
     title: `Change ${number}`,
-    url: `https://github.com/acme/app/pull/${number}`,
+    url: `https://github.com/acme/${repo}/pull/${number}`,
     author: "sam",
     updatedAt: new Date(NOW).toISOString(),
   };
@@ -73,9 +73,48 @@ function inboxWith(overrides: Partial<Inbox> = {}): Inbox {
   };
 }
 
-async function Screen() {
-  return <TooltipProvider>{await QueueScreen({})}</TooltipProvider>;
+function daysAgo(days: number): string {
+  return new Date(NOW - days * 24 * HOUR).toISOString();
 }
+
+async function Screen(searchParams: Record<string, string> = {}) {
+  return (
+    <TooltipProvider>
+      {await QueueScreen({ searchParams: Promise.resolve(searchParams) })}
+    </TooltipProvider>
+  );
+}
+
+function readWaitingTitles(): string[] {
+  const heading = screen.getByRole("heading", { name: /^Waiting/ });
+  const section = heading.closest("section") as HTMLElement;
+  return within(section)
+    .getAllByText(/^Change \d+$/)
+    .map((element) => element.textContent ?? "");
+}
+
+const waitingEntries = [
+  {
+    request: request(7),
+    facts: facts({ additions: 4, deletions: 1, createdAt: daysAgo(1) }),
+    progress: null,
+  },
+  {
+    request: request(8),
+    facts: facts({ additions: 300, deletions: 0, createdAt: daysAgo(10) }),
+    progress: null,
+  },
+  {
+    request: request(9),
+    facts: facts({ additions: 20, deletions: 0, createdAt: daysAgo(5) }),
+    progress: null,
+  },
+  {
+    request: request(10),
+    facts: facts({ additions: 40, deletions: 0, createdAt: daysAgo(3) }),
+    progress: null,
+  },
+];
 
 describe("QueueScreen", () => {
   beforeEach(() => {
@@ -184,5 +223,85 @@ describe("QueueScreen", () => {
     render(await Screen());
     expect(screen.getByText(/Couldn.t reach GitHub/)).toBeTruthy();
     expect(screen.queryByText("Nothing waiting for review")).toBeNull();
+  });
+
+  it("orders the Waiting rows by the sort in the URL", async () => {
+    inboxState.inbox = inboxWith({ entries: waitingEntries });
+    const first = render(await Screen());
+    const recommended = readWaitingTitles();
+    first.unmount();
+    render(await Screen({ sort: "oldest" }));
+    expect(readWaitingTitles()).toEqual(["Change 9", "Change 10", "Change 7"]);
+    expect(recommended).not.toEqual(["Change 9", "Change 10", "Change 7"]);
+  });
+
+  it("marks only the chosen sort link with aria-current", async () => {
+    inboxState.inbox = inboxWith({ entries: waitingEntries });
+    render(await Screen({ sort: "oldest" }));
+    const sortNav = screen.getByRole("navigation", { name: "Sort pull requests" });
+    expect(
+      within(sortNav).getByRole("link", { name: "Oldest first" }).getAttribute("aria-current"),
+    ).toBe("true");
+    expect(
+      within(sortNav).getByRole("link", { name: "Recommended" }).getAttribute("aria-current"),
+    ).toBeNull();
+    expect(
+      within(sortNav).getByRole("link", { name: "Newest first" }).getAttribute("aria-current"),
+    ).toBeNull();
+  });
+
+  it("chooses Recommended when the URL has no sort", async () => {
+    inboxState.inbox = inboxWith({ entries: waitingEntries });
+    render(await Screen());
+    const sortNav = screen.getByRole("navigation", { name: "Sort pull requests" });
+    expect(
+      within(sortNav).getByRole("link", { name: "Recommended" }).getAttribute("aria-current"),
+    ).toBe("true");
+  });
+
+  it("keeps the repository in sort links and the sort in repository links", async () => {
+    inboxState.inbox = inboxWith({
+      entries: [
+        ...waitingEntries,
+        { request: request(11, "other"), facts: facts(), progress: null },
+      ],
+    });
+    render(await Screen({ repository: "acme/app", sort: "oldest" }));
+    const sortNav = screen.getByRole("navigation", { name: "Sort pull requests" });
+    expect(within(sortNav).getByRole("link", { name: "Smallest first" }).getAttribute("href")).toBe(
+      "/?repository=acme%2Fapp&sort=smallest",
+    );
+    expect(within(sortNav).getByRole("link", { name: "Recommended" }).getAttribute("href")).toBe(
+      "/?repository=acme%2Fapp",
+    );
+    const repositoryNav = screen.getByRole("navigation", { name: "Filter by repository" });
+    expect(
+      within(repositoryNav).getByRole("link", { name: "acme/other" }).getAttribute("href"),
+    ).toBe("/?repository=acme%2Fother&sort=oldest");
+    expect(
+      within(repositoryNav).getByRole("link", { name: "All repositories" }).getAttribute("href"),
+    ).toBe("/?sort=oldest");
+  });
+
+  it("points Recommended at / when no repository is chosen", async () => {
+    inboxState.inbox = inboxWith({ entries: waitingEntries });
+    render(await Screen({ sort: "newest" }));
+    const sortNav = screen.getByRole("navigation", { name: "Sort pull requests" });
+    expect(within(sortNav).getByRole("link", { name: "Recommended" }).getAttribute("href")).toBe(
+      "/",
+    );
+  });
+
+  it("treats an unknown sort as Recommended", async () => {
+    inboxState.inbox = inboxWith({ entries: waitingEntries });
+    const first = render(await Screen());
+    const recommended = readWaitingTitles();
+    first.unmount();
+    render(await Screen({ sort: "bogus" }));
+    expect(readWaitingTitles()).toEqual(recommended);
+    const sortNav = screen.getByRole("navigation", { name: "Sort pull requests" });
+    expect(
+      within(sortNav).getByRole("link", { name: "Recommended" }).getAttribute("aria-current"),
+    ).toBe("true");
   });
 });

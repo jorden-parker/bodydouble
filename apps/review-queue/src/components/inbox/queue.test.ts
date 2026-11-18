@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { PullRequestFacts, ReviewRequest } from "@/lib/github/gh";
 import type { ProgressSummary } from "@/lib/session/store";
-import { initialsOf, layoutQueue, rankQueue, sizeOf, type QueueEntry } from "./queue";
+import {
+  initialsOf,
+  layoutQueue,
+  parseQueueSort,
+  rankQueue,
+  sizeOf,
+  type QueueEntry,
+} from "./queue";
 
 const NOW = Date.parse("2026-11-16T12:00:00.000Z");
 const HOUR = 3_600_000;
@@ -92,9 +99,76 @@ describe("rankQueue", () => {
     ];
     expect(numbers(rankQueue(entries))).toEqual([4, 3, 2, 1]);
   });
+
+  it("orders each group by age, oldest first, for the oldest sort", () => {
+    const entries = [
+      entry(1, { facts: facts({ createdAt: new Date(NOW - DAY).toISOString() }) }),
+      entry(2, { facts: facts({ createdAt: new Date(NOW - 5 * DAY).toISOString() }) }),
+      entry(3, { facts: facts({ createdAt: new Date(NOW - 3 * DAY).toISOString() }) }),
+    ];
+    expect(numbers(rankQueue(entries, "oldest"))).toEqual([2, 3, 1]);
+  });
+
+  it("orders each group by age, newest first, for the newest sort", () => {
+    const entries = [
+      entry(1, { facts: facts({ createdAt: new Date(NOW - DAY).toISOString() }) }),
+      entry(2, { facts: facts({ createdAt: new Date(NOW - 5 * DAY).toISOString() }) }),
+      entry(3, { facts: facts({ createdAt: new Date(NOW - 3 * DAY).toISOString() }) }),
+    ];
+    expect(numbers(rankQueue(entries, "newest"))).toEqual([1, 3, 2]);
+  });
+
+  it("orders each group by changed lines, smallest first, for the smallest sort", () => {
+    const entries = [
+      entry(1, { facts: facts({ additions: 900, deletions: 0 }) }),
+      entry(2, { facts: facts({ additions: 50, deletions: 0 }) }),
+      entry(3, { facts: facts({ additions: 10, deletions: 5 }) }),
+    ];
+    expect(numbers(rankQueue(entries, "smallest"))).toEqual([3, 2, 1]);
+  });
+
+  it("keeps kind rank ahead of the sort", () => {
+    const entries = [
+      entry(1, { facts: facts({ createdAt: new Date(NOW - 5 * DAY).toISOString() }) }),
+      entry(2, {
+        facts: facts({ createdAt: new Date(NOW - HOUR).toISOString() }),
+        progress: progress({ pause: { note: "tests", at: "2026-11-16T10:00:00.000Z" } }),
+      }),
+    ];
+    expect(numbers(rankQueue(entries, "oldest"))).toEqual([2, 1]);
+  });
+
+  it("puts entries without facts last under the newest sort", () => {
+    const entries = [
+      entry(1, { facts: null }),
+      entry(2, { facts: facts({ createdAt: new Date(NOW - 2 * DAY).toISOString() }) }),
+      entry(3, { facts: facts({ createdAt: new Date(NOW - DAY).toISOString() }) }),
+    ];
+    expect(numbers(rankQueue(entries, "newest"))).toEqual([3, 2, 1]);
+  });
+});
+
+describe("parseQueueSort", () => {
+  it("keeps a known sort and falls back to recommended for anything else", () => {
+    expect(parseQueueSort("oldest")).toBe("oldest");
+    expect(parseQueueSort("sideways")).toBe("recommended");
+    expect(parseQueueSort(undefined)).toBe("recommended");
+    expect(parseQueueSort(["oldest"])).toBe("recommended");
+  });
 });
 
 describe("layoutQueue", () => {
+  it("orders Waiting by age and picks Up next by the chosen sort", () => {
+    const entries = [
+      entry(1, { facts: facts({ createdAt: new Date(NOW - DAY).toISOString() }) }),
+      entry(2, { facts: facts({ createdAt: new Date(NOW - 3 * DAY).toISOString() }) }),
+      entry(3, { facts: facts({ createdAt: new Date(NOW - 2 * DAY).toISOString() }) }),
+    ];
+    const layout = layoutQueue(entries, {}, NOW, "oldest");
+    expect(layout.upNext?.entry.request.ref.number).toBe(2);
+    expect(numbers(layout.waiting)).toEqual([3, 1]);
+  });
+
   it("picks the first ranked PR as Up next with a reason and lists each PR once", () => {
     const entries = [entry(1), entry(2, { progress: progress() })];
     const layout = layoutQueue(entries, {}, NOW);

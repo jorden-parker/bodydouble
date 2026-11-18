@@ -1,8 +1,10 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import type { ReviewRequest } from "@/lib/github/gh";
+import { buildHref, ChoiceLinks } from "./choice-links";
 
-export type RepositorySearchParams = Promise<{ repository?: string | string[] }>;
+export type RepositorySearchParams = Promise<{
+  repository?: string | string[];
+  sort?: string | string[];
+}>;
 
 function repositoryOf(request: ReviewRequest): string {
   return `${request.ref.owner}/${request.ref.repo}`;
@@ -30,30 +32,26 @@ export function RepositoryFilter({
   requests,
   chosen,
   basePath,
+  sortParameter,
 }: {
   requests: ReviewRequest[];
   chosen: string | null;
   basePath: string;
+  sortParameter?: string;
 }) {
   const repositories = [...new Set(requests.map(repositoryOf))].sort();
   if (repositories.length < 2 && chosen === null) return null;
   const choices = [
-    { label: "All repositories", href: basePath, isChosen: chosen === null },
+    {
+      label: "All repositories",
+      href: buildHref(basePath, { sort: sortParameter }),
+      isChosen: chosen === null,
+    },
     ...repositories.map((repository) => ({
       label: repository,
-      href: `${basePath}?repository=${encodeURIComponent(repository)}`,
+      href: buildHref(basePath, { repository, sort: sortParameter }),
       isChosen: repository === chosen,
     })),
   ];
-  return (
-    <nav aria-label="Filter by repository" className="flex flex-wrap gap-2">
-      {choices.map((choice) => (
-        <Button key={choice.href} variant={choice.isChosen ? "soft" : "ghost"} size="sm" asChild>
-          <Link href={choice.href} aria-current={choice.isChosen ? "true" : undefined}>
-            {choice.label}
-          </Link>
-        </Button>
-      ))}
-    </nav>
-  );
+  return <ChoiceLinks label="Filter by repository" choices={choices} />;
 }

@@ -16,6 +16,12 @@ type QueueKind = "paused" | "new-commits" | "started" | "not-started";
 
 export type QueueSize = "S" | "M" | "L";
 
+export const QUEUE_SORTS = ["recommended", "oldest", "newest", "smallest"] as const;
+
+export type QueueSort = (typeof QUEUE_SORTS)[number];
+
+type QueueComparator = (first: QueueEntry, second: QueueEntry) => number;
+
 export type QueueLayout = {
   upNext: { entry: QueueEntry; reason: string } | null;
   continued: QueueEntry[];
@@ -85,13 +91,33 @@ function createdAtOf(entry: QueueEntry): number {
   return entry.facts ? Date.parse(entry.facts.createdAt) : MISSING;
 }
 
-export function rankQueue(entries: QueueEntry[]): QueueEntry[] {
+function compareNewestFirst(first: number, second: number): number {
+  if (first === MISSING || second === MISSING) {
+    return Number(first === MISSING) - Number(second === MISSING);
+  }
+  return second - first;
+}
+
+const SORT_COMPARATORS: Record<QueueSort, QueueComparator> = {
+  recommended: (first, second) =>
+    checksRank(first) - checksRank(second) ||
+    changedLinesOf(first) - changedLinesOf(second) ||
+    createdAtOf(first) - createdAtOf(second),
+  oldest: (first, second) => createdAtOf(first) - createdAtOf(second),
+  newest: (first, second) => compareNewestFirst(createdAtOf(first), createdAtOf(second)),
+  smallest: (first, second) => changedLinesOf(first) - changedLinesOf(second),
+};
+
+export function parseQueueSort(value: unknown): QueueSort {
+  return QUEUE_SORTS.find((sort) => sort === value) ?? "recommended";
+}
+
+export function rankQueue(entries: QueueEntry[], sort: QueueSort = "recommended"): QueueEntry[] {
+  const compareWithinKind = SORT_COMPARATORS[sort];
   return [...entries].sort(
     (first, second) =>
       KIND_RANK[classifyEntry(first)] - KIND_RANK[classifyEntry(second)] ||
-      checksRank(first) - checksRank(second) ||
-      changedLinesOf(first) - changedLinesOf(second) ||
-      createdAtOf(first) - createdAtOf(second),
+      compareWithinKind(first, second),
   );
 }
 
@@ -123,9 +149,16 @@ export function layoutQueue(
   entries: QueueEntry[],
   snoozes: Record<string, SnoozeUntil>,
   now: number,
+  sort: QueueSort = "recommended",
 ): QueueLayout {
-  const active = rankQueue(entries.filter((entry) => !isEntrySnoozed(entry, snoozes, now)));
-  const later = rankQueue(entries.filter((entry) => isEntrySnoozed(entry, snoozes, now)));
+  const active = rankQueue(
+    entries.filter((entry) => !isEntrySnoozed(entry, snoozes, now)),
+    sort,
+  );
+  const later = rankQueue(
+    entries.filter((entry) => isEntrySnoozed(entry, snoozes, now)),
+    sort,
+  );
   const [first, ...rest] = active;
   const bumpKindOf = (entry: QueueEntry) => classifyEntry(entry);
   return {
