@@ -295,6 +295,7 @@ describe("QueueScreen", () => {
     expect(within(sortNav).getByRole("link", { name: "Recommended" }).getAttribute("href")).toBe(
       "/?repository=acme%2Fapp",
     );
+    await userEvent.click(screen.getByRole("button", { name: "Repository: acme/app" }));
     const repositoryNav = screen.getByRole("navigation", { name: "Filter by repository" });
     expect(
       within(repositoryNav).getByRole("link", { name: "acme/other" }).getAttribute("href"),

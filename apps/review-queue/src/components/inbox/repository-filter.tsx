@@ -1,5 +1,6 @@
 import type { ReviewRequest } from "@/lib/github/gh";
-import { buildHref, ChoiceLinks } from "./choice-links";
+import { buildHref } from "./build-href";
+import { ChoiceMenu } from "./choice-menu";
 
 export type RepositorySearchParams = Promise<{
   repository?: string | string[];
@@ -53,5 +54,5 @@ export function RepositoryFilter({
       isChosen: repository === chosen,
     })),
   ];
-  return <ChoiceLinks label="Filter by repository" choices={choices} />;
+  return <ChoiceMenu title="Repository" label="Filter by repository" choices={choices} />;
 }

@@ -1,4 +1,4 @@
-import { buildHref } from "./choice-links";
+import { buildHref } from "./build-href";
 import { ChoiceMenu } from "./choice-menu";
 import { QUEUE_SORTS, type QueueSort } from "./queue";
 
