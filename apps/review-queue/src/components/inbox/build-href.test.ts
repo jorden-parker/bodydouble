@@ -3,8 +3,8 @@ import { buildHref } from "./build-href";
 
 describe("buildHref", () => {
   it("adds only the query values that are set", () => {
-    expect(buildHref("/dependabot", { repository: "acme/app", sort: undefined })).toBe(
-      "/dependabot?repository=acme%2Fapp",
+    expect(buildHref("/", { repository: "acme/app", sort: undefined })).toBe(
+      "/?repository=acme%2Fapp",
     );
   });
 

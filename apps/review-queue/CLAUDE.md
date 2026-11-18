@@ -285,18 +285,21 @@ rows of that table, as are the other `g` chords that open a Context view.
 (`QueueEntry`, built in `inbox-data.ts` from review requests, the repositories
 picked in Settings and sessions), and `queue.ts` ranks and places each one
 exactly once: Up next, Continue, New commits, Waiting, then the folds Later
-(snoozed, `lib/session/snooze.ts`), Bots (Dependabot and Smartling, which also
-have their own pages in the top navigation), Posted and Archived. Ranking is
-paused, new commits, started, not started, then checks passing, smaller, older.
-Each row is `queue-row.tsx`, and the rows' own buttons carry the keys `j`/`k`,
-`s`, `e` and `r` (`queue-keys.ts`, `use-queue-keys.ts`). Drafts are never listed
+(snoozed, `lib/session/snooze.ts`), Bots (the Dependabot and Smartling PRs the
+sections above do not already list), Posted and Archived. Ranking is paused, new
+commits, started, not started, then checks passing, smaller, older. Each row is
+`queue-row.tsx`, and the rows' own buttons carry the keys `j`/`k`, `s`, `e` and
+`r` (`queue-keys.ts`, `use-queue-keys.ts`). Drafts are never listed
 (`--draft=false`). `loadFacts` in `inbox-data.ts` reads size, checks, head SHA,
 closed state and age for every PR through one aliased GraphQL call
 (`listPullRequestFacts`, cached 60 s). `?repository=owner/name` filters the
-queue (`repository-filter.tsx`). `?sort=` (`recommended`, `oldest`, `newest`,
-`smallest`, `updated`) orders the PRs inside each section (`queue.ts`; the sort
-menu is in `sort-menu.tsx`). `openPullRequests` in `services.ts` makes one
-`gh search prs` call per view for all repositories, cached for 60 s;
+queue (`repository-filter.tsx`). `?bots=` (`dependabot`, `smartling`, `both`;
+the Show menu in `bot-filter.tsx`) replaces the queue with a flat list of those
+bots' PRs (`bot-pull-request-list.tsx`), and `next.config.ts` redirects the old
+`/dependabot` and `/smartling` pages to it. `?sort=` (`recommended`, `oldest`,
+`newest`, `smallest`, `updated`) orders the PRs inside each section (`queue.ts`;
+the sort menu is in `sort-menu.tsx`). `openPullRequests` in `services.ts` makes
+one `gh search prs` call per view for all repositories, cached for 60 s;
 `POST /api/inbox/refresh` clears the GitHub cache for Refresh. Snooze, wake
 (`wake`, the Wake button in Later) and archive are session actions (`snooze`,
 `wake`, `archive`), and the step total a session shows as "Step N of M" is

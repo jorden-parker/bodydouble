@@ -10,9 +10,18 @@ import { REVIEW_REQUEST_LIMIT, type ReviewRequest } from "@/lib/github/gh";
 import { gitHubPullRequestUrl, parsePullRequestRef, prKey } from "@/lib/pr-ref";
 import { VERDICT_LABELS } from "@/lib/review/verdict-labels";
 import type { RecentSubmission } from "@/lib/session/store";
-import { type BumpCounts } from "./bump";
-import { isPondClear, loadInbox } from "./inbox-data";
-import { type QueueEntry, layoutQueue, describeSnooze, parseQueueSort } from "./queue";
+import { BotFilterMenu, parseBotFilter } from "./bot-filter";
+import { BotPullRequestList, BotRow } from "./bot-pull-request-list";
+import { type BumpCounts, bumpCounts } from "./bump";
+import { type Inbox, isPondClear, loadInbox } from "./inbox-data";
+import {
+  type QueueEntry,
+  type QueueSort,
+  layoutQueue,
+  describeSnooze,
+  parseQueueSort,
+  rankQueue,
+} from "./queue";
 import { SortMenu, sortParameterOf } from "./sort-menu";
 import { IdlePreparation } from "./idle-preparation";
 import { QueueFrame } from "./queue-frame";
@@ -123,25 +132,19 @@ function formatCount(count: number, label: string): string {
   return `${count} ${label}`;
 }
 
-function describeBots(counts: BumpCounts | null, smartlingCount: number | null): string {
+function describeBots(counts: BumpCounts, smartlingCount: number): string {
   const parts = [
-    counts && counts.patch > 0 && formatCount(counts.patch, "patch"),
-    counts && counts.minor > 0 && formatCount(counts.minor, "minor"),
-    counts && counts.major > 0 && formatCount(counts.major, "major"),
-    counts && counts.other > 0 && formatCount(counts.other, "other"),
-    smartlingCount !== null &&
-      smartlingCount > 0 &&
+    counts.patch > 0 && formatCount(counts.patch, "patch"),
+    counts.minor > 0 && formatCount(counts.minor, "minor"),
+    counts.major > 0 && formatCount(counts.major, "major"),
+    counts.other > 0 && formatCount(counts.other, "other"),
+    smartlingCount > 0 &&
       formatCount(
         smartlingCount,
         smartlingCount === 1 ? "translation update" : "translation updates",
       ),
   ].filter((part): part is string => typeof part === "string");
   return parts.length > 0 ? parts.join(" · ") : "Nothing to batch.";
-}
-
-function countBotPullRequests(counts: BumpCounts | null, smartlingCount: number | null): number {
-  const dependabot = counts ? counts.patch + counts.minor + counts.major + counts.other : 0;
-  return dependabot + (smartlingCount ?? 0);
 }
 
 function postedEntries(reviews: RecentSubmission[]): (QueueEntry & { review: RecentSubmission })[] {
@@ -159,33 +162,80 @@ function postedEntries(reviews: RecentSubmission[]): (QueueEntry & { review: Rec
   });
 }
 
-export async function QueueScreen({ searchParams }: { searchParams?: RepositorySearchParams }) {
-  const inbox = await loadInbox();
-  const chosen = await chosenRepository(searchParams);
-  const sort = parseQueueSort((await searchParams)?.sort);
+function BotsFold({
+  inbox,
+  listed,
+  chosen,
+  sort,
+  now,
+}: {
+  inbox: Pick<Inbox, "bots" | "snoozes">;
+  listed: QueueEntry[];
+  chosen: string | null;
+  sort: QueueSort;
+  now: number;
+}) {
+  const listedKeys = new Set(listed.map((entry) => prKey(entry.request.ref)));
+  const isOnlyInBots = (entry: QueueEntry) =>
+    isInRepository(entry.request, chosen) && !listedKeys.has(prKey(entry.request.ref));
+  const dependabot = inbox.bots.dependabot.entries.filter(isOnlyInBots);
+  const smartling = inbox.bots.smartling.entries.filter(isOnlyInBots);
+  const bots = rankQueue([...dependabot, ...smartling], sort);
+  return (
+    <Fold
+      title="Bots"
+      count={bots.length}
+      summary={describeBots(
+        bumpCounts(dependabot.map((entry) => entry.request.title)),
+        smartling.length,
+      )}
+    >
+      {bots.length === 0 ? (
+        <p className="px-4 py-3 text-label text-fg-muted">No bot pull requests are open.</p>
+      ) : (
+        <ul className="divide-y divide-line-soft">
+          {bots.map((entry) => (
+            <BotRow
+              key={prKey(entry.request.ref)}
+              entry={entry}
+              snoozes={inbox.snoozes}
+              now={now}
+            />
+          ))}
+        </ul>
+      )}
+    </Fold>
+  );
+}
+
+function QueueSections({
+  inbox,
+  chosen,
+  sort,
+}: {
+  inbox: Inbox;
+  chosen: string | null;
+  sort: QueueSort;
+}) {
   const now = Date.parse(inbox.loadedAt);
   const entries = inbox.entries.filter((entry) => isInRepository(entry.request, chosen));
   const layout = layoutQueue(entries, inbox.snoozes, now, sort);
+  const query = { repository: chosen ?? undefined, sort: sortParameterOf(sort) };
   const posted = postedEntries(inbox.posted);
   const latest = posted[0];
   return (
-    <QueueFrame loadedAt={inbox.loadedAt}>
+    <>
       {isPondClear(inbox) && <PondClear />}
       {inbox.requestsError && <GitHubFailure error={inbox.requestsError} />}
       {inbox.repositoryError && <GitHubFailure error={inbox.repositoryError} />}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 empty:hidden">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <BotFilterMenu chosen={null} query={query} />
         <RepositoryFilter
           requests={inbox.entries.map((entry) => entry.request)}
           chosen={chosen}
-          basePath="/"
-          sortParameter={sortParameterOf(sort)}
+          query={query}
         />
-        <SortMenu
-          sort={sort}
-          repository={chosen ?? undefined}
-          hasEntriesToOrder={entries.length >= 2}
-          basePath="/"
-        />
+        <SortMenu sort={sort} hasEntriesToOrder={entries.length >= 2} query={query} />
       </div>
       {layout.upNext && (
         <UpNext entry={layout.upNext.entry} reason={layout.upNext.reason} now={now} />
@@ -265,20 +315,7 @@ export async function QueueScreen({ searchParams }: { searchParams?: RepositoryS
             </ul>
           )}
         </Fold>
-        <Fold
-          title="Bots"
-          count={countBotPullRequests(inbox.dependabot, inbox.smartlingCount)}
-          summary={describeBots(inbox.dependabot, inbox.smartlingCount)}
-        >
-          <p className="flex flex-wrap gap-x-4 gap-y-2 px-4 py-3 text-sm">
-            <Link href="/dependabot" className="font-medium underline underline-offset-4">
-              Dependabot PRs
-            </Link>
-            <Link href="/smartling" className="font-medium underline underline-offset-4">
-              Smartling PRs
-            </Link>
-          </p>
-        </Fold>
+        <BotsFold inbox={inbox} listed={entries} chosen={chosen} sort={sort} now={now} />
         {inbox.archived.length > 0 && (
           <Fold
             title="Archived"
@@ -314,6 +351,22 @@ export async function QueueScreen({ searchParams }: { searchParams?: RepositoryS
           </ul>
         </Fold>
       </div>
+    </>
+  );
+}
+
+export async function QueueScreen({ searchParams }: { searchParams?: RepositorySearchParams }) {
+  const inbox = await loadInbox();
+  const chosen = await chosenRepository(searchParams);
+  const sort = parseQueueSort((await searchParams)?.sort);
+  const botFilter = parseBotFilter((await searchParams)?.bots);
+  return (
+    <QueueFrame loadedAt={inbox.loadedAt}>
+      {botFilter ? (
+        <BotPullRequestList inbox={inbox} botFilter={botFilter} chosen={chosen} sort={sort} />
+      ) : (
+        <QueueSections inbox={inbox} chosen={chosen} sort={sort} />
+      )}
     </QueueFrame>
   );
 }

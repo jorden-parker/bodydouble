@@ -21,10 +21,12 @@ import type {
   SnoozeUntil,
 } from "@/lib/session/store";
 import type { PullRequestRef } from "@/lib/types";
-import { type BumpCounts, bumpCounts } from "./bump";
+import type { BotName } from "./bot-filter";
 import type { QueueEntry } from "./queue";
 
 const POSTED_REVIEW_LIMIT = 10;
+
+export type BotPullRequests = { entries: QueueEntry[]; error: string | null };
 
 export type Inbox = {
   loadedAt: string;
@@ -33,8 +35,7 @@ export type Inbox = {
   entries: QueueEntry[];
   repositoryError: string | null;
   isRepositoryListCapped: boolean;
-  dependabot: BumpCounts | null;
-  smartlingCount: number | null;
+  bots: Record<BotName, BotPullRequests>;
   hasRepositories: boolean;
   snoozes: Record<string, SnoozeUntil>;
   archived: QueueEntry[];
@@ -42,7 +43,7 @@ export type Inbox = {
   isPrepareNextOn: boolean;
 };
 
-export function failureMessage(failure: unknown): string {
+function failureMessage(failure: unknown): string {
   return failure instanceof Error ? failure.message : String(failure);
 }
 
@@ -105,16 +106,24 @@ export function attachIntents(
   });
 }
 
-export function readSnoozes(store: SessionStore): Record<string, SnoozeUntil> {
+function readSnoozes(store: SessionStore): Record<string, SnoozeUntil> {
   return Object.fromEntries(store.snoozes().map((snooze) => [snooze.key, snooze.until]));
 }
 
-export async function buildQueueEntries(requests: ReviewRequest[]): Promise<QueueEntry[]> {
+async function buildQueueEntries(requests: ReviewRequest[]): Promise<QueueEntry[]> {
   const store = sessionStore();
   const refs = requests.map((request) => request.ref);
   const facts = await loadFacts(refs);
   const progress = store.progressSummaries(refs.map(prKey));
   return requests.map((request) => buildEntry(request, facts, progress));
+}
+
+async function loadBotPullRequests(
+  search: PromiseSettledResult<ReviewRequest[]>,
+): Promise<BotPullRequests> {
+  return search.status === "fulfilled"
+    ? { entries: await buildQueueEntries(search.value), error: null }
+    : { entries: [], error: failureMessage(search.reason) };
 }
 
 export const loadInbox = cache(async (): Promise<Inbox> => {
@@ -142,7 +151,11 @@ export const loadInbox = cache(async (): Promise<Inbox> => {
     (session) => parsePullRequestRef(session.key) ?? [],
   );
   const refs = dedupeRefs([...listed.map((request) => request.ref), ...sessionRefs]);
-  const facts = await loadFacts(refs);
+  const [facts, dependabotPullRequests, smartlingPullRequests] = await Promise.all([
+    loadFacts(refs),
+    loadBotPullRequests(dependabot),
+    loadBotPullRequests(smartling),
+  ]);
   const progress = store.progressSummaries(refs.map(prKey));
   const config = await currentLlmConfig();
   return {
@@ -161,11 +174,7 @@ export const loadInbox = cache(async (): Promise<Inbox> => {
       repositories.status === "rejected" ? failureMessage(repositories.reason) : null,
     isRepositoryListCapped:
       repositories.status === "fulfilled" && repositories.value.length === REVIEW_REQUEST_LIMIT,
-    dependabot:
-      dependabot.status === "fulfilled"
-        ? bumpCounts(dependabot.value.map((request) => request.title))
-        : null,
-    smartlingCount: smartling.status === "fulfilled" ? smartling.value.length : null,
+    bots: { dependabot: dependabotPullRequests, smartling: smartlingPullRequests },
     hasRepositories: savedRepositories(store).length > 0,
     snoozes: readSnoozes(store),
     archived: attachIntents(buildSessionEntries(archived, facts, progress), store, config),

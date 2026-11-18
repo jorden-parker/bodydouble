@@ -74,7 +74,7 @@ beforeEach(() => {
 });
 
 describe("loadInbox", () => {
-  it("lists each open PR once, with its facts, and counts the bot PRs", async () => {
+  it("lists each open PR once, with its facts, and the bot PRs apart", async () => {
     const inbox = await loadInbox();
     const keys = inbox.entries.map(
       (entry) => `${entry.request.ref.repo}#${entry.request.ref.number}`,
@@ -82,9 +82,24 @@ describe("loadInbox", () => {
     expect(keys).toEqual(["app#1", "app#2"]);
     expect(inbox.entries[0].facts?.additions).toBe(10);
     expect(inbox.waitingCount).toBe(1);
-    expect(inbox.dependabot).toEqual({ patch: 1, minor: 0, major: 0, other: 1 });
-    expect(inbox.smartlingCount).toBe(1);
+    expect(inbox.bots.dependabot.entries.map((entry) => entry.request.ref.number)).toEqual([
+      10, 11,
+    ]);
+    expect(inbox.bots.dependabot.entries[0].facts?.additions).toBe(10);
+    expect(inbox.bots.smartling.entries.map((entry) => entry.request.ref.number)).toEqual([20]);
+    expect(inbox.bots.smartling.error).toBeNull();
     expect(inbox.requestsError).toBeNull();
+  });
+
+  it("reports a failed bot search on that bot and keeps the rest of the inbox", async () => {
+    fakes.openPullRequests = async (authorship) => {
+      if (authorship === "smartling") throw new Error("gh: not logged in");
+      return ALL_REPOSITORIES[authorship as keyof typeof ALL_REPOSITORIES];
+    };
+    const inbox = await loadInbox();
+    expect(inbox.bots.smartling).toEqual({ entries: [], error: "gh: not logged in" });
+    expect(inbox.bots.dependabot.entries).toHaveLength(2);
+    expect(inbox.entries).toHaveLength(2);
   });
 
   it("says when the repository list stopped at the search limit", async () => {

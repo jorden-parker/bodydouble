@@ -15,7 +15,7 @@ function linkNamed(name: string) {
 
 describe("SortMenu", () => {
   it("opens a labelled nav with the five sorts in order", async () => {
-    render(<SortMenu sort="recommended" repository={undefined} hasEntriesToOrder basePath="/" />);
+    render(<SortMenu sort="recommended" hasEntriesToOrder query={{}} />);
     await openMenu("Sort: Recommended");
     const navigation = screen.getByRole("navigation", { name: "Sort pull requests" });
     expect(
@@ -32,12 +32,12 @@ describe("SortMenu", () => {
   });
 
   it("shows the chosen sort on the trigger", () => {
-    render(<SortMenu sort="updated" repository={undefined} hasEntriesToOrder basePath="/" />);
+    render(<SortMenu sort="updated" hasEntriesToOrder query={{}} />);
     expect(screen.getByRole("button", { name: "Sort: Recently updated" })).toBeTruthy();
   });
 
   it("links Recently updated to ?sort=updated, keeping the repository", async () => {
-    render(<SortMenu sort="recommended" repository="acme/app" hasEntriesToOrder basePath="/" />);
+    render(<SortMenu sort="recommended" hasEntriesToOrder query={{ repository: "acme/app" }} />);
     await openMenu("Sort: Recommended");
     expect(linkNamed("Recently updated").getAttribute("href")).toBe(
       "/?repository=acme%2Fapp&sort=updated",
@@ -45,30 +45,31 @@ describe("SortMenu", () => {
   });
 
   it("links Recently updated to /?sort=updated without a repository", async () => {
-    render(<SortMenu sort="recommended" repository={undefined} hasEntriesToOrder basePath="/" />);
+    render(<SortMenu sort="recommended" hasEntriesToOrder query={{}} />);
     await openMenu("Sort: Recommended");
     expect(linkNamed("Recently updated").getAttribute("href")).toBe("/?sort=updated");
     expect(linkNamed("Recommended").getAttribute("href")).toBe("/");
   });
 
-  it("links within the base path it is given, keeping the repository", async () => {
+  it("keeps the repository and the bot filter in its links", async () => {
     render(
       <SortMenu
         sort="recommended"
-        repository="acme/app"
         hasEntriesToOrder
-        basePath="/dependabot"
+        query={{ repository: "acme/app", sort: undefined, bots: "dependabot" }}
       />,
     );
     await openMenu("Sort: Recommended");
     expect(linkNamed("Recently updated").getAttribute("href")).toBe(
-      "/dependabot?repository=acme%2Fapp&sort=updated",
+      "/?repository=acme%2Fapp&sort=updated&bots=dependabot",
     );
-    expect(linkNamed("Recommended").getAttribute("href")).toBe("/dependabot?repository=acme%2Fapp");
+    expect(linkNamed("Recommended").getAttribute("href")).toBe(
+      "/?repository=acme%2Fapp&bots=dependabot",
+    );
   });
 
   it("marks only the chosen sort with aria-current", async () => {
-    render(<SortMenu sort="updated" repository={undefined} hasEntriesToOrder basePath="/" />);
+    render(<SortMenu sort="updated" hasEntriesToOrder query={{}} />);
     await openMenu("Sort: Recently updated");
     expect(linkNamed("Recently updated").getAttribute("aria-current")).toBe("true");
     expect(linkNamed("Recommended").getAttribute("aria-current")).toBeNull();
@@ -76,16 +77,12 @@ describe("SortMenu", () => {
   });
 
   it("renders nothing when there is nothing to order and the sort is Recommended", () => {
-    render(
-      <SortMenu sort="recommended" repository={undefined} hasEntriesToOrder={false} basePath="/" />,
-    );
+    render(<SortMenu sort="recommended" hasEntriesToOrder={false} query={{}} />);
     expect(screen.queryByRole("button", { name: /^Sort:/ })).toBeNull();
   });
 
   it("still renders when there is nothing to order but the sort is not Recommended", () => {
-    render(
-      <SortMenu sort="oldest" repository={undefined} hasEntriesToOrder={false} basePath="/" />,
-    );
+    render(<SortMenu sort="oldest" hasEntriesToOrder={false} query={{}} />);
     expect(screen.getByRole("button", { name: "Sort: Oldest first" })).toBeTruthy();
   });
 });

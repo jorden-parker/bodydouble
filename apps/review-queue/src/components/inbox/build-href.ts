@@ -1,3 +1,5 @@
+export type QueueQuery = { repository?: string; sort?: string; bots?: string };
+
 export function buildHref(basePath: string, query: Record<string, string | undefined>): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {

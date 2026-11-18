@@ -1,10 +1,11 @@
 import type { ReviewRequest } from "@/lib/github/gh";
-import { buildHref } from "./build-href";
+import { buildHref, type QueueQuery } from "./build-href";
 import { ChoiceMenu } from "./choice-menu";
 
 export type RepositorySearchParams = Promise<{
   repository?: string | string[];
   sort?: string | string[];
+  bots?: string | string[];
 }>;
 
 function repositoryOf(request: ReviewRequest): string {
@@ -22,35 +23,26 @@ export function isInRepository(request: ReviewRequest, repository: string | null
   return repository === null || repositoryOf(request) === repository;
 }
 
-export function filterByRepository(
-  requests: ReviewRequest[],
-  repository: string | null,
-): ReviewRequest[] {
-  return requests.filter((request) => isInRepository(request, repository));
-}
-
 export function RepositoryFilter({
   requests,
   chosen,
-  basePath,
-  sortParameter,
+  query,
 }: {
   requests: ReviewRequest[];
   chosen: string | null;
-  basePath: string;
-  sortParameter?: string;
+  query: QueueQuery;
 }) {
   const repositories = [...new Set(requests.map(repositoryOf))].sort();
   if (repositories.length < 2 && chosen === null) return null;
   const choices = [
     {
       label: "All repositories",
-      href: buildHref(basePath, { sort: sortParameter }),
+      href: buildHref("/", { ...query, repository: undefined }),
       isChosen: chosen === null,
     },
     ...repositories.map((repository) => ({
       label: repository,
-      href: buildHref(basePath, { repository, sort: sortParameter }),
+      href: buildHref("/", { ...query, repository }),
       isChosen: repository === chosen,
     })),
   ];

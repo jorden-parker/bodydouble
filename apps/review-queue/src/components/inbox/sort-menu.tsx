@@ -1,4 +1,4 @@
-import { buildHref } from "./build-href";
+import { buildHref, type QueueQuery } from "./build-href";
 import { ChoiceMenu } from "./choice-menu";
 import { QUEUE_SORTS, type QueueSort } from "./queue";
 
@@ -16,14 +16,12 @@ export function sortParameterOf(sort: QueueSort): string | undefined {
 
 export function SortMenu({
   sort,
-  repository,
   hasEntriesToOrder,
-  basePath,
+  query,
 }: {
   sort: QueueSort;
-  repository: string | undefined;
   hasEntriesToOrder: boolean;
-  basePath: string;
+  query: QueueQuery;
 }) {
   if (!hasEntriesToOrder && sort === "recommended") return null;
   return (
@@ -32,7 +30,7 @@ export function SortMenu({
       label="Sort pull requests"
       choices={QUEUE_SORTS.map((option) => ({
         label: SORT_LABELS[option],
-        href: buildHref(basePath, { repository, sort: sortParameterOf(option) }),
+        href: buildHref("/", { ...query, sort: sortParameterOf(option) }),
         isChosen: option === sort,
       }))}
     />

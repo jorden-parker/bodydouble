@@ -63,8 +63,10 @@ function inboxWith(overrides: Partial<Inbox> = {}): Inbox {
     entries: [],
     repositoryError: null,
     isRepositoryListCapped: false,
-    dependabot: null,
-    smartlingCount: null,
+    bots: {
+      dependabot: { entries: [], error: null },
+      smartling: { entries: [], error: null },
+    },
     hasRepositories: true,
     snoozes: {},
     archived: [],
@@ -116,6 +118,25 @@ const waitingEntries = [
     progress: null,
   },
 ];
+
+function botEntry(number: number, title: string) {
+  return { request: { ...request(number), title }, facts: facts(), progress: null };
+}
+
+function inboxWithBots(overrides: Partial<Inbox> = {}): Inbox {
+  return inboxWith({
+    entries: waitingEntries,
+    bots: {
+      dependabot: { entries: [botEntry(30, "Bump vite from 5.4.1 to 5.4.2")], error: null },
+      smartling: { entries: [botEntry(40, "Update translations")], error: null },
+    },
+    ...overrides,
+  });
+}
+
+function botsFold(): HTMLElement {
+  return screen.getByText("Bots").closest("details") as HTMLElement;
+}
 
 async function openSortMenu() {
   await userEvent.click(screen.getByRole("button", { name: /^Sort:/ }));
@@ -330,6 +351,78 @@ describe("QueueScreen", () => {
     const sortNav = screen.getByRole("navigation", { name: "Sort pull requests" });
     expect(within(sortNav).getByRole("link", { name: "Recommended" }).getAttribute("href")).toBe(
       "/",
+    );
+  });
+
+  it("lists the Dependabot and Smartling PRs in the Bots fold, under the queue", async () => {
+    inboxState.inbox = inboxWithBots();
+    render(await Screen());
+    const fold = botsFold();
+    expect(within(fold).getByText("acme/app#30")).toBeTruthy();
+    expect(within(fold).getByText("patch 5.4.1 → 5.4.2")).toBeTruthy();
+    expect(within(fold).getByText("acme/app#40")).toBeTruthy();
+    expect(within(fold).getByText("1 patch · 1 translation update")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Up next" })).toBeTruthy();
+  });
+
+  it("says so in the Bots fold when no bot PR is open", async () => {
+    render(await Screen());
+    expect(within(botsFold()).getByText("No bot pull requests are open.")).toBeTruthy();
+  });
+
+  it("leaves a bot PR out of the Bots fold when the queue already lists it", async () => {
+    inboxState.inbox = inboxWithBots({
+      entries: [...waitingEntries, botEntry(30, "Bump vite from 5.4.1 to 5.4.2")],
+    });
+    render(await Screen());
+    expect(screen.getAllByText("acme/app#30")).toHaveLength(1);
+    expect(within(botsFold()).queryByText("acme/app#30")).toBeNull();
+  });
+
+  it("keeps the Bots fold to the chosen repository", async () => {
+    inboxState.inbox = inboxWithBots({
+      bots: {
+        dependabot: { entries: [botEntry(30, "Bump vite from 5.4.1 to 5.4.2")], error: null },
+        smartling: {
+          entries: [{ request: request(40, "other"), facts: facts(), progress: null }],
+          error: null,
+        },
+      },
+    });
+    render(await Screen({ repository: "acme/app" }));
+    expect(within(botsFold()).getByText("acme/app#30")).toBeTruthy();
+    expect(screen.queryByText("acme/other#40")).toBeNull();
+  });
+
+  it("shows only the Dependabot PRs for ?bots=dependabot", async () => {
+    inboxState.inbox = inboxWithBots();
+    render(await Screen({ bots: "dependabot" }));
+    expect(screen.getByText("acme/app#30")).toBeTruthy();
+    expect(screen.queryByText("acme/app#40")).toBeNull();
+    expect(screen.queryByText("acme/app#7")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Up next" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Show: Dependabot" })).toBeTruthy();
+  });
+
+  it("shows only the Smartling PRs for ?bots=smartling and both bots for ?bots=both", async () => {
+    inboxState.inbox = inboxWithBots();
+    const first = render(await Screen({ bots: "smartling" }));
+    expect(screen.getByText("acme/app#40")).toBeTruthy();
+    expect(screen.queryByText("acme/app#30")).toBeNull();
+    first.unmount();
+    render(await Screen({ bots: "both" }));
+    expect(screen.getByText("acme/app#30")).toBeTruthy();
+    expect(screen.getByText("acme/app#40")).toBeTruthy();
+    expect(screen.queryByText("acme/app#7")).toBeNull();
+  });
+
+  it("offers the bot filter on the queue, keeping the sort in its links", async () => {
+    inboxState.inbox = inboxWithBots();
+    render(await Screen({ sort: "oldest" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show: Everything" }));
+    const botNav = screen.getByRole("navigation", { name: "Filter by bot" });
+    expect(within(botNav).getByRole("link", { name: "Dependabot" }).getAttribute("href")).toBe(
+      "/?sort=oldest&bots=dependabot",
     );
   });
 
