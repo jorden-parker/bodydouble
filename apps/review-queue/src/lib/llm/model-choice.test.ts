@@ -142,6 +142,48 @@ describe("chooseModel", () => {
     const choice = await chooseModel({ PATH: binDir }, servers({}), null, SIXTEEN_GB);
     expect(choice.isUsable).toBe(false);
     expect(choice.reason).toContain("`cl serve 9b`");
+    expect(choice.startCommand).toEqual(["cl", "serve", "9b"]);
+  });
+
+  it("starts Ollama when no server answers and oMLX is not installed", async () => {
+    const { binDir } = claudeLiteCheckout();
+    writeFileSync(path.join(binDir, "ollama"), "");
+    const choice = await chooseModel({ PATH: binDir }, servers({}), null, SIXTEEN_GB);
+    expect(choice.reason).toContain("`ollama serve`");
+    expect(choice.startCommand).toEqual(["ollama", "serve"]);
+  });
+
+  it("starts oMLX through cl when both servers are installed", async () => {
+    const { binDir } = claudeLiteCheckout();
+    writeFileSync(path.join(binDir, "ollama"), "");
+    writeFileSync(path.join(binDir, "omlx"), "");
+    const choice = await chooseModel({ PATH: binDir }, servers({}), null, SIXTEEN_GB);
+    expect(choice.startCommand).toEqual(["cl", "serve", "9b"]);
+  });
+
+  it("has no start command for a remote server, a size that does not fit or a usable model", async () => {
+    const { binDir } = claudeLiteCheckout();
+    const remote = await chooseModel(
+      { PATH: binDir, REVIEW_QUEUE_LLM_URL: "http://gpu.example:11434" },
+      servers({}),
+      null,
+      SIXTEEN_GB,
+    );
+    const tooSmall = await chooseModel({ PATH: binDir }, servers({}), null, {
+      memoryBytes: 4 * GIB,
+      wiredLimitMb: 0,
+    });
+    const usable = await chooseModel(
+      { PATH: binDir },
+      servers({ ollama: ["qwen3.5-9b-mtp-cc"] }),
+      null,
+      SIXTEEN_GB,
+    );
+    expect([remote.startCommand, tooSmall.startCommand, usable.startCommand]).toEqual([
+      null,
+      null,
+      null,
+    ]);
   });
 
   it("says that nothing fits when the machine is too small for every size", async () => {

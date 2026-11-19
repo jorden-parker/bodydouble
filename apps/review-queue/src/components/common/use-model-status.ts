@@ -6,7 +6,7 @@ import type { ModelStatus } from "@/lib/llm/model-status";
 
 const POLL_MS = 15_000;
 
-export function useModelStatus(): ModelStatus | null {
+export function useModelStatus(): readonly [ModelStatus | null, (status: ModelStatus) => void] {
   const [status, setStatus] = useState<ModelStatus | null>(null);
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
@@ -30,5 +30,5 @@ export function useModelStatus(): ModelStatus | null {
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
-  return status;
+  return [status, setStatus];
 }

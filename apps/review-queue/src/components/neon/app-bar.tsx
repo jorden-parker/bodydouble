@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { cn } from "cn";
 import { modelChipOf } from "@/components/common/model-chip";
 import { useModelStatus } from "@/components/common/use-model-status";
+import { postModelStart } from "@/components/review/api";
+import { Button } from "@/components/ui/button";
 import { Otter } from "./otter";
 
 const NAVIGATION_LINKS = [
@@ -13,10 +16,25 @@ const NAVIGATION_LINKS = [
 ];
 
 function ModelBadge() {
-  const chip = modelChipOf(useModelStatus());
-  if (!chip) return null;
+  const [status, setStatus] = useModelStatus();
+  const [isStartRequested, setIsStartRequested] = useState(false);
+  const chip = modelChipOf(status);
+  if (!chip || !status) return null;
+  const canStart =
+    !isStartRequested &&
+    (chip.state === "down" || chip.state === "failed") &&
+    status.start.command !== null;
+  const requestStart = () => {
+    setIsStartRequested(true);
+    postModelStart()
+      .then(setStatus, () => undefined)
+      .finally(() => setIsStartRequested(false));
+  };
   return (
-    <span className="ml-auto flex items-center gap-1.5 self-center whitespace-nowrap rounded-full border border-line-soft px-2.5 py-0.5 text-xs text-muted-foreground">
+    <span
+      title={status.start.failure ?? undefined}
+      className="ml-auto flex items-center gap-1.5 self-center whitespace-nowrap rounded-full border border-line-soft px-2.5 py-0.5 text-xs text-muted-foreground"
+    >
       <span
         aria-hidden
         className={cn(
@@ -24,7 +42,21 @@ function ModelBadge() {
           chip.state === "ready" || chip.state === "busy" ? "bg-primary" : "bg-muted-foreground/40",
         )}
       />
-      {chip.name} {chip.stateWord}
+      <span aria-live="polite">
+        {chip.name} {isStartRequested ? "starting" : chip.stateWord}
+      </span>
+      {status.start.failure && <span className="sr-only">{status.start.failure}</span>}
+      {canStart && (
+        <Button
+          variant="outline"
+          size="xs"
+          className="-mr-1.5 h-6 rounded-full text-xs"
+          title={`Runs ${status.start.command}`}
+          onClick={requestStart}
+        >
+          Start
+        </Button>
+      )}
     </span>
   );
 }

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defaultTimeoutMs, runCommand, spawnProcess } from "./exec";
+import { defaultTimeoutMs, runCommand, spawnDetached, spawnProcess } from "./exec";
 
 describe("runCommand", () => {
   afterEach(() => vi.unstubAllEnvs());
@@ -73,5 +73,19 @@ describe("spawnProcess", () => {
     child.stdout.on("data", (chunk: Buffer) => (output += chunk.toString()));
     await new Promise((resolve) => child.on("close", resolve));
     expect(output).toBe("none|/home/reviewer|path|set");
+  });
+});
+
+describe("spawnDetached", () => {
+  it("runs the command in its own process group and writes what it prints to the log", async () => {
+    const logPath = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "detached-")), "server.log");
+    const child = spawnDetached("sh", ["-c", 'echo "$EXTRA $(ps -o pgid= -p $$)"; exit 3'], {
+      logPath,
+      env: { EXTRA: "group" },
+    });
+    const exitCode = await new Promise((resolve) => child.on("exit", resolve));
+    expect(exitCode).toBe(3);
+    expect(fs.readFileSync(logPath, "utf8").trim()).toBe(`group ${child.pid}`);
+    expect(fs.statSync(logPath).mode & 0o777).toBe(0o600);
   });
 });

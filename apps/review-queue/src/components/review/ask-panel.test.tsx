@@ -46,6 +46,7 @@ const MODEL_STATUS = {
     reading: { tokensPerSecond: 170, isMeasured: false },
     writing: { tokensPerSecond: 13, isMeasured: false },
   },
+  start: { command: null, isStarting: false, failure: null },
 } as const;
 
 function live(thread: AssistThread, overrides: Partial<LiveExchange> = {}): LiveExchange {

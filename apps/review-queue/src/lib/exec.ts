@@ -1,4 +1,12 @@
-import { type ChildProcessWithoutNullStreams, execFile, spawn } from "node:child_process";
+import {
+  type ChildProcess,
+  type ChildProcessWithoutNullStreams,
+  execFile,
+  spawn,
+} from "node:child_process";
+import { closeSync, mkdirSync, openSync } from "node:fs";
+import { homedir } from "node:os";
+import path from "node:path";
 import { commandEnvironment, withoutRepositoryVariables } from "./git-env";
 
 export type RunOptions = { cwd?: string; input?: string; timeoutMs?: number };
@@ -94,4 +102,24 @@ export function spawnProcess(
     env: { ...inheritedEnvironment(), ...options.env },
     stdio: "pipe",
   });
+}
+
+type DetachedOptions = { logPath: string; env?: Record<string, string> };
+
+export function spawnDetached(
+  command: string,
+  args: string[],
+  options: DetachedOptions,
+): ChildProcess {
+  mkdirSync(path.dirname(options.logPath), { recursive: true });
+  const log = openSync(options.logPath, "w", 0o600);
+  const child = spawn(command, args, {
+    cwd: homedir(),
+    env: { ...inheritedEnvironment(), ...options.env },
+    detached: true,
+    stdio: ["ignore", log, log],
+  });
+  closeSync(log);
+  child.unref();
+  return child;
 }

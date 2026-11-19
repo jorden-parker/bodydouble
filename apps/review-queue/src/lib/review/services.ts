@@ -1,3 +1,5 @@
+import path from "node:path";
+import { dataDirectory } from "@/lib/data-directory";
 import {
   type Conversation,
   type ConversationView,
@@ -18,7 +20,8 @@ import {
 } from "@/lib/github/gh";
 import { TtlCache } from "@/lib/github/ttl-cache";
 import type { LlmConfig } from "@/lib/llm/client";
-import { llmConfig } from "@/lib/llm/model-choice";
+import { llmConfig, resolveLlm } from "@/lib/llm/model-choice";
+import { startModel, waitWhileStarting } from "@/lib/llm/model-start";
 import { type ModelStatus, buildModelStatus } from "@/lib/llm/model-status";
 import { prKey } from "@/lib/pr-ref";
 import type { PullRequestRef } from "@/lib/types";
@@ -132,4 +135,12 @@ export function currentLlmConfig(): Promise<LlmConfig> {
 
 export function currentModelStatus(): Promise<ModelStatus> {
   return buildModelStatus(process.env, fetch, savedLlmSettings(sessionStore()));
+}
+
+export async function startCurrentModel(): Promise<ModelStatus> {
+  const { choice } = await resolveLlm(process.env, fetch, savedLlmSettings(sessionStore()));
+  if (choice?.startCommand) {
+    startModel(choice.startCommand, path.join(dataDirectory(), "model-server.log"));
+  }
+  return waitWhileStarting(currentModelStatus);
 }

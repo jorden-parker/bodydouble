@@ -22,6 +22,7 @@ const VIEW: SettingsView = {
     hasThinkingByDefault: false,
     isUsable: true,
     reason: "9b is the largest served size that fits the 11.2\u00a0GB budget.",
+    startCommand: null,
     budgetGb: 11.2,
     sizes: [
       { name: "9b", memoryGb: 9, isFitting: true, isServed: true },

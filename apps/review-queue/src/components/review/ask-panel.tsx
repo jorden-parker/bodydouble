@@ -72,7 +72,7 @@ function citationsOfTurn(workspace: Workspace, target: AssistTarget, turn: Assis
 
 export function AskPanel({ review, workspace }: AskPanelProps) {
   const { assist } = workspace;
-  const status = useModelStatus();
+  const [status] = useModelStatus();
   const model = modelChipOf(status);
   const target = composerTargetOf(workspace);
   const [claudeFor, setClaudeFor] = useState<AssistThread | null>(null);

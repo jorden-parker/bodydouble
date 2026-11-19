@@ -221,7 +221,15 @@ choosing it sends PR code to Anthropic through the `claude` CLI. LLM routes get
 their config from `currentLlmConfig()` in `lib/review/services.ts`.
 `PUT /api/settings` saves and `DELETE /api/settings/cache` empties the cache
 table (orientations, step explanations and GitHub ETags). `GET /api/model`
-returns the model status as JSON (`currentModelStatus()`).
+returns the model status as JSON (`currentModelStatus()`). Its `start` names the
+command the app can run when the model is down (`startCommand` in
+`model-choice.ts`): `ollama serve` when no server answers and oMLX is not
+installed, otherwise `cl serve <smallest fitting size>`, and nothing for a
+remote server. The Start button in the app bar posts `POST /api/model/start`,
+which runs that command detached (`spawnDetached` in `lib/exec.ts`,
+`lib/llm/model-start.ts`), so the server outlives the app, with its output in
+`model-server.log` in the data directory. The route never takes the command from
+the request.
 
 **Security boundary** (`src/proxy.ts`, the Next 16 replacement for middleware).
 The app answers only on its own host name, `review-queue.localhost`

@@ -1,4 +1,6 @@
+import { access } from "node:fs/promises";
 import { totalmem } from "node:os";
+import path from "node:path";
 import { z } from "zod";
 import { type LlmSettings, llmSettingsFromEnv } from "@/lib/settings/llm-settings";
 import {
@@ -32,6 +34,7 @@ export type ModelChoice = {
   hasThinkingByDefault: boolean;
   isUsable: boolean;
   reason: string;
+  startCommand: string[] | null;
   budgetGb: number | null;
   sizes: SizeFit[];
 };
@@ -106,12 +109,35 @@ function sortSmallestFirst(candidates: Candidate[]): Candidate[] {
   return [...candidates].sort((first, second) => (first.memoryGb ?? 0) - (second.memoryGb ?? 0));
 }
 
-function startCommandFor(candidates: Candidate[]): string {
-  const smallest = sortSmallestFirst(candidates.filter((candidate) => candidate.isFitting))[0];
-  return smallest ? `\`cl serve ${smallest.name}\`` : "`cl serve`";
+async function isOnPath(command: string, env: Env): Promise<boolean> {
+  const directories = (env.PATH ?? "").split(path.delimiter).filter(Boolean);
+  const found = await Promise.all(
+    directories.map((directory) =>
+      access(path.join(directory, command)).then(
+        () => true,
+        () => false,
+      ),
+    ),
+  );
+  return found.includes(true);
 }
 
-type Verdict = { isUsable: boolean; reason: string };
+async function findStartCommand(
+  env: Env,
+  served: string[] | null,
+  candidates: Candidate[],
+): Promise<string[]> {
+  const shouldStartOllama =
+    served === null && !(await isOnPath("omlx", env)) && (await isOnPath("ollama", env));
+  if (shouldStartOllama) return ["ollama", "serve"];
+  const smallest = sortSmallestFirst(candidates.filter((candidate) => candidate.isFitting))[0];
+  return smallest ? ["cl", "serve", smallest.name] : ["cl", "serve"];
+}
+
+const isRunnable = (startCommand: string[]) =>
+  startCommand[0] === "ollama" || startCommand.length === 3;
+
+type Verdict = { isUsable: boolean; isStartable: boolean; reason: string };
 
 function explainChoice(input: {
   explicitModel: string | null;
@@ -120,19 +146,28 @@ function explainChoice(input: {
   budgetGb: number | null;
   candidates: Candidate[];
   chosen: Candidate | null;
+  startCommand: string[];
 }): Verdict {
-  const { explicitModel, served, baseURL, budgetGb, candidates, chosen } = input;
-  const notAnswering = {
-    isUsable: false,
-    reason: `No model server answers at ${baseURL}. Start one with ${startCommandFor(candidates)}.`,
-  };
-  if (served === null) return notAnswering;
+  const { explicitModel, served, baseURL, budgetGb, candidates, chosen, startCommand } = input;
+  const startHint = `Start one with \`${startCommand.join(" ")}\`.`;
+  if (served === null) {
+    return {
+      isUsable: false,
+      isStartable: true,
+      reason: `No model server answers at ${baseURL}. ${startHint}`,
+    };
+  }
   if (explicitModel) {
-    return { isUsable: true, reason: "Chosen by hand, in Settings or REVIEW_QUEUE_LLM_MODEL." };
+    return {
+      isUsable: true,
+      isStartable: false,
+      reason: "Chosen by hand, in Settings or REVIEW_QUEUE_LLM_MODEL.",
+    };
   }
   if (candidates.length === 0) {
     return {
       isUsable: false,
+      isStartable: false,
       reason:
         "claude-lite was not found, so no model size is known. Set CLAUDE_LITE_HOME to its checkout, or REVIEW_QUEUE_LLM_MODEL.",
     };
@@ -141,6 +176,7 @@ function explainChoice(input: {
     const limit = budgetGb === null ? "a remote server" : `the ${gigabytes(budgetGb)} budget`;
     return {
       isUsable: true,
+      isStartable: false,
       reason: `${chosen.name} is the largest served size that fits ${limit}.`,
     };
   }
@@ -150,12 +186,14 @@ function explainChoice(input: {
     const need = smallest.memoryGb === null ? "" : ` needs ${gigabytes(smallest.memoryGb)}`;
     return {
       isUsable: false,
+      isStartable: false,
       reason: `No size fits the ${gigabytes(budgetGb ?? 0)} budget; the smallest, ${smallest.name},${need}.`,
     };
   }
   return {
     isUsable: false,
-    reason: `No size that fits is served. Start one with ${startCommandFor(candidates)}.`,
+    isStartable: true,
+    reason: `No size that fits is served. ${startHint}`,
   };
 }
 
@@ -219,7 +257,17 @@ export async function chooseModel(
   const sizes = await readClaudeLiteSizes(env).catch(() => []);
   const candidates = listCandidates(sizes, server, served, budgetGb);
   const chosen = pickChoice(candidates, explicitModel);
-  const verdict = explainChoice({ explicitModel, served, baseURL, budgetGb, candidates, chosen });
+  const startCommand = await findStartCommand(env, served, candidates);
+  const verdict = explainChoice({
+    explicitModel,
+    served,
+    baseURL,
+    budgetGb,
+    candidates,
+    chosen,
+    startCommand,
+  });
+  const canStart = verdict.isStartable && isLoopback(baseURL) && isRunnable(startCommand);
   return {
     server,
     baseURL,
@@ -229,6 +277,7 @@ export async function chooseModel(
     hasThinkingByDefault: chosen?.hasThinkingByDefault ?? false,
     isUsable: verdict.isUsable,
     reason: verdict.reason,
+    startCommand: canStart ? startCommand : null,
     budgetGb,
     sizes: candidates.map(({ name, memoryGb, isFitting, isServed }) => ({
       name,

@@ -46,6 +46,10 @@ export function fetchModelStatus(): Promise<ModelStatus> {
   return fetch("/api/model").then(json<ModelStatus>);
 }
 
+export function postModelStart(): Promise<ModelStatus> {
+  return postJson<ModelStatus>("/api/model/start", {});
+}
+
 export function fetchHead(ref: PullRequestRef): Promise<{ headSha: string }> {
   return fetch(apiPath(ref, "/head")).then(json<{ headSha: string }>);
 }

@@ -18,6 +18,7 @@ const LOCAL: ModelStatus = {
     reading: { tokensPerSecond: 170, isMeasured: false },
     writing: { tokensPerSecond: 13, isMeasured: false },
   },
+  start: { command: null, isStarting: false, failure: null },
 };
 
 describe("modelChipOf", () => {
@@ -54,6 +55,22 @@ describe("modelChipOf", () => {
     expect(modelChipOf({ ...LOCAL, isUsable: false, reason: "Start one" })).toMatchObject({
       state: "down",
       stateWord: "not running",
+    });
+  });
+
+  it("says a model the app is starting is starting", () => {
+    const start = { command: "ollama serve", isStarting: true, failure: null };
+    expect(modelChipOf({ ...LOCAL, isUsable: false, start })).toMatchObject({
+      state: "starting",
+      stateWord: "starting",
+    });
+  });
+
+  it("says a model whose start command failed could not start", () => {
+    const start = { command: "ollama serve", isStarting: false, failure: "address in use" };
+    expect(modelChipOf({ ...LOCAL, isUsable: false, start })).toMatchObject({
+      state: "failed",
+      stateWord: "could not start",
     });
   });
 
