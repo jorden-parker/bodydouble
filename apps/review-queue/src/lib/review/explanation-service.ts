@@ -4,6 +4,7 @@ import {
   StepExplanationRecordSchema,
   type StepExplanation,
 } from "@/lib/llm/step-explanation";
+import { dependencyNotesOf } from "@/lib/llm/review-guidance";
 import { logServerError } from "@/lib/log";
 import { prKey } from "@/lib/pr-ref";
 import type { SessionStore } from "@/lib/session/store";
@@ -15,7 +16,7 @@ export type ExplanationResult =
   | { status: "disabled" }
   | { status: "error"; message: string };
 
-const EXPLANATION_CACHE_VERSION = 1;
+const EXPLANATION_CACHE_VERSION = 2;
 
 function cacheKey(data: ReviewData, stepId: string, config: LlmConfig): string {
   return `explanation:v${EXPLANATION_CACHE_VERSION}:${prKey(data.pr.ref)}:${data.headSha}:${config.model}:${stepId}`;
@@ -60,7 +61,17 @@ export async function explanationFor(
       cacheKey(data, stepId, config),
       StepExplanationRecordSchema,
       () =>
-        explainStep({ title: data.pr.title, step, diffs: data.files }, config, fetchImpl, signal),
+        explainStep(
+          {
+            title: data.pr.title,
+            step,
+            diffs: data.files,
+            dependencyNotes: dependencyNotesOf(data.pr),
+          },
+          config,
+          fetchImpl,
+          signal,
+        ),
     );
     return { status: "ready", explanation };
   } catch (error) {

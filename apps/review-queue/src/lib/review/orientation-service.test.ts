@@ -147,6 +147,33 @@ describe("orientationFor on the local backend", () => {
   });
 });
 
+describe("orientationFor on a Dependabot pull request", () => {
+  it("tells every model call that it reviews a dependency update", async () => {
+    const pr = { ...DATA.pr, author: "dependabot[bot]", body: "Bumps zod from 3 to 4." };
+    const { fetchImpl, bodies } = routedFetch();
+    await orientationFor(
+      { ...DATA, pr, steps: [STEP_A] },
+      new SessionStore(":memory:"),
+      CONFIG,
+      fetchImpl,
+    );
+    expect(bodies).toHaveLength(2);
+    for (const body of bodies) expect(body.system).toContain("dependency update");
+    expect(JSON.stringify(bodies)).toContain("Bumps zod from 3 to 4.");
+  });
+
+  it("does not for a person's pull request", async () => {
+    const { fetchImpl, bodies } = routedFetch();
+    await orientationFor(
+      { ...DATA, steps: [STEP_A] },
+      new SessionStore(":memory:"),
+      CONFIG,
+      fetchImpl,
+    );
+    for (const body of bodies) expect(body.system).not.toContain("dependency update");
+  });
+});
+
 describe("storedOrientationFor", () => {
   it("reads the cached orientation for a PR and head without a prepared review", async () => {
     const store = new SessionStore(":memory:");

@@ -104,6 +104,19 @@ function withRange(from: [number, number], to: [number, number]): AssistRequest 
 }
 
 describe("assistInputFrom", () => {
+  it("passes Dependabot's description on as the notes of a dependency update", () => {
+    const pr = { ...SOURCE.data.pr, author: "dependabot[bot]", body: "Bumps zod from 3 to 4." };
+    const result = assistInputFrom({ ...SOURCE, data: { ...SOURCE.data, pr } }, REQUEST);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.input.dependencyNotes).toBe("Bumps zod from 3 to 4.");
+  });
+
+  it("passes no dependency notes for a person's pull request", () => {
+    const result = assistInputFrom(SOURCE, REQUEST);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.input.dependencyNotes).toBeUndefined();
+  });
+
   it("takes the selected lines from the server's own diff, across hunks", () => {
     const result = assistInputFrom(SOURCE, REQUEST);
     if (!result.ok) throw new Error(result.error);

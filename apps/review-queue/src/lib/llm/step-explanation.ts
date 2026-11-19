@@ -5,6 +5,7 @@ import {
   CODE_NAME_RULE,
   diffText,
   fenced,
+  fencedDescription,
   fencedTitle,
   jsonObjectIn,
   type LlmConfig,
@@ -17,6 +18,7 @@ export type StepExplanationInput = {
   title: string;
   step: Step;
   diffs: FileDiff[];
+  dependencyNotes?: string;
 };
 
 const DIFF_CHAR_BUDGET = 24_000;
@@ -41,7 +43,7 @@ ${CODE_NAME_RULE}`;
 
 function systemPrompt(input: StepExplanationInput): string {
   const paths = input.step.files.map((file) => file.path);
-  return [BASE_PROMPT, reviewGuidance(paths)].join("\n\n");
+  return [BASE_PROMPT, reviewGuidance(paths, input.dependencyNotes !== undefined)].join("\n\n");
 }
 
 export function stepDiffs(step: Step, diffs: FileDiff[]): FileDiff[] {
@@ -69,6 +71,7 @@ export function buildStepPrompt(input: StepExplanationInput): string {
     "# Step",
     fenced("pr_step", `${step.title} | ${step.role}\n${step.reason}`),
     fencedTitle(input.title),
+    ...(input.dependencyNotes === undefined ? [] : [fencedDescription(input.dependencyNotes)]),
     "## Diff",
     fenced("pr_diff", clippedDiff(stepDiffs(step, input.diffs))),
   ].join("\n");

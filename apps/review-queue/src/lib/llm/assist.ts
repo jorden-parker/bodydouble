@@ -5,6 +5,7 @@ import {
   CODE_NAME_RULE,
   diffText,
   fenced,
+  fencedDescription,
   fencedTitle,
   type LlmConfig,
   type Message,
@@ -32,6 +33,7 @@ export type AssistInput = {
   stepCheck: StepCheckContent | null;
   hasMoreDetail: boolean;
   lookupBudget: number;
+  dependencyNotes?: string;
 };
 
 const CONTEXT_CHAR_BUDGET = 24_000;
@@ -106,7 +108,16 @@ const SCOPE_RULES: Record<AssistInput["scope"], string[]> = {
 };
 
 function designRules(input: AssistInput): string[] {
-  return input.action === "simplify" ? [] : [reviewGuidance([input.path])];
+  const isDependencyUpdate = input.dependencyNotes !== undefined;
+  return input.action === "simplify" && !isDependencyUpdate
+    ? []
+    : [reviewGuidance([input.path], isDependencyUpdate)];
+}
+
+function dependencySections(input: AssistInput): string[] {
+  return input.dependencyNotes === undefined
+    ? []
+    : ["## Notes from the update bot", fencedDescription(input.dependencyNotes)];
 }
 
 function buildBudgetRules(lookupBudget: number | null): string[] {
@@ -213,6 +224,7 @@ function buildTaskSections(input: AssistInput, lookupBudget: number | null): str
 export function buildAssistPrompt(input: AssistInput, canLookUpCode = true): string {
   const sections = [
     fencedTitle(input.title),
+    ...dependencySections(input),
     "## File",
     fenced("pr_path", input.path),
     ...scopeSections(input),

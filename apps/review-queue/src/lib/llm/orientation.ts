@@ -5,6 +5,7 @@ import {
   CODE_NAME_RULE,
   diffText,
   fenced,
+  fencedDescription,
   fencedTitle,
   jsonObjectIn,
   type LlmConfig,
@@ -19,6 +20,7 @@ export type OrientationInput = {
   diffs: FileDiff[];
   steps: Step[];
   hotspots: Hotspot[];
+  isDependencyUpdate?: boolean;
 };
 
 export type StepSummary = { stepId: string; what: string };
@@ -79,10 +81,15 @@ ${UNTRUSTED_DATA_RULE}
 ${CODE_NAME_RULE}`;
 
 function systemPrompt(input: OrientationInput): string {
-  return [BASE_PROMPT, reviewGuidance(input.diffs.map((diff) => diff.path))].join("\n\n");
+  const paths = input.diffs.map((diff) => diff.path);
+  return [BASE_PROMPT, reviewGuidance(paths, input.isDependencyUpdate)].join("\n\n");
 }
 
-const DESCRIPTION_LIMIT = 4000;
+function summarySystemPrompt(input: OrientationInput): string {
+  return input.isDependencyUpdate
+    ? [SUMMARY_PROMPT, reviewGuidance([], true)].join("\n\n")
+    : SUMMARY_PROMPT;
+}
 
 function firstOf<T>(items: T[], limit: number, noun: string, describe: (item: T) => string) {
   const listed = items.slice(0, limit).map(describe);
@@ -103,7 +110,7 @@ function promptHeader(input: OrientationInput, stepsHeading: string, steps: stri
   return [
     "# PR",
     fencedTitle(input.title),
-    fenced("pr_description", input.body.slice(0, DESCRIPTION_LIMIT)),
+    fencedDescription(input.body),
     stepsHeading,
     fenced("pr_steps", steps.join("\n")),
     "## Hotspots already found",
@@ -143,16 +150,28 @@ function completeStepOrder(order: StepOrderEntry[], steps: Step[]): StepOrderEnt
   return [...chosen.values(), ...missing.map((step) => ({ id: step.id, why: "" }))];
 }
 
+function shownLineKeys(diffs: FileDiff[]): Set<string> {
+  return new Set(
+    diffs.flatMap((diff) =>
+      diff.hunks.flatMap((hunk) => hunk.lines.map((line) => `${diff.path}:${line.newLine}`)),
+    ),
+  );
+}
+
 function keepKnown(orientation: z.infer<typeof OrientationSchema>, input: OrientationInput) {
   const hotspotIds = new Set(input.hotspots.map((hotspot) => hotspot.id));
   const paths = new Set(input.diffs.map((diff) => diff.path));
+  const shownLines = shownLineKeys(input.diffs);
   return {
     ...orientation,
     stepOrder: completeStepOrder(orientation.stepOrder, input.steps),
     hotspotNotes: orientation.hotspotNotes.filter((note) => hotspotIds.has(note.id)),
     extraHotspots: orientation.extraHotspots
       .filter((hotspot) => paths.has(hotspot.path))
-      .slice(0, 5),
+      .slice(0, 5)
+      .map((hotspot) =>
+        shownLines.has(`${hotspot.path}:${hotspot.line}`) ? hotspot : { ...hotspot, line: null },
+      ),
   };
 }
 
@@ -205,7 +224,7 @@ export async function orientFromSummaries(
 ): Promise<Orientation> {
   return askForOrientation(
     {
-      system: SUMMARY_PROMPT,
+      system: summarySystemPrompt(input),
       maxTokens: SUMMARY_MAX_TOKENS,
       messages: [{ role: "user", content: buildSummaryPrompt(input, summaries) }],
     },

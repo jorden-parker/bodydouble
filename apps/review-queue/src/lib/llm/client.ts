@@ -148,6 +148,12 @@ export function fencedTitle(title: string): string {
   return fenced("pr_title", title.slice(0, TITLE_LIMIT));
 }
 
+const DESCRIPTION_LIMIT = 4000;
+
+export function fencedDescription(body: string): string {
+  return fenced("pr_description", body.slice(0, DESCRIPTION_LIMIT));
+}
+
 const JSON_CLOSERS: Record<string, string> = { "{": "}", "[": "]" };
 const OUTSIDE_STRING_CHARACTER = /[\s:,\-+.\dA-Za-z]/;
 

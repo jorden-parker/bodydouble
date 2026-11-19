@@ -7,6 +7,7 @@ import {
   type OrientationInput,
   type StepSummary,
 } from "@/lib/llm/orientation";
+import { dependencyNotesOf } from "@/lib/llm/review-guidance";
 import { logServerError } from "@/lib/log";
 import { prKey } from "@/lib/pr-ref";
 import type { SessionStore } from "@/lib/session/store";
@@ -20,7 +21,7 @@ export type OrientationResult =
   | { status: "disabled" }
   | { status: "error"; message: string };
 
-const ORIENTATION_CACHE_VERSION = 5;
+const ORIENTATION_CACHE_VERSION = 6;
 
 function cacheKey(ref: PullRequestRef, headSha: string, config: LlmConfig): string {
   return `orientation:v${ORIENTATION_CACHE_VERSION}:${prKey(ref)}:${headSha}:${config.model}`;
@@ -33,6 +34,7 @@ function orientationInput(data: ReviewData): OrientationInput {
     diffs: data.files,
     steps: data.steps,
     hotspots: data.hotspots,
+    isDependencyUpdate: dependencyNotesOf(data.pr) !== undefined,
   };
 }
 

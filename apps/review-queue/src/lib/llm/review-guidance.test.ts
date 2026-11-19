@@ -5,6 +5,27 @@ const GENERAL_HEADING = "Review the design as a senior engineer";
 const TYPESCRIPT_HEADING = "TypeScript and JavaScript:";
 const REACT_HEADING = "React:";
 
+describe("reviewGuidance for a dependency update", () => {
+  const guidance = reviewGuidance(["package.json"], true);
+
+  it("asks about release notes, breaking changes and security", () => {
+    expect(guidance).toContain("dependency update");
+    expect(guidance).toContain("release notes");
+    expect(guidance).toContain("Breaking changes");
+    expect(guidance).toContain("CVE");
+    expect(guidance).toContain("lockfile");
+  });
+
+  it("leaves out the code design rules, which a version bump does not need", () => {
+    expect(guidance).not.toContain(GENERAL_HEADING);
+  });
+
+  it("tells the model to say what the notes leave out instead of guessing", () => {
+    expect(guidance).toContain("You cannot open links");
+    expect(guidance).toContain("Do not invent");
+  });
+});
+
 describe("reviewGuidance", () => {
   it("always asks for SOLID, KISS and YAGNI, and for real problems over nitpicks", () => {
     const guidance = reviewGuidance(["main.go"]);

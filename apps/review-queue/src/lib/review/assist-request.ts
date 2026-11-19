@@ -14,6 +14,7 @@ import { checksFor } from "@/lib/hotspots/checks";
 import type { AssistFlag, AssistInput } from "@/lib/llm/assist";
 import type { Message } from "@/lib/llm/client";
 import type { SuggestedHotspot } from "@/lib/llm/orientation";
+import { dependencyNotesOf } from "@/lib/llm/review-guidance";
 import type { CodeLookupIndex } from "./code-tools";
 import { type StepExplanation, stepDiffs } from "@/lib/llm/step-explanation";
 import type { SymbolIndex } from "@/lib/symbols/symbol-index";
@@ -203,6 +204,7 @@ export function assistInputFrom(source: AssistSource, request: AssistRequest): A
     ok: true,
     input: {
       title: source.data.pr.title,
+      dependencyNotes: dependencyNotesOf(source.data.pr),
       path: file.path,
       action: request.action,
       question: request.question,

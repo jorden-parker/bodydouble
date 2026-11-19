@@ -157,17 +157,26 @@ orientation is built in pieces: each step's explanation (the step header's own
 cache, keyed by head SHA) is generated first on the background lane, then one
 short call writes the orientation from those summaries, the step list and the
 hotspots, with no diff (`orientFromSummaries`). The Claude Code backend keeps
-the single prompt. `explanation-progress` counts the cached explanations for the
-Brief's progress line. Without `REVIEW_QUEUE_LLM_URL`, `lib/llm/model-choice.ts`
-probes oMLX on its loopback port (`CLAUDE_LITE_MLX_PORT`, default 8435, the port
-`cl serve` uses) and uses it when it answers; otherwise it uses Ollama
-(`OLLAMA_HOST`, default localhost:11434). It reads claude-lite's
-`config/sizes.json` and the gitignored `config/local-sizes.json` (found through
-`CLAUDE_LITE_HOME` or by following `cl` on `PATH`), and picks the largest size
-that the server serves and that fits memory by claude-lite's rule: 70% of
-unified memory unless `iogpu.wired_limit_mb` is set, and no limit for a remote
-server. `REVIEW_QUEUE_LLM_MODEL` names a model by hand. When nothing usable is
-served, the config carries the reason, which names the command to run (such as
+the single prompt. A Dependabot PR (author `dependabot[bot]`,
+`dependencyNotesOf` in `lib/llm/review-guidance.ts`) is reviewed as a version
+bump: the orientation, step explanation and Ask prompts swap the design rules
+for dependency-update rules (versions, changelog, breaking changes, security,
+lockfile), and the step explanation and Ask prompts also carry its description,
+fenced as `pr_description`, because Dependabot puts the release notes there. The
+model cannot open links, so the rules tell it to say what the notes leave out. A
+hotspot the model suggests keeps its line only when the diff shows that line
+(`keepKnown` in `lib/llm/orientation.ts`). `explanation-progress` counts the
+cached explanations for the Brief's progress line. Without
+`REVIEW_QUEUE_LLM_URL`, `lib/llm/model-choice.ts` probes oMLX on its loopback
+port (`CLAUDE_LITE_MLX_PORT`, default 8435, the port `cl serve` uses) and uses
+it when it answers; otherwise it uses Ollama (`OLLAMA_HOST`, default
+localhost:11434). It reads claude-lite's `config/sizes.json` and the gitignored
+`config/local-sizes.json` (found through `CLAUDE_LITE_HOME` or by following `cl`
+on `PATH`), and picks the largest size that the server serves and that fits
+memory by claude-lite's rule: 70% of unified memory unless
+`iogpu.wired_limit_mb` is set, and no limit for a remote server.
+`REVIEW_QUEUE_LLM_MODEL` names a model by hand. When nothing usable is served,
+the config carries the reason, which names the command to run (such as
 `cl serve 9b`), and no model is called. The URL stays environment-only.
 `REVIEW_QUEUE_LLM_TIMEOUT_MS` and `REVIEW_QUEUE_LLM=off` configure the rest.
 Every call streams, and the timeout (default 180 000 ms) bounds the wait for the
@@ -281,7 +290,11 @@ words), and the model chips read `GET /api/model` through `useModelStatus`, at
 most every 15 s and not while the tab is hidden. "Ask Claude instead" opens
 `ask-claude-dialog.tsx`, and `shouldEscalate` is sent only after the reader
 confirms. `notice-slot.tsx` shows one notice above the centre, and
-`command-palette.tsx` (⌘K) jumps anywhere. State lives in `use-*` hooks
+`command-palette.tsx` (⌘K) jumps anywhere. `goTo` takes a target whose line may
+be null (a hotspot on a whole file): `landingTarget` in `locate.ts` sends it to
+the file's first added line, or its first deleted line. Landing in a collapsed
+generated file opens it, and the scroll waits up to 10 seconds for a line whose
+file is still loading (`scroll-motion.ts`). State lives in `use-*` hooks
 (`use-workspace.ts` holds the page, `use-companion.ts` the regions and tabs,
 plus navigation, session edits, peek, jumps, shortcuts and return detection),
 and `api.ts` is the only place that fetches. Pure logic is kept in non-hook

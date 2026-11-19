@@ -72,6 +72,32 @@ describe("orient", () => {
     expect(bodies[0]).toMatchObject({ model: "m", temperature: 0 });
   });
 
+  it("clears a suggested hotspot's line when the diff does not show that line", async () => {
+    const offDiff = { path: "src/a.ts", line: 40, title: "Off the diff", why: "Guessed." };
+    const { fetchImpl } = scriptedFetch([JSON.stringify({ ...GOOD, extraHotspots: [offDiff] })]);
+    const orientation = await orient(INPUT, CONFIG, fetchImpl);
+    expect(orientation.extraHotspots).toEqual([{ ...offDiff, line: null }]);
+  });
+
+  it("keeps a suggested hotspot's line when the diff shows it", async () => {
+    const { fetchImpl } = scriptedFetch([JSON.stringify(GOOD)]);
+    const orientation = await orient(INPUT, CONFIG, fetchImpl);
+    expect(orientation.extraHotspots[0].line).toBe(2);
+  });
+
+  it("reviews a dependency update for its release notes, not for code design", async () => {
+    const { fetchImpl, bodies } = scriptedFetch([JSON.stringify(GOOD)]);
+    await orient({ ...INPUT, isDependencyUpdate: true }, CONFIG, fetchImpl);
+    expect(bodies[0]).toMatchObject({ system: expect.stringContaining("dependency update") });
+    expect(bodies[0]).toMatchObject({ system: expect.not.stringContaining("SOLID") });
+  });
+
+  it("does not mention dependency updates for a hand-written pull request", async () => {
+    const { fetchImpl, bodies } = scriptedFetch([JSON.stringify(GOOD)]);
+    await orient(INPUT, CONFIG, fetchImpl);
+    expect(bodies[0]).toMatchObject({ system: expect.not.stringContaining("dependency update") });
+  });
+
   it("asks for markdown with code names in backticks", async () => {
     const { fetchImpl, bodies } = scriptedFetch([JSON.stringify(GOOD)]);
     await orient(INPUT, CONFIG, fetchImpl);
@@ -223,6 +249,12 @@ describe("orientFromSummaries", () => {
     expect(prompt).toContain("Adds the cache lookup.");
     expect(prompt).not.toContain("pr_diff");
     expect(prompt).not.toContain("cache()");
+  });
+
+  it("reviews a dependency update for its release notes", async () => {
+    const { fetchImpl, bodies } = scriptedFetch([JSON.stringify(GOOD)]);
+    await orientFromSummaries({ ...INPUT, isDependencyUpdate: true }, SUMMARIES, CONFIG, fetchImpl);
+    expect(bodies[0]).toMatchObject({ system: expect.stringContaining("dependency update") });
   });
 
   it("returns the same orientation shape as the single-prompt path", async () => {

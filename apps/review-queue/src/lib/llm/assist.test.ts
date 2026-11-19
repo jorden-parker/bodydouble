@@ -87,6 +87,26 @@ describe("buildAssistPrompt", () => {
   });
 });
 
+describe("buildAssistPrompt for a dependency update", () => {
+  const prompt = buildAssistPrompt({ ...INPUT, dependencyNotes: "BREAKING: drops Node 18" });
+
+  it("adds the update bot's release notes", () => {
+    expect(prompt).toContain("<pr_description>\nBREAKING: drops Node 18\n</pr_description>");
+  });
+
+  it("asks about the version bump instead of code design, whatever the action", () => {
+    expect(prompt).toContain("dependency update");
+    expect(prompt).not.toContain("SOLID");
+    const simplify = buildAssistPrompt({ ...INPUT, action: "simplify", dependencyNotes: "" });
+    expect(simplify).toContain("dependency update");
+  });
+
+  it("sends no description for a hand-written pull request", () => {
+    expect(buildAssistPrompt(INPUT)).not.toContain("pr_description");
+    expect(buildAssistPrompt(INPUT)).not.toContain("dependency update");
+  });
+});
+
 describe("buildAssistPrompt for a whole file", () => {
   it("shows the file at the PR head and every change to it", () => {
     const prompt = buildAssistPrompt(FILE_INPUT);
