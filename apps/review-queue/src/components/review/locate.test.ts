@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { PreparedFile } from "@/lib/review/prepare";
-import type { Step } from "@/lib/types";
-import { addedHunk, fileDiff } from "@/test/diff-builders";
+import type { Hunk, Step } from "@/lib/types";
+import { addedHunk, fileDiff, removedHunk } from "@/test/diff-builders";
 import {
   isInTarget,
   isSameLine,
+  landingTarget,
   lineElementId,
   locationKind,
   nextOpenStep,
@@ -103,11 +104,11 @@ describe("isSameLine", () => {
   });
 });
 
-const FILE: PreparedFile = {
-  ...fileDiff("a.ts", [addedHunk(["a", "b"], 1), addedHunk(["c"], 50)]),
-  highlighted: [],
-  navigable: true,
-};
+function prepared(path: string, hunks: Hunk[]): PreparedFile {
+  return { ...fileDiff(path, hunks), highlighted: [], navigable: true };
+}
+
+const FILE = prepared("a.ts", [addedHunk(["a", "b"], 1), addedHunk(["c"], 50)]);
 
 function step(id: string, hunkIndexes: number[]): Step {
   return {
@@ -130,6 +131,40 @@ describe("stepForLine", () => {
   it("falls back to the first step with the file, or nothing", () => {
     expect(stepForLine(STEPS, [FILE], { path: "a.ts", line: 999 })?.id).toBe("s1");
     expect(stepForLine(STEPS, [FILE], { path: "other.ts", line: 1 })).toBeNull();
+  });
+
+  it("finds a deleted line by its old line number", () => {
+    const file = prepared("a.ts", [addedHunk(["a"], 1), removedHunk(["gone"], 50)]);
+    const target = { path: "a.ts", line: 50, side: "old" as const };
+    expect(stepForLine(STEPS, [file], target)?.id).toBe("s2");
+  });
+});
+
+describe("landingTarget", () => {
+  it("keeps a target that already names its line", () => {
+    expect(landingTarget([FILE], { path: "a.ts", line: 50 })).toEqual({ path: "a.ts", line: 50 });
+  });
+
+  it("lands a target with no line on the first added line of its file", () => {
+    const file = prepared("a.ts", [removedHunk(["old"], 7), addedHunk(["new"], 9)]);
+    expect(landingTarget([file], { path: "a.ts", line: null })).toEqual({ path: "a.ts", line: 9 });
+  });
+
+  it("lands on the first deleted line when the file only loses lines", () => {
+    const file = prepared("gone.test.ts", [removedHunk(["first", "second"], 3)]);
+    expect(landingTarget([file], { path: "gone.test.ts", line: null })).toEqual({
+      path: "gone.test.ts",
+      line: 3,
+      side: "old",
+    });
+  });
+
+  it("falls back to line 1 when the file shows no lines", () => {
+    const file = prepared("logo.png", []);
+    expect(landingTarget([file], { path: "logo.png", line: null })).toEqual({
+      path: "logo.png",
+      line: 1,
+    });
   });
 });
 

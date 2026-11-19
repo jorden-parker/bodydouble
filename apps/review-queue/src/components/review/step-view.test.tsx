@@ -113,6 +113,18 @@ describe("StepView context expansion", () => {
     expect(screen.queryByRole("button", { name: /Expand/ })).toBeNull();
   });
 
+  it("opens a collapsed generated file when a jump lands in it", () => {
+    const lockfileStep = reviewPayload().steps[2];
+    const context = {
+      ...contextFor(async () => fileLines()),
+      landed: { path: "pnpm-lock.yaml", line: 1 },
+    };
+    renderStep(lockfileStep, context);
+    expect(screen.queryByRole("button", { name: /Collapsed/ })).toBeNull();
+    const row = document.getElementById("line-pnpm-lock.yaml-1");
+    expect(row?.getAttribute("aria-current")).toBe("location");
+  });
+
   it("opens the unchanged lines around a landed line so it can be scrolled to", async () => {
     const context = {
       ...contextFor(async () => fileLines()),

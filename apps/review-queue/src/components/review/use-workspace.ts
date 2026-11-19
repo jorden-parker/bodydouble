@@ -12,7 +12,7 @@ import type { NoteTag, PullRequestRef, Step, SymbolPosition } from "@/lib/types"
 import { displayHotspots } from "./display-hotspots";
 import { firstNoteLine } from "./hunk-index";
 import { runnableHunkMove } from "./hunk-move";
-import { locationKind, nextOpenStep, type LineTarget } from "./locate";
+import { locationKind, nextOpenStep, type FileTarget, type LineTarget } from "./locate";
 import { scrollToElement } from "./scroll-motion";
 import type { ShortcutAction } from "./shortcut-keys";
 import { useAssist } from "./use-assist";
@@ -418,7 +418,7 @@ function acceptsShortcuts(dialog: Dialog, isPaletteOpen: boolean): boolean {
 
 type PageActionsInput = {
   ui: ReturnType<typeof useWorkspaceUi>;
-  navigation: { selectStep: (stepId: string) => void; goTo: (target: LineTarget) => void };
+  navigation: { selectStep: (stepId: string) => void; goTo: (target: FileTarget) => void };
   closeFile: () => void;
   act: Act;
   nextStep: Step | null;
@@ -451,7 +451,7 @@ function usePageActions({
     if (nextStep) navigation.selectStep(nextStep.id);
     else {
       const open = hotspots.find((hotspot) => !checkedHotspots.includes(hotspot.id));
-      if (open) navigation.goTo({ path: open.path, line: open.line ?? 1 });
+      if (open) navigation.goTo({ path: open.path, line: open.line });
     }
   }, [nextStep, navigation, hotspots, checkedHotspots]);
 

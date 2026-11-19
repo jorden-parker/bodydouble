@@ -346,6 +346,7 @@ function FileBlock({
 }) {
   const [expanded, setExpanded] = useState(!collapsed);
   const [wholeFile, setWholeFile] = useState(false);
+  if (!expanded && context.landed?.path === stepFile.path) setExpanded(true);
   const file = context.files.get(stepFile.path);
   if (!file) return null;
   const empty = file.binary || stepFile.hunkIndexes.length === 0;

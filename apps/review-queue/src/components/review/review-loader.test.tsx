@@ -457,6 +457,30 @@ describe("ReviewLoader", () => {
     );
   });
 
+  it("lands a hotspot that names no line on the first changed line of its file", async () => {
+    const payload = reviewPayload(emptySession({ currentStepId: "core:src/client.ts:0" }));
+    const churn = { ...payload.hotspots[0], id: "churn:src/client.ts", line: null, title: "Busy" };
+    const { user } = await renderReview({ ...payload, hotspots: [churn] });
+    await user.click(within(rail()).getByRole("button", { name: /Busy/ }));
+    const landed = document.querySelector("[aria-current=location]");
+    expect(landed?.getAttribute("id")).toBe("line-src/client.ts-10");
+  });
+
+  it("opens a collapsed lockfile when its hotspot is clicked", async () => {
+    const payload = reviewPayload(emptySession({ currentStepId: "generated:pnpm-lock.yaml:0" }));
+    const drift = {
+      ...payload.hotspots[0],
+      id: "lockfile-drift:pnpm-lock.yaml",
+      path: "pnpm-lock.yaml",
+      line: null,
+      title: "Lockfile drift",
+    };
+    const { user } = await renderReview({ ...payload, hotspots: [drift] });
+    await user.click(within(rail()).getByRole("button", { name: /Lockfile drift/ }));
+    const landed = document.querySelector("[aria-current=location]");
+    expect(landed?.getAttribute("id")).toBe("line-pnpm-lock.yaml-1");
+  });
+
   it("outlines the step's files and goes to a symbol or peeks one outside the diff", async () => {
     const { user } = await renderReview(
       reviewPayload(emptySession({ currentStepId: "core:src/client.ts:0" })),

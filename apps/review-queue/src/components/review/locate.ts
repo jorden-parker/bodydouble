@@ -10,6 +10,8 @@ export type LineTarget = {
   name?: string;
 };
 
+export type FileTarget = Omit<LineTarget, "line"> & { line: number | null };
+
 function isOnSide(target: LineTarget, side: DiffSide): boolean {
   return (target.side ?? "new") === side;
 }
@@ -39,8 +41,20 @@ export function noteTargetOf(path: string, line: DiffLine): LineTarget | null {
   return null;
 }
 
-function hunkContains(file: PreparedFile, hunkIndex: number, line: number): boolean {
-  return file.hunks[hunkIndex].lines.some((diffLine) => diffLine.newLine === line);
+function hunkContains(file: PreparedFile, hunkIndex: number, target: LineTarget): boolean {
+  const numbered = isOnSide(target, "old") ? "oldLine" : "newLine";
+  return file.hunks[hunkIndex].lines.some((diffLine) => diffLine[numbered] === target.line);
+}
+
+export function landingTarget(files: PreparedFile[], target: FileTarget): LineTarget {
+  if (target.line !== null) return { ...target, line: target.line };
+  const lines = files
+    .find((file) => file.path === target.path)
+    ?.hunks.flatMap((hunk) => hunk.lines);
+  const firstChanged =
+    lines?.find((line) => line.kind === "add") ?? lines?.find((line) => line.kind === "del");
+  const changed = firstChanged ? noteTargetOf(target.path, firstChanged) : null;
+  return { ...target, ...(changed ?? { line: 1 }) };
 }
 
 export function stepForLine(steps: Step[], files: PreparedFile[], target: LineTarget): Step | null {
@@ -53,7 +67,7 @@ export function stepForLine(steps: Step[], files: PreparedFile[], target: LineTa
     step.files.some(
       (stepFile) =>
         stepFile.path === target.path &&
-        stepFile.hunkIndexes.some((index) => hunkContains(file, index, target.line)),
+        stepFile.hunkIndexes.some((index) => hunkContains(file, index, target)),
     ),
   );
   return exact ?? withPath[0] ?? null;

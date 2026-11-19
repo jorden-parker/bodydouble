@@ -185,7 +185,7 @@ function TopHotspot({ hotspot, workspace }: { hotspot: DisplayHotspot; workspace
     <li>
       <button
         type="button"
-        onClick={() => workspace.goTo({ path: hotspot.path, line: hotspot.line ?? 1 })}
+        onClick={() => workspace.goTo({ path: hotspot.path, line: hotspot.line })}
         className="flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-2 text-left hover:bg-muted"
       >
         <span

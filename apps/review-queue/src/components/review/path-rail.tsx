@@ -128,7 +128,7 @@ function ExpandedStep({
           <HotspotList
             hotspots={hotspots}
             checked={session.checkedHotspots}
-            onOpen={(hotspot) => workspace.goTo({ path: hotspot.path, line: hotspot.line ?? 1 })}
+            onOpen={(hotspot) => workspace.goTo({ path: hotspot.path, line: hotspot.line })}
             onToggleChecked={workspace.toggleHotspot}
           />
         )}

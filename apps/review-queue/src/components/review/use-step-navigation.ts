@@ -5,7 +5,14 @@ import type { ReviewPayload } from "@/lib/review/prepare";
 import type { SessionAction } from "@/lib/review/session-actions";
 import type { Session } from "@/lib/session/store";
 import { hunkIdsFor } from "./hunk-index";
-import { lineElementId, nextOpenStep, stepForLine, type LineTarget } from "./locate";
+import {
+  landingTarget,
+  lineElementId,
+  nextOpenStep,
+  stepForLine,
+  type FileTarget,
+  type LineTarget,
+} from "./locate";
 import { scrollToElement, type ScrollKind } from "./scroll-motion";
 
 export type Act = (
@@ -64,9 +71,10 @@ export function useStepNavigation(review: ReviewPayload, session: Session, act: 
   );
 
   const goTo = useCallback(
-    (target: LineTarget) => {
-      const step = stepForLine(review.steps, review.files, target);
-      if (step) selectStep(step.id, lineElementId(target), "line", target);
+    (target: FileTarget) => {
+      const landing = landingTarget(review.files, target);
+      const step = stepForLine(review.steps, review.files, landing);
+      if (step) selectStep(step.id, lineElementId(landing), "line", landing);
     },
     [review.steps, review.files, selectStep],
   );

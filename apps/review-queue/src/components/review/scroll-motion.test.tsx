@@ -61,6 +61,22 @@ describe("scrollToElement", () => {
     expect(row.scrolls()).toBe(1);
   });
 
+  it("still scrolls to a line whose file takes seconds to load", () => {
+    stop = scrollToElement("slow", "line");
+    nextFrames(200);
+    const row = addRow("slow");
+    nextFrames();
+    expect(row.scrolls()).toBe(1);
+  });
+
+  it("gives up on a line that never renders", () => {
+    stop = scrollToElement("missing", "line");
+    nextFrames(700);
+    const row = addRow("missing");
+    nextFrames();
+    expect(row.scrolls()).toBe(0);
+  });
+
   it("lets the reader take over as soon as they scroll", () => {
     const row = addRow("target");
     stop = scrollToElement("target", "line");

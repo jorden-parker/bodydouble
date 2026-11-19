@@ -8,6 +8,7 @@ const OPTIONS: Record<ScrollKind, ScrollIntoViewOptions> = {
 
 const ARRIVAL = "animate-line-arrive";
 const SETTLE_MS = 2000;
+const APPEAR_MS = 10_000;
 const READER_INPUT = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
 
 let stopFollowing: () => void = () => {};
@@ -34,7 +35,7 @@ function place(element: HTMLElement, kind: ScrollKind, placedTop: number | null)
 }
 
 function follow(id: string, kind: ScrollKind): () => void {
-  const deadline = performance.now() + SETTLE_MS;
+  let deadline = performance.now() + APPEAR_MS;
   let placedTop: number | null = null;
   let frame = 0;
   const stop = () => {
@@ -43,7 +44,10 @@ function follow(id: string, kind: ScrollKind): () => void {
   };
   const tick = () => {
     const element = document.getElementById(id);
-    if (element) placedTop = place(element, kind, placedTop);
+    if (element) {
+      if (placedTop === null) deadline = performance.now() + SETTLE_MS;
+      placedTop = place(element, kind, placedTop);
+    }
     if (performance.now() < deadline) frame = requestAnimationFrame(tick);
     else stop();
   };
